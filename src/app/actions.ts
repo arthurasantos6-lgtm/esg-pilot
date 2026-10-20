@@ -25,18 +25,6 @@ const newPasswordSchema = z
     path: ["confirmPassword"],
   });
 
-const statusSchema = z.enum([
-  "submitted",
-  "in_review",
-  "awaiting_info",
-  "technical_review",
-  "approved",
-  "in_progress",
-  "implemented",
-  "rejected",
-  "archived",
-]);
-
 const projectStatusSchema = z.enum([
   "planned",
   "in_progress",
@@ -144,36 +132,6 @@ export async function updatePassword(formData: FormData) {
   }
 
   redirect("/login?passwordUpdated=1");
-}
-
-export async function updateIdeaStatus(formData: FormData) {
-  const ideaId = z.string().uuid().safeParse(formData.get("ideaId"));
-  const status = statusSchema.safeParse(formData.get("status"));
-
-  if (!ideaId.success || !status.success) {
-    redirect("/ideas?error=Não foi possível atualizar a situação.");
-  }
-
-  const { supabase, membership } = await requireCompanyContext();
-
-  if (membership.role !== "company_admin") {
-    redirect("/ideas?error=Apenas administradores da empresa podem alterar a situação.");
-  }
-
-  const { error } = await supabase
-    .from("ideas")
-    .update({ status: status.data })
-    .eq("id", ideaId.data)
-    .eq("organization_id", membership.organization_id);
-
-  if (error) {
-    redirect("/ideas?error=Não foi possível atualizar a situação.");
-  }
-
-  revalidatePath("/dashboard");
-  revalidatePath("/ideas");
-  revalidatePath(`/ideas/${ideaId.data}`);
-  redirect(`/ideas/${ideaId.data}`);
 }
 
 export async function createProject(formData: FormData) {

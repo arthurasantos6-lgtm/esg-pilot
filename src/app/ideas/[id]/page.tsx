@@ -3,32 +3,20 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { connection } from "next/server";
 import { z } from "zod";
-import { updateIdeaStatus } from "@/app/actions";
+import { DecisionHistory } from "@/app/ideas/[id]/decision-history";
+import { DecisionPanel } from "@/app/ideas/[id]/decision-panel";
 import { EvaluationPanel } from "@/app/ideas/[id]/evaluation-panel";
+import { FeedbackPanel } from "@/app/ideas/[id]/feedback-panel";
 import { AppShell } from "@/app/components/app-shell";
-import { requireCompanyContext } from "@/lib/auth";
+import { parseEnabledModules, requireCompanyContext } from "@/lib/auth";
 import { isAiAvailable } from "@/lib/idea-ai";
 import { parseStoredProposal, PROPOSAL_FIELDS } from "@/lib/idea-proposal";
+import { ideaStatusLabel, nextStepForAuthor } from "@/lib/idea-status";
 
 export const metadata: Metadata = { title: "Detalhe da ideia" };
 
 // "Tentar novamente" agenda a avaliação da IA para depois da resposta.
 export const maxDuration = 300;
-
-const statusLabels: Record<string, string> = {
-  draft: "Rascunho",
-  submitted: "Enviada",
-  in_review: "Em análise",
-  awaiting_info: "Aguardando informações",
-  technical_review: "Avaliação técnica",
-  approved: "Aprovada",
-  in_progress: "Em implementação",
-  implemented: "Implementada",
-  rejected: "Rejeitada",
-  archived: "Arquivada",
-};
-
-const statusOptions = Object.entries(statusLabels).filter(([status]) => !["archived", "draft"].includes(status));
 
 type AnalysisDimension = { dimension: string; explanation: string; hits: string[] };
 
@@ -67,7 +55,7 @@ export default async function IdeaDetailPage({
   searchParams,
 }: {
   params: Promise<{ id: string }>;
-  searchParams: Promise<{ submitted?: string; error?: string }>;
+  searchParams: Promise<{ submitted?: string; error?: string; decided?: string; responded?: string }>;
 }) {
   await connection();
   const [{ id }, query] = await Promise.all([params, searchParams]);
@@ -75,7 +63,7 @@ export default async function IdeaDetailPage({
   const { supabase, user, membership, organization } = await requireCompanyContext();
   const { data: idea, error } = await supabase
     .from("ideas")
-    .select("id, title, problem, solution, original_description, structured_proposal, area, status, author_id, created_at, submitted_at, analysis")
+    .select("id, title, problem, solution, original_description, structured_proposal, area, status, author_id, created_at, submitted_at, analysis, responsible_id, follow_up_date, priority")
     .eq("id", id)
     .eq("organization_id", membership.organization_id)
     .maybeSingle();
@@ -87,8 +75,19 @@ export default async function IdeaDetailPage({
   const isCompanyAdmin = membership.role === "company_admin";
   const isDraft = idea.status === "draft";
 
-  // RLS limita a conversa ao autor e, após o envio, à gestão da empresa.
-  const [{ data: evaluation }, { data: messages }] = await Promise.all([
+  const showManagement = isCompanyAdmin && !isDraft;
+  const empty = { data: null };
+
+  // RLS limita conversa e mensagens ao autor e à gestão; decisões e lista de
+  // membros só são consultadas (e só retornam dados) para a gestão.
+  const [
+    { data: evaluation },
+    { data: messages },
+    { data: feedback },
+    { data: decisions },
+    { data: transitions },
+    { data: members },
+  ] = await Promise.all([
     supabase
       .from("idea_evaluations")
       .select("status, result, error_message, model, criteria_version_label, created_at, completed_at")
@@ -101,7 +100,28 @@ export default async function IdeaDetailPage({
       .select("id, role, content, created_at")
       .eq("idea_id", idea.id)
       .order("created_at", { ascending: true }),
+    supabase
+      .from("idea_feedback")
+      .select("id, kind, content, created_at")
+      .eq("idea_id", idea.id)
+      .order("created_at", { ascending: true }),
+    showManagement
+      ? supabase
+          .from("idea_decisions")
+          .select("id, actor_id, from_status, to_status, justification, responsible_id, follow_up_date, priority, human_potential, human_dimensions, ai_agreement, created_at")
+          .eq("idea_id", idea.id)
+          .order("created_at", { ascending: false })
+      : empty,
+    showManagement
+      ? supabase
+          .from("idea_status_transitions")
+          .select("to_status, action_label")
+          .eq("from_status", idea.status)
+          .order("sort_order")
+      : empty,
+    showManagement ? supabase.rpc("org_list_members", { target_org_id: membership.organization_id }) : empty,
   ]);
+  const emailById = new Map((members ?? []).map((member) => [member.user_id, member.email]));
 
   const proposal = parseStoredProposal(idea.structured_proposal);
   const dimensions = getDimensions(idea.analysis);
@@ -135,7 +155,7 @@ export default async function IdeaDetailPage({
             {idea.area ? ` · ${idea.area}` : ""}
           </p>
         </div>
-        <span className={`status-badge status-badge-${idea.status}`}>{statusLabels[idea.status] ?? idea.status}</span>
+        <span className={`status-badge status-badge-${idea.status}`}>{ideaStatusLabel(idea.status)}</span>
       </header>
 
       {query.submitted && (
@@ -144,6 +164,10 @@ export default async function IdeaDetailPage({
         </p>
       )}
       {query.error && <p className="alert alert-error" role="alert">{query.error}</p>}
+      {query.decided && <p className="alert alert-success" role="status">Decisão registrada no histórico.</p>}
+      {query.responded && (
+        <p className="alert alert-success" role="status">Resposta enviada. A ideia voltou para avaliação da gestão.</p>
+      )}
       {isDraft && isAuthor && (
         <div className="alert alert-info" role="status">
           Esta ideia ainda é um rascunho, visível só para você.{" "}
@@ -209,8 +233,18 @@ export default async function IdeaDetailPage({
               evaluation={evaluation}
               aiAvailable={isAiAvailable()}
               canRetry={isAuthor || isCompanyAdmin}
+              canReevaluate={isCompanyAdmin}
             />
           )}
+
+          <FeedbackPanel
+            ideaId={idea.id}
+            feedback={feedback ?? []}
+            canRespond={isAuthor && idea.status === "awaiting_info"}
+            viewerIsAuthor={isAuthor}
+          />
+
+          {showManagement && <DecisionHistory decisions={decisions ?? []} emailById={emailById} />}
 
           {analysisObject && (
             <section className="panel detail-panel" aria-labelledby="analysis-title">
@@ -267,33 +301,35 @@ export default async function IdeaDetailPage({
         </div>
 
         <aside className="detail-aside">
-          <section className="panel workflow-panel" aria-labelledby="workflow-title">
-            <p className="eyebrow">DECISÃO DA EMPRESA</p>
-            <h2 id="workflow-title">Próximos passos</h2>
-            <p className="muted small-copy">
-              A situação da ideia é definida por pessoas da gestão da empresa. A recomendação da IA não altera a situação.
-            </p>
-            {isCompanyAdmin && !isDraft ? (
-              <form className="status-form" action={updateIdeaStatus}>
-                <input type="hidden" name="ideaId" value={idea.id} />
-                <label htmlFor="status">Atualizar situação</label>
-                <select id="status" name="status" defaultValue={idea.status}>
-                  {statusOptions.map(([value, label]) => <option value={value} key={value}>{label}</option>)}
-                </select>
-                <button className="button button-primary button-full" type="submit">Salvar situação</button>
-              </form>
-            ) : (
+          {showManagement ? (
+            <DecisionPanel
+              ideaId={idea.id}
+              status={idea.status}
+              transitions={transitions ?? []}
+              members={members ?? []}
+              responsibleId={idea.responsible_id}
+              followUpDate={idea.follow_up_date}
+              priority={idea.priority}
+              projectsEnabled={parseEnabledModules(organization.enabled_modules).includes("projects")}
+            />
+          ) : (
+            <section className="panel workflow-panel" aria-labelledby="workflow-title">
+              <p className="eyebrow">ACOMPANHAMENTO</p>
+              <h2 id="workflow-title">Próximos passos</h2>
               <div className="status-timeline">
                 <span className={`status-dot status-${idea.status}`} aria-hidden="true" />
                 <div>
-                  <strong>{statusLabels[idea.status] ?? idea.status}</strong>
+                  <strong>{ideaStatusLabel(idea.status)}</strong>
                   <p className="muted small-copy">
-                    {isDraft ? "Envie a ideia para que a gestão possa avaliá-la." : "O administrador da empresa pode atualizar esta etapa."}
+                    {isAuthor ? nextStepForAuthor(idea.status) : "A situação é definida pela gestão da empresa."}
                   </p>
                 </div>
               </div>
-            )}
-          </section>
+              {isAuthor && idea.status === "awaiting_info" && (
+                <a className="button button-primary button-full" href="#feedback">Responder à gestão</a>
+              )}
+            </section>
+          )}
           <div className="privacy-note">
             <span aria-hidden="true">⌑</span>
             <p><strong>Dados protegidos por organização</strong><br />Esta ideia só pode ser acessada por pessoas autorizadas do ambiente da sua empresa.</p>

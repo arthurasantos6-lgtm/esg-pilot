@@ -96,6 +96,9 @@ type Idea = {
   original_description: string | null;
   structured_proposal: Json | null;
   submitted_at: string | null;
+  responsible_id: string | null;
+  follow_up_date: string | null;
+  priority: "baixa" | "media" | "alta" | null;
   area: string | null;
   status:
     | "draft"
@@ -103,6 +106,7 @@ type Idea = {
     | "in_review"
     | "awaiting_info"
     | "technical_review"
+    | "prioritized"
     | "approved"
     | "in_progress"
     | "implemented"
@@ -139,6 +143,41 @@ type IdeaEvaluation = {
   output_tokens: number | null;
   created_at: string;
   completed_at: string | null;
+};
+
+type IdeaStatusTransition = {
+  from_status: string;
+  to_status: string;
+  action_label: string;
+  sort_order: number;
+};
+
+type IdeaDecision = {
+  id: string;
+  organization_id: string;
+  idea_id: string;
+  actor_id: string | null;
+  from_status: string;
+  to_status: string;
+  justification: string;
+  responsible_id: string | null;
+  follow_up_date: string | null;
+  priority: "baixa" | "media" | "alta" | null;
+  human_potential: "baixo" | "médio" | "alto" | null;
+  human_dimensions: string[] | null;
+  ai_agreement: "agrees" | "partially" | "disagrees" | null;
+  created_at: string;
+};
+
+type IdeaFeedback = {
+  id: string;
+  organization_id: string;
+  idea_id: string;
+  writer_id: string | null;
+  kind: "manager_message" | "author_response";
+  content: string;
+  decision_id: string | null;
+  created_at: string;
 };
 
 type IdeaActivity = {
@@ -274,6 +313,9 @@ export type Database = {
       >;
       idea_copilot_messages: Table<IdeaCopilotMessage, "organization_id" | "idea_id" | "role" | "content">;
       idea_evaluations: Table<IdeaEvaluation, "organization_id" | "idea_id">;
+      idea_status_transitions: Table<IdeaStatusTransition, "from_status" | "to_status" | "action_label">;
+      idea_decisions: Table<IdeaDecision, "organization_id" | "idea_id" | "from_status" | "to_status" | "justification">;
+      idea_feedback: Table<IdeaFeedback, "organization_id" | "idea_id" | "kind" | "content">;
       platform_audit_log: Table<PlatformAuditLog, "action" | "target_type">;
       esg_criteria_versions: Table<EsgCriteriaVersion, "label" | "dimensions">;
       esg_knowledge_items: Table<EsgKnowledgeItem, "title" | "description" | "category">;
@@ -314,6 +356,29 @@ export type Database = {
           status: "active" | "blocked";
           created_at: string;
         }[];
+      };
+      record_idea_decision: {
+        Args: {
+          p_idea_id: string;
+          p_to_status: string;
+          p_justification: string;
+          p_author_message?: string | null;
+          p_responsible_id?: string | null;
+          p_follow_up_date?: string | null;
+          p_priority?: string | null;
+          p_human_potential?: string | null;
+          p_human_dimensions?: string[] | null;
+          p_ai_agreement?: string | null;
+        };
+        Returns: string;
+      };
+      respond_to_info_request: {
+        Args: { p_idea_id: string; p_content: string };
+        Returns: undefined;
+      };
+      org_list_members: {
+        Args: { target_org_id: string };
+        Returns: { user_id: string; email: string; role: string; status: string }[];
       };
       platform_activate_criteria_version: {
         Args: { target_id: string };

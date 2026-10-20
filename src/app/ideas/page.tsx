@@ -3,24 +3,14 @@ import Link from "next/link";
 import { connection } from "next/server";
 import { AppShell } from "@/app/components/app-shell";
 import { assertModuleEnabled, requireCompanyContext } from "@/lib/auth";
+import { IDEA_STATUS_ORDER, ideaStatusLabel, nextStepForAuthor } from "@/lib/idea-status";
 
 export const metadata: Metadata = { title: "Ideias" };
 
 const statuses = [
   ["", "Todas as situações"],
-  ["draft", "Rascunho"],
-  ["submitted", "Enviada"],
-  ["in_review", "Em análise"],
-  ["awaiting_info", "Aguardando informações"],
-  ["technical_review", "Avaliação técnica"],
-  ["approved", "Aprovada"],
-  ["in_progress", "Em implementação"],
-  ["implemented", "Implementada"],
-  ["rejected", "Rejeitada"],
-  ["archived", "Arquivada"],
+  ...IDEA_STATUS_ORDER.map((status) => [status, ideaStatusLabel(status)] as const),
 ] as const;
-
-const labels = Object.fromEntries(statuses.filter(([value]) => value)) as Record<string, string>;
 
 export default async function IdeasPage({
   searchParams,
@@ -65,9 +55,19 @@ export default async function IdeasPage({
     <AppShell organizationName={organization.name} userEmail={user.email ?? "Conta"} role={membership.role}>
       <header className="page-header">
         <div>
-          <p className="eyebrow">IDEIAS DA ORGANIZAÇÃO</p>
-          <h1>Ideias</h1>
-          <p className="muted">Acompanhe sugestões e oportunidades compartilhadas pela equipe.</p>
+          {membership.role === "company_admin" ? (
+            <>
+              <p className="eyebrow">IDEIAS DA ORGANIZAÇÃO</p>
+              <h1>Ideias</h1>
+              <p className="muted">Ideias enviadas pela equipe e seus próprios rascunhos.</p>
+            </>
+          ) : (
+            <>
+              <p className="eyebrow">ACOMPANHAMENTO</p>
+              <h1>Minhas ideias</h1>
+              <p className="muted">Suas propostas, a situação de cada uma e o que fazer em seguida.</p>
+            </>
+          )}
         </div>
         <Link className="button button-primary" href="/ideas/new">＋ Nova ideia</Link>
       </header>
@@ -86,10 +86,12 @@ export default async function IdeasPage({
               {statuses.map(([value, label]) => <option key={value} value={value}>{label}</option>)}
             </select>
           </label>
-          <label className="checkbox-row filter-check">
-            <input type="checkbox" name="mine" value="1" defaultChecked={onlyMine} />
-            Minhas ideias
-          </label>
+          {membership.role === "company_admin" && (
+            <label className="checkbox-row filter-check">
+              <input type="checkbox" name="mine" value="1" defaultChecked={onlyMine} />
+              Minhas ideias
+            </label>
+          )}
           <button className="button button-secondary" type="submit">Filtrar</button>
         </form>
 
@@ -115,11 +117,11 @@ export default async function IdeasPage({
                       <td>
                         <Link className="idea-title-link" href={idea.status === "draft" ? `/ideas/${idea.id}/review` : `/ideas/${idea.id}`}>{idea.title}</Link>
                         <span className="table-subtitle">
-                          {idea.status === "draft" ? "Rascunho visível só para você" : idea.author_id === user.id ? "Enviada por você" : "Enviada pela equipe"}
+                          {idea.author_id === user.id ? nextStepForAuthor(idea.status) : "Enviada pela equipe"}
                         </span>
                       </td>
                       <td>{idea.area || "Não informada"}</td>
-                      <td><span className={`status-badge status-badge-${idea.status}`}>{labels[idea.status] ?? idea.status}</span></td>
+                      <td><span className={`status-badge status-badge-${idea.status}`}>{ideaStatusLabel(idea.status)}</span></td>
                       <td>{new Intl.DateTimeFormat("pt-BR", { dateStyle: "medium" }).format(new Date(idea.created_at))}</td>
                       <td><Link className="row-link" href={`/ideas/${idea.id}`} aria-label={`Abrir ${idea.title}`}>→</Link></td>
                     </tr>

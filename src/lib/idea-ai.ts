@@ -97,12 +97,25 @@ async function runEvaluation(service: ServiceClient, evaluationId: string, ideaI
       .single();
     if (error || !idea) throw new Error("idea_not_found");
 
-    const [criteria, knowledge] = await Promise.all([loadActiveCriteria(service), loadActiveKnowledge(service)]);
+    const [criteria, knowledge, { data: feedback }] = await Promise.all([
+      loadActiveCriteria(service),
+      loadActiveKnowledge(service),
+      service
+        .from("idea_feedback")
+        .select("kind, content")
+        .eq("idea_id", ideaId)
+        .eq("organization_id", organizationId)
+        .order("created_at", { ascending: true }),
+    ]);
     const { result, usage } = await generateEvaluation(
       {
         idea: toIdeaPromptInput(idea),
         proposalText: proposalToText(idea.structured_proposal),
         keywordTriage: keywordTriageOf(idea.analysis),
+        followUps: (feedback ?? []).map((item) => ({
+          from: item.kind === "manager_message" ? ("manager" as const) : ("author" as const),
+          content: item.content,
+        })),
       },
       criteria,
       knowledge,

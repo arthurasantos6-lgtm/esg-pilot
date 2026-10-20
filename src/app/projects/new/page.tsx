@@ -11,14 +11,14 @@ export const metadata: Metadata = { title: "Criar projeto ESG" };
 export default async function NewProjectPage({
   searchParams,
 }: {
-  searchParams: Promise<{ error?: string }>;
+  searchParams: Promise<{ error?: string; ideaId?: string }>;
 }) {
   await connection();
   const { supabase, user, membership, organization } = await requireCompanyContext();
   assertModuleEnabled(organization.enabled_modules, "projects", "Projetos");
   if (membership.role !== "company_admin") redirect("/projects?error=Apenas%20administradores%20da%20empresa%20podem%20criar%20projetos.");
 
-  const [{ data: approvedIdeas, error: ideasError }, { error }] = await Promise.all([
+  const [{ data: approvedIdeas, error: ideasError }, { error, ideaId }] = await Promise.all([
     supabase
       .from("ideas")
       .select("id, title")
@@ -47,7 +47,7 @@ export default async function NewProjectPage({
           <label htmlFor="objective">Objetivo e meta pretendida <span aria-hidden="true">*</span></label>
           <textarea id="objective" name="objective" rows={5} minLength={10} maxLength={4000} required placeholder="Descreva o objetivo, as metas e como pretende acompanhar a iniciativa." />
           <label htmlFor="ideaId">Ideia aprovada relacionada</label>
-          <select id="ideaId" name="ideaId" defaultValue="">
+          <select id="ideaId" name="ideaId" defaultValue={approvedIdeas?.some((idea) => idea.id === ideaId) ? ideaId : ""}>
             <option value="">Sem vínculo com uma ideia</option>
             {approvedIdeas?.map((idea) => <option value={idea.id} key={idea.id}>{idea.title}</option>)}
           </select>

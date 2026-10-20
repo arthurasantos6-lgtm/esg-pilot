@@ -1032,6 +1032,120 @@ textarea::placeholder {
   color: var(--green-dark);
 }
 
+.source-tag-decision {
+  background: var(--blue-pale);
+  color: #2f5878;
+}
+
+.status-prioritized,
+.status-badge-prioritized {
+  --status-color: #8a5a1c;
+}
+
+.chat-message-manager {
+  justify-self: start;
+  border: 1px solid #d6e3ef;
+  background: var(--blue-pale);
+}
+
+.follow-up-summary {
+  display: grid;
+  gap: 6px;
+  margin: 12px 0;
+  font-size: 13px;
+}
+
+.follow-up-summary div {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.follow-up-summary dt {
+  color: var(--muted);
+}
+
+.follow-up-summary dd {
+  margin: 0;
+  font-weight: 700;
+  text-align: right;
+  overflow-wrap: anywhere;
+}
+
+.decision-form {
+  margin-top: 14px;
+}
+
+.decision-form textarea,
+.decision-form input[type="date"] {
+  width: 100%;
+  min-height: 43px;
+  padding: 10px 12px;
+  border: 1px solid #d9e4dd;
+  border-radius: 7px;
+  background: var(--surface);
+  color: var(--ink);
+}
+
+.decision-form textarea:focus,
+.decision-form input[type="date"]:focus {
+  border-color: #5c9a78;
+  outline: 3px solid rgb(36 132 82 / 15%);
+  outline-offset: 1px;
+}
+
+.field-label {
+  display: block;
+  margin-top: 9px;
+  color: #38574b;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.checkbox-group {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 14px;
+}
+
+.checkbox-group label {
+  margin-top: 4px;
+  font-size: 13px;
+}
+
+.decision-list {
+  display: grid;
+  gap: 12px;
+  margin: 12px 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.decision-list li {
+  padding: 10px 12px;
+  border-left: 3px solid #b7cfe2;
+  background: #f8fafc;
+  border-radius: 0 7px 7px 0;
+}
+
+.decision-list p {
+  margin: 0;
+}
+
+.decision-heading {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 4px 10px;
+}
+
+.human-assessment {
+  margin: 10px 0 14px;
+  padding: 10px 12px;
+  border: 1px solid #d6e3ef;
+  border-radius: 8px;
+}
+
 .subtle-tag-warning {
   background: var(--yellow-pale);
   color: #6f5417;

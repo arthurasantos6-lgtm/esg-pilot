@@ -295,7 +295,7 @@ export async function saveProposal(formData: FormData) {
   redirect(`/ideas/${idea.id}?submitted=1`);
 }
 
-/** Reprocessa a avaliação da IA após falha (autor ou gestão da empresa). */
+/** Reprocessa a avaliação da IA (autor após falha; gestão a qualquer momento). */
 export async function retryIdeaEvaluation(formData: FormData) {
   const ideaId = idSchema.safeParse(formData.get("ideaId"));
   if (!ideaId.success) redirect("/ideas?error=Ideia%20inv%C3%A1lida.");
@@ -322,7 +322,11 @@ export async function retryIdeaEvaluation(formData: FormData) {
     .limit(1)
     .maybeSingle();
 
-  if (latest && latest.status !== "failed" && !isEvaluationStale(latest)) {
+  // A gestão pode pedir nova avaliação a qualquer momento (ex.: após complementação);
+  // o autor, apenas quando a anterior falhou.
+  const inProgress = latest?.status === "pending" && !isEvaluationStale(latest);
+  const authorBlocked = context.membership.role !== "company_admin" && latest?.status === "completed";
+  if (inProgress || authorBlocked) {
     redirect(`${detailUrl}?error=${encodeURIComponent("Já existe uma avaliação concluída ou em andamento.")}`);
   }
 
@@ -333,4 +337,110 @@ export async function retryIdeaEvaluation(formData: FormData) {
 
   revalidatePath(detailUrl);
   redirect(detailUrl);
+}
+
+const decisionErrorMessages: Record<string, string> = {
+  access_denied: "Apenas a gestão da empresa pode registrar decisões.",
+  idea_not_submitted: "Rascunhos não podem receber decisões.",
+  invalid_transition: "Esta mudança de situação não é permitida a partir da situação atual.",
+  justification_required: "Registre uma justificativa com pelo menos 10 caracteres.",
+  author_message_required: "Ao solicitar complementação, escreva a mensagem que o colaborador verá.",
+  invalid_responsible: "O responsável precisa ser um usuário ativo da sua empresa.",
+  no_pending_request: "Não há pedido de complementação pendente para esta ideia.",
+  content_required: "Escreva sua resposta antes de enviar.",
+};
+
+function databaseErrorMessage(error: { message: string }, fallback: string) {
+  const known = Object.keys(decisionErrorMessages).find((code) => error.message.includes(code));
+  return known ? decisionErrorMessages[known] : fallback;
+}
+
+const optionalEnum = <T extends [string, ...string[]]>(values: T) =>
+  z.preprocess((value) => (value === "" || value === null ? undefined : value), z.enum(values).optional());
+
+const decisionSchema = z.object({
+  ideaId: z.string().uuid(),
+  toStatus: z.string().min(1),
+  justification: z.string().trim().min(10, "Registre uma justificativa com pelo menos 10 caracteres.").max(2000),
+  authorMessage: z.string().trim().max(4000).optional(),
+  responsibleId: z.preprocess((value) => (value === "" ? undefined : value), z.string().uuid().optional()),
+  followUpDate: z.preprocess(
+    (value) => (value === "" ? undefined : value),
+    z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Informe uma data válida.").optional(),
+  ),
+  priority: optionalEnum(["baixa", "media", "alta"]),
+  humanPotential: optionalEnum(["baixo", "médio", "alto"]),
+  humanDimensions: z.array(z.enum(["E", "S", "G"])),
+  aiAgreement: optionalEnum(["agrees", "partially", "disagrees"]),
+});
+
+/** Decisão humana da gestão; a validação de fluxo e o histórico ficam no banco (record_idea_decision). */
+export async function recordIdeaDecision(formData: FormData) {
+  const rawId = String(formData.get("ideaId") ?? "");
+  const detailUrl = idSchema.safeParse(rawId).success ? `/ideas/${rawId}` : "/ideas";
+  const parsed = decisionSchema.safeParse({
+    ideaId: rawId,
+    toStatus: formData.get("toStatus"),
+    justification: formData.get("justification"),
+    authorMessage: formData.get("authorMessage") || undefined,
+    responsibleId: formData.get("responsibleId") ?? "",
+    followUpDate: formData.get("followUpDate") ?? "",
+    priority: formData.get("priority") ?? "",
+    humanPotential: formData.get("humanPotential") ?? "",
+    humanDimensions: formData.getAll("humanDimensions"),
+    aiAgreement: formData.get("aiAgreement") ?? "",
+  });
+  if (!parsed.success) {
+    redirect(`${detailUrl}?error=${encodeURIComponent(parsed.error.issues[0].message)}#decision`);
+  }
+
+  const context = await requireCompanyContext();
+  if (context.membership.role !== "company_admin") {
+    redirect(`${detailUrl}?error=${encodeURIComponent(decisionErrorMessages.access_denied)}`);
+  }
+
+  const { error } = await context.supabase.rpc("record_idea_decision", {
+    p_idea_id: parsed.data.ideaId,
+    p_to_status: parsed.data.toStatus,
+    p_justification: parsed.data.justification,
+    p_author_message: parsed.data.authorMessage ?? null,
+    p_responsible_id: parsed.data.responsibleId ?? null,
+    p_follow_up_date: parsed.data.followUpDate ?? null,
+    p_priority: parsed.data.priority ?? null,
+    p_human_potential: parsed.data.humanPotential ?? null,
+    p_human_dimensions: parsed.data.humanDimensions.length ? parsed.data.humanDimensions : null,
+    p_ai_agreement: parsed.data.aiAgreement ?? null,
+  });
+
+  if (error) {
+    redirect(`${detailUrl}?error=${encodeURIComponent(databaseErrorMessage(error, "Não foi possível registrar a decisão."))}#decision`);
+  }
+
+  revalidatePath("/dashboard");
+  revalidatePath("/ideas");
+  revalidatePath(detailUrl);
+  redirect(`${detailUrl}?decided=1`);
+}
+
+/** Resposta do colaborador a um pedido de complementação; dispara nova avaliação da IA. */
+export async function respondToInfoRequest(formData: FormData) {
+  const ideaId = idSchema.safeParse(formData.get("ideaId"));
+  if (!ideaId.success) redirect("/ideas?error=Ideia%20inv%C3%A1lida.");
+  const detailUrl = `/ideas/${ideaId.data}`;
+  const content = String(formData.get("content") ?? "").trim();
+  if (content.length < 2 || content.length > 4000) {
+    redirect(`${detailUrl}?error=${encodeURIComponent("Escreva uma resposta de até 4.000 caracteres.")}#feedback`);
+  }
+
+  const context = await requireCompanyContext();
+  const { error } = await context.supabase.rpc("respond_to_info_request", { p_idea_id: ideaId.data, p_content: content });
+  if (error) {
+    redirect(`${detailUrl}?error=${encodeURIComponent(databaseErrorMessage(error, "Não foi possível enviar sua resposta."))}#feedback`);
+  }
+
+  await scheduleIdeaEvaluation(ideaId.data, context.membership.organization_id);
+
+  revalidatePath("/ideas");
+  revalidatePath(detailUrl);
+  redirect(`${detailUrl}?responded=1`);
 }

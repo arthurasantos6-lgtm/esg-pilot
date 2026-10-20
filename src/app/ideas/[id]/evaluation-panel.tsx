@@ -20,6 +20,8 @@ type EvaluationPanelProps = {
   evaluation: EvaluationRow | null;
   aiAvailable: boolean;
   canRetry: boolean;
+  /** Gestão pode pedir nova avaliação mesmo após uma concluída (ex.: após complementação). */
+  canReevaluate?: boolean;
 };
 
 const dimensionNames: Record<string, string> = { E: "Ambiental", S: "Social", G: "Governança" };
@@ -102,7 +104,7 @@ function CompletedEvaluation({ result }: { result: EvaluationResult }) {
 }
 
 /** Avaliação ESG gerada pela IA, sempre identificada como recomendação. */
-export function EvaluationPanel({ ideaId, evaluation, aiAvailable, canRetry }: EvaluationPanelProps) {
+export function EvaluationPanel({ ideaId, evaluation, aiAvailable, canRetry, canReevaluate = false }: EvaluationPanelProps) {
   const stale = evaluation ? isEvaluationStale(evaluation) : false;
   const result = evaluation?.status === "completed" ? parseEvaluationResult(evaluation.result) : null;
 
@@ -153,6 +155,7 @@ export function EvaluationPanel({ ideaId, evaluation, aiAvailable, canRetry }: E
             {evaluation.model ? ` · modelo ${evaluation.model}` : ""}
             {evaluation.criteria_version_label ? ` · critérios: ${evaluation.criteria_version_label}` : ""}
           </p>
+          {canReevaluate && aiAvailable && <RetryForm ideaId={ideaId} label="Solicitar nova avaliação" />}
         </>
       )}
     </section>

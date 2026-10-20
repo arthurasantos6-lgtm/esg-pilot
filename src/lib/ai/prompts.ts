@@ -178,11 +178,26 @@ export function buildStructureMessages(
   ];
 }
 
+export type FollowUpTurn = { from: "manager" | "author"; content: string };
+
 export type EvaluationPromptInput = {
   idea: IdeaPromptInput;
   proposalText: string | null;
   keywordTriage: { potential: string; dimensions: string[] };
+  /** Pedidos de complementação da gestão e respostas do colaborador, em ordem. */
+  followUps?: FollowUpTurn[];
 };
+
+function formatFollowUps(followUps: FollowUpTurn[]): string | null {
+  if (!followUps.length) return null;
+  return [
+    "<complementacoes>",
+    ...followUps.map(
+      (turn) => `${turn.from === "manager" ? "Gestão" : "Colaborador"}: ${escapeUntrusted(turn.content)}`,
+    ),
+    "</complementacoes>",
+  ].join("\n");
+}
 
 export function buildEvaluationMessages(
   input: EvaluationPromptInput,
@@ -199,9 +214,12 @@ export function buildEvaluationMessages(
         input.proposalText
           ? `<proposta_revisada_pelo_colaborador>\n${escapeUntrusted(input.proposalText)}\n</proposta_revisada_pelo_colaborador>`
           : "<proposta_revisada_pelo_colaborador>\n(não há proposta estruturada; avalie a descrição original)\n</proposta_revisada_pelo_colaborador>",
+        formatFollowUps(input.followUps ?? []),
         `<triagem_por_termos>\nPotencial pela contagem de termos: ${input.keywordTriage.potential}. Dimensões com termos encontrados: ${input.keywordTriage.dimensions.join(", ") || "nenhuma"}. Use apenas como sinal auxiliar.\n</triagem_por_termos>`,
         "Faça a avaliação preliminar ESG desta ideia.",
-      ].join("\n\n"),
+      ]
+        .filter(Boolean)
+        .join("\n\n"),
     },
   ];
 }

@@ -3,20 +3,10 @@ import Link from "next/link";
 import { connection } from "next/server";
 import { AppShell } from "@/app/components/app-shell";
 import { parseEnabledModules, requireCompanyContext } from "@/lib/auth";
+import { ideaStatusLabel } from "@/lib/idea-status";
 
 export const metadata: Metadata = { title: "Visão geral" };
 
-const statusLabels: Record<string, string> = {
-  submitted: "Enviadas",
-  in_review: "Em análise",
-  awaiting_info: "Aguardando informações",
-  technical_review: "Avaliação técnica",
-  approved: "Aprovadas",
-  in_progress: "Em implementação",
-  implemented: "Implementadas",
-  rejected: "Rejeitadas",
-  archived: "Arquivadas",
-};
 
 const dimensionNames: Record<string, string> = {
   E: "Ambiental",
@@ -116,7 +106,7 @@ export default async function DashboardPage({
         <article className="metric-card">
           <span className="metric-icon metric-icon-blue" aria-hidden="true">◷</span>
           <p className="metric-label">Em avaliação</p>
-          <p className="metric-value">{countStatus(["submitted", "in_review", "awaiting_info", "technical_review"])}</p>
+          <p className="metric-value">{countStatus(["submitted", "in_review", "awaiting_info", "technical_review", "prioritized"])}</p>
           <p className="metric-note">aguardando encaminhamento</p>
         </article>
         <article className="metric-card">
@@ -182,16 +172,10 @@ export default async function DashboardPage({
             </div>
           </div>
           <ul className="status-list">
-            {[
-              ["submitted", "Enviadas"],
-              ["in_review", "Em análise"],
-              ["in_progress", "Em implementação"],
-              ["implemented", "Implementadas"],
-              ["rejected", "Rejeitadas"],
-            ].map(([status, label]) => (
+            {["submitted", "in_review", "awaiting_info", "prioritized", "approved", "in_progress", "implemented", "rejected"].map((status) => (
               <li key={status}>
                 <span className={`status-dot status-${status}`} aria-hidden="true" />
-                <span>{label}</span>
+                <span>{ideaStatusLabel(status)}</span>
                 <strong>{countStatus([status])}</strong>
               </li>
             ))}
@@ -225,7 +209,7 @@ export default async function DashboardPage({
                 {recentIdeas.map((idea) => (
                   <tr key={idea.id}>
                     <td><Link className="idea-title-link" href={`/ideas/${idea.id}`}>{idea.title}</Link></td>
-                    <td><span className={`status-badge status-badge-${idea.status}`}>{statusLabels[idea.status] ?? idea.status}</span></td>
+                    <td><span className={`status-badge status-badge-${idea.status}`}>{ideaStatusLabel(idea.status)}</span></td>
                     <td>{new Intl.DateTimeFormat("pt-BR", { dateStyle: "medium" }).format(new Date(idea.created_at))}</td>
                     <td><Link className="row-link" href={`/ideas/${idea.id}`} aria-label={`Abrir ${idea.title}`}>→</Link></td>
                   </tr>
