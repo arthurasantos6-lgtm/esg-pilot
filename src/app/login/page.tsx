@@ -42,7 +42,7 @@ export default async function LoginPage({
           <Link className="text-link recovery-link" href="/forgot-password">Esqueci minha senha</Link>
           <button className="button button-primary button-full" type="submit">Entrar na plataforma</button>
         </form>
-        <p className="auth-footnote">Acesso fornecido pelo administrador da sua organização.</p>
+        <p className="auth-footnote">Acesso para a gestão, fornecido pelo administrador da plataforma. Colaboradores entram pelo link enviado pela empresa, sem senha.</p>
       </section>
     </main>
   );

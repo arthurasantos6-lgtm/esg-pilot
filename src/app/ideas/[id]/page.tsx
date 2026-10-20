@@ -12,6 +12,7 @@ import { parseEnabledModules, requireCompanyContext } from "@/lib/auth";
 import { isAiAvailable } from "@/lib/idea-ai";
 import { parseStoredProposal, PROPOSAL_FIELDS } from "@/lib/idea-proposal";
 import { ideaStatusLabel, nextStepForAuthor } from "@/lib/idea-status";
+import { memberDisplayName } from "@/lib/members";
 
 export const metadata: Metadata = { title: "Detalhe da ideia" };
 
@@ -121,7 +122,7 @@ export default async function IdeaDetailPage({
       : empty,
     showManagement ? supabase.rpc("org_list_members", { target_org_id: membership.organization_id }) : empty,
   ]);
-  const emailById = new Map((members ?? []).map((member) => [member.user_id, member.email]));
+  const emailById = new Map((members ?? []).map((member) => [member.user_id, memberDisplayName(member)]));
 
   const proposal = parseStoredProposal(idea.structured_proposal);
   const dimensions = getDimensions(idea.analysis);
@@ -142,7 +143,7 @@ export default async function IdeaDetailPage({
   const dateFormat = new Intl.DateTimeFormat("pt-BR", { dateStyle: "long" });
 
   return (
-    <AppShell organizationName={organization.name} userEmail={user.email ?? "Conta"} role={membership.role}>
+    <AppShell organizationName={organization.name} userEmail={user.email} role={membership.role}>
       <header className="page-header">
         <div>
           <Link className="back-link" href="/ideas">← Voltar para ideias</Link>

@@ -78,13 +78,17 @@ export async function signIn(formData: FormData) {
 
 export async function signOut() {
   const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
   const { error } = await supabase.auth.signOut();
 
   if (error) {
     throw new Error(`Não foi possível encerrar a sessão: ${error.message}`);
   }
 
-  redirect("/login");
+  // Colaboradores por link não têm senha; voltam pelo link da empresa.
+  redirect(user?.is_anonymous ? "/acesso/encerrado" : "/login");
 }
 
 export async function requestPasswordReset(formData: FormData) {

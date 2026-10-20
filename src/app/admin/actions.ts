@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { z } from "zod";
 import { COMPANY_MODULES, requirePlatformAdmin } from "@/lib/auth";
+import { readCreateLinkForm } from "@/lib/access-links";
 import { logAudit } from "@/lib/platform-audit";
 
 const organizationSchema = z.object({
@@ -201,4 +202,47 @@ export async function updateMembership(formData: FormData) {
 
   revalidatePath(`/admin/companies/${parsed.data.organizationId}`);
   redirect(`/admin/companies/${parsed.data.organizationId}?memberUpdated=1`);
+}
+
+export async function createPlatformAccessLink(formData: FormData) {
+  const { supabase, user } = await requirePlatformAdmin();
+  const organizationId = z.string().uuid().safeParse(formData.get("organizationId"));
+  if (!organizationId.success) redirect("/admin/companies?error=Empresa%20inv%C3%A1lida.");
+  const companyUrl = `/admin/companies/${organizationId.data}`;
+
+  const form = readCreateLinkForm(formData);
+  if ("error" in form) redirect(`${companyUrl}?error=${encodeURIComponent(form.error ?? "Dados inválidos.")}`);
+
+  const { data: linkId, error } = await supabase.rpc("create_access_link", {
+    target_org_id: organizationId.data,
+    p_label: form.label,
+    p_expires_at: form.expiresAt,
+  });
+  if (error || !linkId) redirect(`${companyUrl}?error=${encodeURIComponent("Não foi possível gerar o link.")}`);
+
+  await logAudit(supabase, user.id, "access_link_created", "access_link", linkId, {
+    organization_id: organizationId.data,
+    expires_at: form.expiresAt,
+  });
+
+  revalidatePath(companyUrl);
+  redirect(`${companyUrl}?linkCreated=1`);
+}
+
+export async function revokePlatformAccessLink(formData: FormData) {
+  const { supabase, user } = await requirePlatformAdmin();
+  const linkId = z.string().uuid().safeParse(formData.get("linkId"));
+  const organizationId = z.string().uuid().safeParse(formData.get("organizationId"));
+  if (!linkId.success || !organizationId.success) redirect("/admin/companies?error=Link%20inv%C3%A1lido.");
+  const companyUrl = `/admin/companies/${organizationId.data}`;
+
+  const { error } = await supabase.rpc("revoke_access_link", { link_id: linkId.data });
+  if (error) redirect(`${companyUrl}?error=${encodeURIComponent("Não foi possível revogar o link.")}`);
+
+  await logAudit(supabase, user.id, "access_link_revoked", "access_link", linkId.data, {
+    organization_id: organizationId.data,
+  });
+
+  revalidatePath(companyUrl);
+  redirect(`${companyUrl}?linkRevoked=1`);
 }

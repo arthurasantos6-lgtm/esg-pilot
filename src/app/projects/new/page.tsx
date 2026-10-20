@@ -30,7 +30,7 @@ export default async function NewProjectPage({
   if (ideasError) throw new Error(`Não foi possível carregar as ideias aprovadas: ${ideasError.message}`);
 
   return (
-    <AppShell organizationName={organization.name} userEmail={user.email ?? "Conta"} role={membership.role}>
+    <AppShell organizationName={organization.name} userEmail={user.email} role={membership.role}>
       <header className="page-header">
         <div>
           <Link className="back-link" href="/projects">← Voltar para projetos</Link>

@@ -52,7 +52,7 @@ export default async function IdeasPage({
   };
 
   return (
-    <AppShell organizationName={organization.name} userEmail={user.email ?? "Conta"} role={membership.role}>
+    <AppShell organizationName={organization.name} userEmail={user.email} role={membership.role}>
       <header className="page-header">
         <div>
           {membership.role === "company_admin" ? (

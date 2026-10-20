@@ -5,7 +5,8 @@ import { signOut } from "@/app/actions";
 type AppShellProps = {
   children: ReactNode;
   organizationName: string;
-  userEmail: string;
+  /** Ausente para colaboradores que entraram pelo link da empresa (sessão anônima). */
+  userEmail?: string | null;
   role: "company_admin" | "member";
   enabledModules?: string[];
 };
@@ -35,7 +36,7 @@ export function AppShell({
         <nav className="main-nav">
           <Link href="/dashboard"><span aria-hidden="true">▦</span> Visão geral</Link>
           {isModuleEnabled("ideas") && (
-            <Link href="/ideas"><span aria-hidden="true">◎</span> Ideias</Link>
+            <Link href="/ideas"><span aria-hidden="true">◎</span> {role === "company_admin" ? "Ideias" : "Minhas ideias"}</Link>
           )}
           {isModuleEnabled("projects") && (
             <Link href="/projects"><span aria-hidden="true">⌁</span> Projetos</Link>
@@ -43,13 +44,21 @@ export function AppShell({
           {isModuleEnabled("ideas") && (
             <Link href="/ideas/new"><span aria-hidden="true">＋</span> Nova ideia</Link>
           )}
+          {role === "company_admin" && (
+            <Link href="/equipe"><span aria-hidden="true">⚇</span> Equipe e acesso</Link>
+          )}
         </nav>
         <div className="sidebar-bottom">
           <p className="role-label">{role === "company_admin" ? "Administrador da empresa" : "Colaborador"}</p>
-          <p className="user-email">{userEmail}</p>
+          <p className="user-email">{userEmail ?? "Acesso pelo link da empresa"}</p>
           <form action={signOut}>
             <button className="signout-button" type="submit">Encerrar sessão</button>
           </form>
+          {!userEmail && (
+            <p className="small-copy signout-warning">
+              Ao encerrar, você só volta a ver suas ideias se abrir o link da empresa neste mesmo navegador antes de limpar os dados dele.
+            </p>
+          )}
         </div>
       </aside>
       <main className="main-panel">{children}</main>

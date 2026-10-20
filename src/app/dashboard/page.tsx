@@ -77,7 +77,7 @@ export default async function DashboardPage({
   return (
     <AppShell
       organizationName={organization.name}
-      userEmail={user.email ?? "Conta"}
+      userEmail={user.email}
       role={membership.role}
       enabledModules={parseEnabledModules(organization.enabled_modules)}
     >

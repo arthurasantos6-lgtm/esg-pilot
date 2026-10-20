@@ -45,7 +45,7 @@ export default async function ReviewProposalPage({
   const aiAvailable = isAiAvailable();
 
   return (
-    <AppShell organizationName={organization.name} userEmail={user.email ?? "Conta"} role={membership.role}>
+    <AppShell organizationName={organization.name} userEmail={user.email} role={membership.role}>
       <header className="page-header">
         <div>
           <Link className="back-link" href="/ideas">← Voltar para ideias</Link>

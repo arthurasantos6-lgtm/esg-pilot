@@ -3,9 +3,17 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { connection } from "next/server";
 import { z } from "zod";
-import { addMembership, updateMembership, updateOrganization } from "@/app/admin/actions";
+import {
+  addMembership,
+  createPlatformAccessLink,
+  revokePlatformAccessLink,
+  updateMembership,
+  updateOrganization,
+} from "@/app/admin/actions";
+import { AccessLinksPanel } from "@/app/components/access-links-panel";
 import { AdminShell } from "@/app/admin/components/admin-shell";
 import { requirePlatformAdmin } from "@/lib/auth";
+import { memberDisplayName } from "@/lib/members";
 
 export const metadata: Metadata = { title: "Detalhe da empresa" };
 
@@ -24,17 +32,29 @@ export default async function CompanyDetailPage({
   searchParams,
 }: {
   params: Promise<{ id: string }>;
-  searchParams: Promise<{ error?: string; updated?: string; memberAdded?: string; memberUpdated?: string }>;
+  searchParams: Promise<{
+    error?: string;
+    updated?: string;
+    memberAdded?: string;
+    memberUpdated?: string;
+    linkCreated?: string;
+    linkRevoked?: string;
+  }>;
 }) {
   await connection();
   const [{ id }, query] = await Promise.all([params, searchParams]);
   if (!z.string().uuid().safeParse(id).success) notFound();
 
   const { supabase, user } = await requirePlatformAdmin();
-  const [{ data: organization, error: orgError }, { data: members, error: membersError }] =
+  const [{ data: organization, error: orgError }, { data: members, error: membersError }, { data: links }] =
     await Promise.all([
       supabase.from("organizations").select("*").eq("id", id).maybeSingle(),
       supabase.rpc("platform_list_organization_members", { target_org_id: id }),
+      supabase
+        .from("organization_access_links")
+        .select("id, token, label, status, expires_at, created_at, last_used_at, join_count")
+        .eq("organization_id", id)
+        .order("created_at", { ascending: false }),
     ]);
 
   if (orgError) throw new Error(`Não foi possível carregar a empresa: ${orgError.message}`);
@@ -60,6 +80,8 @@ export default async function CompanyDetailPage({
       {query.updated && <p className="alert alert-success" role="status">Empresa atualizada com sucesso.</p>}
       {query.memberAdded && <p className="alert alert-success" role="status">Usuário vinculado com sucesso.</p>}
       {query.memberUpdated && <p className="alert alert-success" role="status">Vínculo atualizado com sucesso.</p>}
+      {query.linkCreated && <p className="alert alert-success" role="status">Link de acesso gerado.</p>}
+      {query.linkRevoked && <p className="alert alert-success" role="status">Link de acesso revogado.</p>}
 
       <div className="dashboard-grid">
         <section className="panel idea-form-panel" aria-labelledby="org-form-title">
@@ -125,6 +147,13 @@ export default async function CompanyDetailPage({
         </section>
       </div>
 
+      <AccessLinksPanel
+        links={links ?? []}
+        organizationId={organization.id}
+        createAction={createPlatformAccessLink}
+        revokeAction={revokePlatformAccessLink}
+      />
+
       <section className="panel list-panel" aria-labelledby="members-title">
         <div className="panel-heading">
           <div>
@@ -153,7 +182,7 @@ export default async function CompanyDetailPage({
               <tbody>
                 {members.map((member) => (
                   <tr key={member.id}>
-                    <td>{member.email}</td>
+                    <td>{memberDisplayName(member)}</td>
                     <td>{roleLabels[member.role] ?? member.role}</td>
                     <td><span className={`status-badge status-badge-${member.status === "active" ? "approved" : "rejected"}`}>{membershipStatusLabels[member.status] ?? member.status}</span></td>
                     <td>{new Intl.DateTimeFormat("pt-BR", { dateStyle: "medium" }).format(new Date(member.created_at))}</td>
@@ -161,11 +190,11 @@ export default async function CompanyDetailPage({
                       <form className="inline-form" action={updateMembership}>
                         <input type="hidden" name="membershipId" value={member.id} />
                         <input type="hidden" name="organizationId" value={organization.id} />
-                        <select name="role" defaultValue={member.role} aria-label={`Perfil de ${member.email}`}>
+                        <select name="role" defaultValue={member.role} aria-label={`Perfil de ${memberDisplayName(member)}`}>
                           <option value="member">Colaborador</option>
                           <option value="company_admin">Administrador</option>
                         </select>
-                        <select name="status" defaultValue={member.status} aria-label={`Situação de ${member.email}`}>
+                        <select name="status" defaultValue={member.status} aria-label={`Situação de ${memberDisplayName(member)}`}>
                           <option value="active">Ativo</option>
                           <option value="blocked">Bloqueado</option>
                         </select>

@@ -18,6 +18,7 @@ import {
   isAiAvailable,
   loadActiveCriteria,
   loadActiveKnowledge,
+  MAX_IDEAS_PER_USER_PER_DAY,
   MAX_USER_MESSAGES_PER_IDEA,
   scheduleIdeaEvaluation,
   toIdeaPromptInput,
@@ -102,6 +103,19 @@ export async function startIdea(formData: FormData) {
 
   const context = await requireCompanyContext();
   assertModuleEnabled(context.organization.enabled_modules, "ideas", "Ideias");
+
+  const { count: recentIdeas } = await context.supabase
+    .from("ideas")
+    .select("id", { count: "exact", head: true })
+    .eq("author_id", context.user.id)
+    .gte("created_at", new Date(Date.now() - 86_400_000).toISOString());
+  if ((recentIdeas ?? 0) >= MAX_IDEAS_PER_USER_PER_DAY) {
+    redirect(
+      `/ideas/new?error=${encodeURIComponent(
+        `Você atingiu o limite de ${MAX_IDEAS_PER_USER_PER_DAY} novas ideias em 24 horas. Continue amanhã ou revise seus rascunhos.`,
+      )}`,
+    );
+  }
 
   const { data: idea, error } = await context.supabase
     .from("ideas")

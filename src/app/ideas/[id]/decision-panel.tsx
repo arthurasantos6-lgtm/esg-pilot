@@ -2,9 +2,10 @@ import Link from "next/link";
 import { recordIdeaDecision } from "@/app/ideas/actions";
 import { SubmitButton } from "@/app/components/submit-button";
 import { AI_AGREEMENT_LABELS, ideaStatusLabel, PRIORITY_LABELS } from "@/lib/idea-status";
+import { memberDisplayName } from "@/lib/members";
 
 type Transition = { to_status: string; action_label: string };
-type Member = { user_id: string; email: string; status: string };
+type Member = { user_id: string; email: string | null; status: string };
 
 type DecisionPanelProps = {
   ideaId: string;
@@ -41,7 +42,7 @@ export function DecisionPanel({
 
       <dl className="follow-up-summary">
         <div><dt>Situação</dt><dd>{ideaStatusLabel(status)}</dd></div>
-        <div><dt>Responsável</dt><dd>{responsible?.email ?? "Não definido"}</dd></div>
+        <div><dt>Responsável</dt><dd>{responsible ? memberDisplayName(responsible) : "Não definido"}</dd></div>
         <div>
           <dt>Prazo de acompanhamento</dt>
           <dd>{followUpDate ? new Intl.DateTimeFormat("pt-BR", { dateStyle: "medium", timeZone: "UTC" }).format(new Date(followUpDate)) : "Não definido"}</dd>
@@ -82,7 +83,7 @@ export function DecisionPanel({
         <select id="responsibleId" name="responsibleId" defaultValue={responsibleId ?? ""}>
           <option value="">Sem responsável</option>
           {activeMembers.map((member) => (
-            <option key={member.user_id} value={member.user_id}>{member.email}</option>
+            <option key={member.user_id} value={member.user_id}>{memberDisplayName(member)}</option>
           ))}
         </select>
 

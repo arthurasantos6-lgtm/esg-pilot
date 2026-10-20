@@ -45,7 +45,8 @@ Aplicação SaaS multiempresa em Next.js, TypeScript e Supabase. Esta primeira e
 10. Execute [a migração do copiloto e da avaliação por IA](./supabase/migrations/20261023_idea_copilot.sql).
 11. (Opcional, habilita a IA) Em `.env.local`, defina `ANTHROPIC_API_KEY` (chave da API da Claude) e `SUPABASE_SERVICE_ROLE_KEY` (Supabase > Project Settings > API). As duas são lidas apenas no servidor; nunca use o prefixo `NEXT_PUBLIC_` nelas. Sem elas, o fluxo de ideias funciona sem copiloto e sem avaliação por IA, e a interface informa isso.
 12. Execute [a migração de decisões gerenciais](./supabase/migrations/20261024_idea_decisions.sql).
-13. Instale dependências e inicie:
+13. Execute [a migração de acesso por link](./supabase/migrations/20261025_access_links.sql) e, em Authentication > Sign In / Providers, habilite **Allow anonymous sign-ins** (necessário para colaboradores entrarem sem cadastro). Recomenda-se habilitar também CAPTCHA (Authentication > Attack Protection) para reduzir abuso.
+14. Instale dependências e inicie:
 
    ```bash
    npm install
@@ -58,7 +59,7 @@ Abra `http://localhost:3000`.
 
 - **Administrador da plataforma** (`auth.users.raw_app_meta_data.platform_admin = true`): acessa `/admin`. Gerencia empresas clientes (cadastro, situação da conta, módulos habilitados), vincula usuários já existentes a empresas e consulta indicadores agregados (contagens) de todas as empresas. Não tem acesso de leitura ao conteúdo de ideias, conversas ou projetos de nenhuma empresa — isso é reforçado por Row Level Security no banco, não apenas pela interface.
 - **Administrador da empresa cliente** (`memberships.role = 'company_admin'`): acesso completo aos dados da própria organização (`/dashboard`, `/ideas`, `/projects`), incluindo mudança de situação de ideias e criação de projetos.
-- **Colaborador** (`memberships.role = 'member'`): registra ideias, conversa com o copiloto e acompanha apenas as próprias ideias (situação, próxima ação e mensagens da gestão). Não vê ideias de outros colaboradores, justificativas internas nem avaliações humanas da gestão.
+- **Colaborador** (`memberships.role = 'member'`): entra pelo link de acesso da empresa, sem cadastro nem senha (sessão anônima do Supabase Auth vinculada a uma única empresa). Registra ideias, conversa com o copiloto e acompanha apenas as próprias ideias (situação, próxima ação e mensagens da gestão). Não vê ideias de outros colaboradores, justificativas internas nem avaliações humanas da gestão.
 
 Cada empresa pode ter os módulos "Ideias" e "Projetos" habilitados ou desabilitados individualmente pelo administrador da plataforma; a aplicação bloqueia o acesso no backend (não apenas oculta o menu) quando um módulo está desligado.
 
@@ -70,6 +71,7 @@ Cada empresa pode ter os módulos "Ideias" e "Projetos" habilitados ou desabilit
 - RLS em tabelas de organização, memberships, ideias, auditoria de ideias, projetos, indicadores e auditoria administrativa.
 - Dashboard e lista paginada de ideias com busca e filtro de situação, alimentados por consultas ao Supabase e protegidos por RLS.
 - Registro e acompanhamento de ideias com trilha de auditoria e atualização de situação por administrador da empresa.
+- Acesso do colaborador por link (`/acesso/[token]`): a gestão da empresa (`/equipe`) ou o administrador da plataforma (detalhe da empresa) gera links com identificação e validade; cada link pertence a uma única empresa, concede apenas o perfil de colaborador e pode ser revogado. O vínculo é feito no banco (`join_organization_with_link`): uma sessão nunca fica em duas empresas, e empresas suspensas ou inativas não aceitam entradas. A gestão vê quem entrou por link e pode bloquear colaboradores. Limite de 20 novas ideias por pessoa em 24 horas.
 - Fluxo do colaborador em texto livre (`/ideas/new`): a ideia nasce como rascunho visível só para o autor; o texto original é preservado e não pode ser alterado (garantido por trigger no banco).
 - Copiloto conversacional com IA (`/ideas/[id]/copilot`, Claude via API da Anthropic): faz perguntas progressivas, ajuda a identificar beneficiários, relações E/S/G, indicadores e riscos, usando a versão ativa dos critérios ESG e os registros ativos da base de conhecimento. Limite de 30 mensagens do colaborador por ideia. A conversa pode ser retomada depois.
 - Proposta estruturada (`/ideas/[id]/review`): o copiloto organiza a conversa em campos (problema, solução, contexto, beneficiários, dimensões ESG, benefícios, indicadores, riscos, próximos passos); campos sem informação ficam como "não informado". O colaborador edita, salva o rascunho e confirma o envio explicitamente.
@@ -99,6 +101,7 @@ O modelo inicial associa cada conta de empresa a uma organização. Administrado
 - Não há configurações de privacidade por departamento; a gestão da empresa vê todas as ideias enviadas.
 - O fluxo de situações é editável apenas pelo banco (tabela `idea_status_transitions`); ainda não há tela para o administrador da plataforma configurá-lo. Não há notificações por e-mail de decisões ou pedidos de complementação.
 - Políticas de retenção, solicitações LGPD, redefinição administrativa de senha e auditoria de disponibilidade precisam ser definidos para uma implantação comercial.
+- O acesso por link fica salvo no navegador: se o colaborador limpar os dados do navegador ou trocar de aparelho, perde o acesso às ideias já enviadas (elas continuam com a empresa). Ainda não há opção de o colaborador vincular um e-mail para recuperar o acesso.
 - O provisionamento do primeiro usuário de cada empresa (criação da conta em si) é manual pelo painel Supabase; o vínculo à empresa já pode ser feito pelo painel `/admin`. Antes de produção, habilite MFA/políticas de senha no Supabase, restrinja redirects, configure domínio HTTPS, monitoramento e revisão de segurança.
 
 ## Verificação e publicação

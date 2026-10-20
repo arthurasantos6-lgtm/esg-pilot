@@ -1824,3 +1824,59 @@ details summary h2 {
     transition-duration: 0.01ms !important;
   }
 }
+
+.link-notes {
+  display: grid;
+  gap: 6px;
+  padding-left: 18px;
+  text-align: left;
+}
+
+.access-link-form {
+  margin: 12px 0 4px;
+}
+
+.access-link-list {
+  display: grid;
+  gap: 12px;
+  margin: 14px 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.access-link-list li {
+  display: grid;
+  gap: 6px;
+  padding: 12px 14px;
+  border: 1px solid var(--line);
+  border-radius: 9px;
+}
+
+.access-link-list li.access-link-inactive {
+  background: #f8f9f8;
+  color: var(--muted);
+}
+
+.access-link-list p {
+  margin: 0;
+}
+
+.access-link-head {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.access-link-url {
+  padding: 6px 8px;
+  border-radius: 6px;
+  background: #f2f6f3;
+  font-size: 12px;
+  overflow-wrap: anywhere;
+}
+
+.signout-warning {
+  margin: 6px 0 0;
+  color: #7d8c85;
+}

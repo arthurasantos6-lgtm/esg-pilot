@@ -18,6 +18,9 @@ type AnyClient = SupabaseClient<Database>;
 /** Limite de mensagens do colaborador por ideia, para conter uso excessivo da IA. */
 export const MAX_USER_MESSAGES_PER_IDEA = 30;
 
+/** Limite de novas ideias por pessoa em 24 h (o acesso por link não exige cadastro). */
+export const MAX_IDEAS_PER_USER_PER_DAY = 20;
+
 /** Os recursos de IA exigem a chave do provedor e a chave service role do Supabase. */
 export function isAiAvailable() {
   return isAiConfigured() && Boolean(process.env.SUPABASE_SERVICE_ROLE_KEY);

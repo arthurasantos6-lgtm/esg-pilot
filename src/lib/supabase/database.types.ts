@@ -39,7 +39,7 @@ type PlatformAuditLog = {
   id: string;
   actor_id: string | null;
   action: string;
-  target_type: "organization" | "membership" | "esg_criteria_version" | "esg_knowledge_item";
+  target_type: "organization" | "membership" | "esg_criteria_version" | "esg_knowledge_item" | "access_link";
   target_id: string | null;
   details: Json | null;
   created_at: string;
@@ -83,7 +83,22 @@ type Membership = {
   user_id: string;
   role: "company_admin" | "member";
   status: "active" | "blocked";
+  access_link_id: string | null;
   created_at: string;
+};
+
+type OrganizationAccessLink = {
+  id: string;
+  organization_id: string;
+  token: string;
+  label: string | null;
+  status: "active" | "revoked";
+  expires_at: string | null;
+  created_by: string | null;
+  created_at: string;
+  revoked_at: string | null;
+  last_used_at: string | null;
+  join_count: number;
 };
 
 type Idea = {
@@ -316,6 +331,7 @@ export type Database = {
       idea_status_transitions: Table<IdeaStatusTransition, "from_status" | "to_status" | "action_label">;
       idea_decisions: Table<IdeaDecision, "organization_id" | "idea_id" | "from_status" | "to_status" | "justification">;
       idea_feedback: Table<IdeaFeedback, "organization_id" | "idea_id" | "kind" | "content">;
+      organization_access_links: Table<OrganizationAccessLink, "organization_id" | "token">;
       platform_audit_log: Table<PlatformAuditLog, "action" | "target_type">;
       esg_criteria_versions: Table<EsgCriteriaVersion, "label" | "dimensions">;
       esg_knowledge_items: Table<EsgKnowledgeItem, "title" | "description" | "category">;
@@ -344,14 +360,14 @@ export type Database = {
       };
       platform_find_user_by_email: {
         Args: { target_email: string };
-        Returns: { id: string; email: string }[];
+        Returns: { id: string; email: string | null }[];
       };
       platform_list_organization_members: {
         Args: { target_org_id: string };
         Returns: {
           id: string;
           user_id: string;
-          email: string;
+          email: string | null;
           role: "company_admin" | "member";
           status: "active" | "blocked";
           created_at: string;
@@ -378,8 +394,25 @@ export type Database = {
       };
       org_list_members: {
         Args: { target_org_id: string };
-        Returns: { user_id: string; email: string; role: string; status: string }[];
+        Returns: {
+          user_id: string;
+          email: string | null;
+          role: "company_admin" | "member";
+          status: "active" | "blocked";
+          via_link: boolean;
+          created_at: string;
+        }[];
       };
+      create_access_link: {
+        Args: { target_org_id: string; p_label?: string | null; p_expires_at?: string | null };
+        Returns: string;
+      };
+      revoke_access_link: { Args: { link_id: string }; Returns: undefined };
+      get_access_link_public: {
+        Args: { p_token: string };
+        Returns: { organization_id: string; organization_name: string }[];
+      };
+      join_organization_with_link: { Args: { p_token: string }; Returns: string };
       platform_activate_criteria_version: {
         Args: { target_id: string };
         Returns: undefined;
