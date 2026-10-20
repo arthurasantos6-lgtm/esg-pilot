@@ -91,8 +91,11 @@ type Idea = {
   organization_id: string;
   author_id: string;
   title: string;
-  problem: string;
-  solution: string;
+  problem: string | null;
+  solution: string | null;
+  original_description: string | null;
+  structured_proposal: Json | null;
+  submitted_at: string | null;
   area: string | null;
   status:
     | "draft"
@@ -108,6 +111,34 @@ type Idea = {
   analysis: Json | null;
   created_at: string;
   updated_at: string;
+};
+
+type IdeaCopilotMessage = {
+  id: string;
+  organization_id: string;
+  idea_id: string;
+  role: "user" | "assistant";
+  content: string;
+  model: string | null;
+  input_tokens: number | null;
+  output_tokens: number | null;
+  created_at: string;
+};
+
+type IdeaEvaluation = {
+  id: string;
+  organization_id: string;
+  idea_id: string;
+  status: "pending" | "completed" | "failed";
+  criteria_version_id: string | null;
+  criteria_version_label: string | null;
+  model: string | null;
+  result: Json | null;
+  error_message: string | null;
+  input_tokens: number | null;
+  output_tokens: number | null;
+  created_at: string;
+  completed_at: string | null;
 };
 
 type IdeaActivity = {
@@ -170,7 +201,7 @@ export type Database = {
       >;
       ideas: Table<
         Idea,
-        "organization_id" | "author_id" | "title" | "problem" | "solution",
+        "organization_id" | "author_id" | "title",
         [
           {
             foreignKeyName: "ideas_organization_id_fkey";
@@ -241,6 +272,8 @@ export type Database = {
           },
         ]
       >;
+      idea_copilot_messages: Table<IdeaCopilotMessage, "organization_id" | "idea_id" | "role" | "content">;
+      idea_evaluations: Table<IdeaEvaluation, "organization_id" | "idea_id">;
       platform_audit_log: Table<PlatformAuditLog, "action" | "target_type">;
       esg_criteria_versions: Table<EsgCriteriaVersion, "label" | "dimensions">;
       esg_knowledge_items: Table<EsgKnowledgeItem, "title" | "description" | "category">;

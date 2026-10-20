@@ -4,7 +4,6 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { z } from "zod";
 import { requireCompanyContext } from "@/lib/auth";
-import { analyzeIdeaWithCriteria, DEFAULT_CRITERIA, parseEsgCriteria } from "@/lib/esg-analysis";
 import { createClient } from "@/lib/supabase/server";
 
 const loginSchema = z.object({
@@ -25,13 +24,6 @@ const newPasswordSchema = z
     message: "As senhas não são iguais.",
     path: ["confirmPassword"],
   });
-
-const ideaSchema = z.object({
-  title: z.string().trim().min(3, "O título deve ter pelo menos 3 caracteres.").max(120),
-  problem: z.string().trim().min(10, "Descreva o problema ou oportunidade (mínimo 10 caracteres).").max(4000),
-  solution: z.string().trim().min(10, "Descreva a proposta de solução (mínimo 10 caracteres).").max(4000),
-  area: z.string().trim().max(100).optional(),
-});
 
 const statusSchema = z.enum([
   "submitted",
@@ -152,59 +144,6 @@ export async function updatePassword(formData: FormData) {
   }
 
   redirect("/login?passwordUpdated=1");
-}
-
-export async function createIdea(formData: FormData) {
-  const parsed = ideaSchema.safeParse({
-    title: formData.get("title"),
-    problem: formData.get("problem"),
-    solution: formData.get("solution"),
-    area: formData.get("area") || undefined,
-  });
-
-  if (!parsed.success) {
-    redirect(`/ideas/new?error=${encodeURIComponent(parsed.error.issues[0].message)}`);
-  }
-
-  const { supabase, user, membership } = await requireCompanyContext();
-  const { data: activeCriteria } = await supabase
-    .from("esg_criteria_versions")
-    .select("id, label, dimensions, potential_thresholds")
-    .eq("status", "active")
-    .maybeSingle();
-
-  const criteria = activeCriteria
-    ? parseEsgCriteria(activeCriteria.dimensions, activeCriteria.potential_thresholds)
-    : null;
-  const analysis = analyzeIdeaWithCriteria(
-    `${parsed.data.problem} ${parsed.data.solution}`,
-    criteria ?? DEFAULT_CRITERIA,
-    criteria && activeCriteria
-      ? { criteriaVersionId: activeCriteria.id, criteriaVersionLabel: activeCriteria.label }
-      : undefined,
-  );
-  const { data, error } = await supabase
-    .from("ideas")
-    .insert({
-      organization_id: membership.organization_id,
-      author_id: user.id,
-      title: parsed.data.title,
-      problem: parsed.data.problem,
-      solution: parsed.data.solution,
-      area: parsed.data.area || null,
-      status: "submitted",
-      analysis,
-    })
-    .select("id")
-    .single();
-
-  if (error) {
-    redirect(`/ideas/new?error=${encodeURIComponent("Não foi possível salvar a ideia. Tente novamente.")}`);
-  }
-
-  revalidatePath("/dashboard");
-  revalidatePath("/ideas");
-  redirect(`/ideas/${data.id}`);
 }
 
 export async function updateIdeaStatus(formData: FormData) {

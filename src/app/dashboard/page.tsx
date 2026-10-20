@@ -40,6 +40,8 @@ export default async function DashboardPage({
       .from("ideas")
       .select("id, title, status, created_at, analysis")
       .eq("organization_id", membership.organization_id)
+      // Rascunhos ainda não foram enviados e não contam como ideias recebidas.
+      .neq("status", "draft")
       .order("created_at", { ascending: false }),
     supabase
       .from("esg_projects")

@@ -8,6 +8,7 @@ export const metadata: Metadata = { title: "Ideias" };
 
 const statuses = [
   ["", "Todas as situações"],
+  ["draft", "Rascunho"],
   ["submitted", "Enviada"],
   ["in_review", "Em análise"],
   ["awaiting_info", "Aguardando informações"],
@@ -24,7 +25,7 @@ const labels = Object.fromEntries(statuses.filter(([value]) => value)) as Record
 export default async function IdeasPage({
   searchParams,
 }: {
-  searchParams: Promise<{ q?: string; status?: string; error?: string; page?: string }>;
+  searchParams: Promise<{ q?: string; status?: string; error?: string; page?: string; mine?: string }>;
 }) {
   await connection();
   const { supabase, user, membership, organization } = await requireCompanyContext();
@@ -32,18 +33,20 @@ export default async function IdeasPage({
   const params = await searchParams;
   const query = params.q?.trim().slice(0, 100) ?? "";
   const selectedStatus = statuses.find(([value]) => value === params.status)?.[0] ?? "";
+  const onlyMine = params.mine === "1";
   const requestedPage = Number(params.page);
   const page = Number.isInteger(requestedPage) && requestedPage > 0 ? requestedPage : 1;
   const pageSize = 15;
 
   let request = supabase
     .from("ideas")
-    .select("id, title, area, status, created_at, analysis", { count: "exact" })
+    .select("id, title, area, status, created_at, author_id", { count: "exact" })
     .eq("organization_id", membership.organization_id)
     .order("created_at", { ascending: false });
 
   if (query) request = request.ilike("title", `%${query}%`);
   if (selectedStatus) request = request.eq("status", selectedStatus);
+  if (onlyMine) request = request.eq("author_id", user.id);
 
   const { data: ideas, count, error } = await request.range((page - 1) * pageSize, page * pageSize - 1);
   if (error) throw new Error(`Não foi possível carregar as ideias: ${error.message}`);
@@ -53,6 +56,7 @@ export default async function IdeasPage({
     const params = new URLSearchParams();
     if (query) params.set("q", query);
     if (selectedStatus) params.set("status", selectedStatus);
+    if (onlyMine) params.set("mine", "1");
     if (targetPage > 1) params.set("page", String(targetPage));
     return `/ideas${params.size ? `?${params.toString()}` : ""}`;
   };
@@ -82,19 +86,23 @@ export default async function IdeasPage({
               {statuses.map(([value, label]) => <option key={value} value={value}>{label}</option>)}
             </select>
           </label>
+          <label className="checkbox-row filter-check">
+            <input type="checkbox" name="mine" value="1" defaultChecked={onlyMine} />
+            Minhas ideias
+          </label>
           <button className="button button-secondary" type="submit">Filtrar</button>
         </form>
 
         {!ideas?.length ? (
           <div className="empty-state list-empty">
             <span className="empty-icon" aria-hidden="true">⌕</span>
-            <h2>{query || selectedStatus ? "Nenhuma ideia encontrada" : "Nenhuma ideia registrada"}</h2>
+            <h2>{query || selectedStatus || onlyMine ? "Nenhuma ideia encontrada" : "Nenhuma ideia registrada"}</h2>
             <p className="muted">
-              {query || selectedStatus
+              {query || selectedStatus || onlyMine
                 ? "Altere os filtros ou tente outra busca."
                 : "Registre a primeira oportunidade de melhoria da sua organização."}
             </p>
-            {!query && !selectedStatus && <Link className="button button-secondary" href="/ideas/new">Registrar ideia</Link>}
+            {!query && !selectedStatus && !onlyMine && <Link className="button button-secondary" href="/ideas/new">Registrar ideia</Link>}
           </div>
         ) : (
           <>
@@ -105,8 +113,10 @@ export default async function IdeasPage({
                   {ideas.map((idea) => (
                     <tr key={idea.id}>
                       <td>
-                        <Link className="idea-title-link" href={`/ideas/${idea.id}`}>{idea.title}</Link>
-                        <span className="table-subtitle">{idea.analysis ? "Triagem ESG disponível" : "Aguardando triagem"}</span>
+                        <Link className="idea-title-link" href={idea.status === "draft" ? `/ideas/${idea.id}/review` : `/ideas/${idea.id}`}>{idea.title}</Link>
+                        <span className="table-subtitle">
+                          {idea.status === "draft" ? "Rascunho visível só para você" : idea.author_id === user.id ? "Enviada por você" : "Enviada pela equipe"}
+                        </span>
                       </td>
                       <td>{idea.area || "Não informada"}</td>
                       <td><span className={`status-badge status-badge-${idea.status}`}>{labels[idea.status] ?? idea.status}</span></td>
