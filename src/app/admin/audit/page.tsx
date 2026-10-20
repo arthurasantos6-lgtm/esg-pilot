@@ -10,6 +10,18 @@ const actionLabels: Record<string, string> = {
   organization_updated: "Empresa atualizada",
   membership_created: "Usuário vinculado",
   membership_updated: "Vínculo atualizado",
+  esg_criteria_version_created: "Versão de critérios criada",
+  esg_criteria_version_updated: "Versão de critérios atualizada",
+  esg_criteria_version_activated: "Versão de critérios ativada",
+  esg_knowledge_item_created: "Conhecimento ESG cadastrado",
+  esg_knowledge_item_updated: "Conhecimento ESG atualizado",
+};
+
+const targetTypeLabels: Record<string, string> = {
+  organization: "Empresa",
+  membership: "Vínculo de usuário",
+  esg_criteria_version: "Critérios ESG",
+  esg_knowledge_item: "Base de conhecimento",
 };
 
 export default async function AdminAuditPage() {
@@ -55,7 +67,7 @@ export default async function AdminAuditPage() {
                 {entries.map((entry) => (
                   <tr key={entry.id}>
                     <td>{actionLabels[entry.action] ?? entry.action}</td>
-                    <td>{entry.target_type === "organization" ? "Empresa" : "Vínculo de usuário"}</td>
+                    <td>{targetTypeLabels[entry.target_type] ?? entry.target_type}</td>
                     <td className="table-subtitle">{entry.details ? JSON.stringify(entry.details) : "—"}</td>
                     <td>{new Intl.DateTimeFormat("pt-BR", { dateStyle: "medium", timeStyle: "short" }).format(new Date(entry.created_at))}</td>
                   </tr>

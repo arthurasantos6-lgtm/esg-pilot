@@ -4,27 +4,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { z } from "zod";
 import { COMPANY_MODULES, requirePlatformAdmin } from "@/lib/auth";
-import type { Json } from "@/lib/supabase/database.types";
-import type { createClient } from "@/lib/supabase/server";
-
-type SupabaseServerClient = Awaited<ReturnType<typeof createClient>>;
-
-async function logAudit(
-  supabase: SupabaseServerClient,
-  actorId: string,
-  action: string,
-  targetType: "organization" | "membership",
-  targetId: string | null,
-  details?: Record<string, Json>,
-) {
-  await supabase.from("platform_audit_log").insert({
-    actor_id: actorId,
-    action,
-    target_type: targetType,
-    target_id: targetId,
-    details: details ?? null,
-  });
-}
+import { logAudit } from "@/lib/platform-audit";
 
 const organizationSchema = z.object({
   name: z.string().trim().min(2, "Informe o nome da empresa.").max(160),

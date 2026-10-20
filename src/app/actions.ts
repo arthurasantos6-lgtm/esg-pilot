@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { z } from "zod";
 import { requireCompanyContext } from "@/lib/auth";
-import { analyzeIdea } from "@/lib/esg-analysis";
+import { analyzeIdeaWithCriteria, DEFAULT_CRITERIA, parseEsgCriteria } from "@/lib/esg-analysis";
 import { createClient } from "@/lib/supabase/server";
 
 const loginSchema = z.object({
@@ -167,7 +167,22 @@ export async function createIdea(formData: FormData) {
   }
 
   const { supabase, user, membership } = await requireCompanyContext();
-  const analysis = analyzeIdea(`${parsed.data.problem} ${parsed.data.solution}`);
+  const { data: activeCriteria } = await supabase
+    .from("esg_criteria_versions")
+    .select("id, label, dimensions, potential_thresholds")
+    .eq("status", "active")
+    .maybeSingle();
+
+  const criteria = activeCriteria
+    ? parseEsgCriteria(activeCriteria.dimensions, activeCriteria.potential_thresholds)
+    : null;
+  const analysis = analyzeIdeaWithCriteria(
+    `${parsed.data.problem} ${parsed.data.solution}`,
+    criteria ?? DEFAULT_CRITERIA,
+    criteria && activeCriteria
+      ? { criteriaVersionId: activeCriteria.id, criteriaVersionLabel: activeCriteria.label }
+      : undefined,
+  );
   const { data, error } = await supabase
     .from("ideas")
     .insert({

@@ -84,6 +84,10 @@ export default async function IdeaDetailPage({
     analysisObject && "potential" in analysisObject && typeof analysisObject.potential === "string"
       ? analysisObject.potential
       : null;
+  const criteriaVersionLabel =
+    analysisObject && "criteriaVersionLabel" in analysisObject && typeof analysisObject.criteriaVersionLabel === "string"
+      ? analysisObject.criteriaVersionLabel
+      : null;
   const suggestedMetrics = getSuggestedMetrics(idea.analysis);
 
   return (
@@ -138,6 +142,9 @@ export default async function IdeaDetailPage({
                 <h3 className="subsection-title">Indicadores para considerar</h3>
                 <ul className="metric-suggestions">{suggestedMetrics.map((metric) => <li key={metric}>{metric}</li>)}</ul>
               </>
+            )}
+            {criteriaVersionLabel && (
+              <p className="table-subtitle">Critérios usados nesta avaliação: {criteriaVersionLabel}</p>
             )}
           </section>
         </div>

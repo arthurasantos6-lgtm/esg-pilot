@@ -39,10 +39,42 @@ type PlatformAuditLog = {
   id: string;
   actor_id: string | null;
   action: string;
-  target_type: "organization" | "membership";
+  target_type: "organization" | "membership" | "esg_criteria_version" | "esg_knowledge_item";
   target_id: string | null;
   details: Json | null;
   created_at: string;
+};
+
+type EsgCriteriaVersion = {
+  id: string;
+  label: string;
+  status: "draft" | "active" | "archived";
+  dimensions: Json;
+  potential_thresholds: Json;
+  notes: string | null;
+  created_by: string | null;
+  created_at: string;
+  activated_at: string | null;
+};
+
+type EsgKnowledgeItem = {
+  id: string;
+  title: string;
+  description: string;
+  category:
+    | "concept"
+    | "evaluation_criteria"
+    | "classification_rule"
+    | "reference"
+    | "guiding_question"
+    | "recommendation";
+  source: string | null;
+  status: "draft" | "active" | "archived";
+  version: number;
+  created_by: string | null;
+  updated_by: string | null;
+  created_at: string;
+  updated_at: string;
 };
 
 type Membership = {
@@ -210,6 +242,8 @@ export type Database = {
         ]
       >;
       platform_audit_log: Table<PlatformAuditLog, "action" | "target_type">;
+      esg_criteria_versions: Table<EsgCriteriaVersion, "label" | "dimensions">;
+      esg_knowledge_items: Table<EsgKnowledgeItem, "title" | "description" | "category">;
     };
     Views: { [_ in never]: never };
     Functions: {
@@ -247,6 +281,10 @@ export type Database = {
           status: "active" | "blocked";
           created_at: string;
         }[];
+      };
+      platform_activate_criteria_version: {
+        Args: { target_id: string };
+        Returns: undefined;
       };
     };
     Enums: { [_ in never]: never };
