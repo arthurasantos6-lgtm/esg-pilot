@@ -1,0 +1,210 @@
+export type Json =
+  | string
+  | number
+  | boolean
+  | null
+  | { [key: string]: Json | undefined }
+  | Json[];
+
+type Relationship = {
+  foreignKeyName: string;
+  columns: string[];
+  isOneToOne: boolean;
+  referencedRelation: string;
+  referencedColumns: string[];
+};
+
+type Table<Row, Required extends keyof Row, Relations extends Relationship[] = []> = {
+  Row: Row;
+  Insert: Pick<Row, Required> & Partial<Omit<Row, Required>>;
+  Update: Partial<Row>;
+  Relationships: Relations;
+};
+
+type Organization = {
+  id: string;
+  name: string;
+  legal_name: string | null;
+  tax_id: string | null;
+  sector: string | null;
+  company_size: string | null;
+  status: "trial" | "active" | "suspended" | "inactive";
+  created_at: string;
+  updated_at: string;
+};
+
+type Membership = {
+  id: string;
+  organization_id: string;
+  user_id: string;
+  role: "company_admin" | "member";
+  status: "active" | "blocked";
+  created_at: string;
+};
+
+type Idea = {
+  id: string;
+  organization_id: string;
+  author_id: string;
+  title: string;
+  problem: string;
+  solution: string;
+  area: string | null;
+  status:
+    | "draft"
+    | "submitted"
+    | "in_review"
+    | "awaiting_info"
+    | "technical_review"
+    | "approved"
+    | "in_progress"
+    | "implemented"
+    | "rejected"
+    | "archived";
+  analysis: Json | null;
+  created_at: string;
+  updated_at: string;
+};
+
+type IdeaActivity = {
+  id: string;
+  organization_id: string;
+  idea_id: string;
+  actor_id: string | null;
+  action: "created" | "updated" | "status_changed";
+  old_status: string | null;
+  new_status: string | null;
+  created_at: string;
+};
+
+type EsgProject = {
+  id: string;
+  organization_id: string;
+  idea_id: string | null;
+  title: string;
+  objective: string;
+  owner_id: string | null;
+  status: "planned" | "in_progress" | "completed" | "paused" | "cancelled";
+  starts_on: string | null;
+  target_date: string | null;
+  estimated_cost: number | null;
+  created_at: string;
+  updated_at: string;
+};
+
+type EsgIndicator = {
+  id: string;
+  organization_id: string;
+  project_id: string;
+  name: string;
+  dimension: "E" | "S" | "G";
+  unit: string;
+  baseline: number | null;
+  target: number | null;
+  measured: number | null;
+  measured_at: string | null;
+  evidence_note: string | null;
+  created_at: string;
+};
+
+export type Database = {
+  public: {
+    Tables: {
+      organizations: Table<Organization, "name">;
+      memberships: Table<
+        Membership,
+        "organization_id" | "user_id",
+        [
+          {
+            foreignKeyName: "memberships_organization_id_fkey";
+            columns: ["organization_id"];
+            isOneToOne: false;
+            referencedRelation: "organizations";
+            referencedColumns: ["id"];
+          },
+        ]
+      >;
+      ideas: Table<
+        Idea,
+        "organization_id" | "author_id" | "title" | "problem" | "solution",
+        [
+          {
+            foreignKeyName: "ideas_organization_id_fkey";
+            columns: ["organization_id"];
+            isOneToOne: false;
+            referencedRelation: "organizations";
+            referencedColumns: ["id"];
+          },
+        ]
+      >;
+      idea_activity: Table<
+        IdeaActivity,
+        "organization_id" | "idea_id" | "action",
+        [
+          {
+            foreignKeyName: "idea_activity_organization_id_fkey";
+            columns: ["organization_id"];
+            isOneToOne: false;
+            referencedRelation: "organizations";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "idea_activity_idea_id_organization_id_fkey";
+            columns: ["idea_id", "organization_id"];
+            isOneToOne: false;
+            referencedRelation: "ideas";
+            referencedColumns: ["id", "organization_id"];
+          },
+        ]
+      >;
+      esg_projects: Table<
+        EsgProject,
+        "organization_id" | "title" | "objective",
+        [
+          {
+            foreignKeyName: "esg_projects_organization_id_fkey";
+            columns: ["organization_id"];
+            isOneToOne: false;
+            referencedRelation: "organizations";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "esg_projects_idea_id_organization_id_fkey";
+            columns: ["idea_id", "organization_id"];
+            isOneToOne: false;
+            referencedRelation: "ideas";
+            referencedColumns: ["id", "organization_id"];
+          },
+        ]
+      >;
+      esg_indicators: Table<
+        EsgIndicator,
+        "organization_id" | "project_id" | "name" | "dimension" | "unit",
+        [
+          {
+            foreignKeyName: "esg_indicators_organization_id_fkey";
+            columns: ["organization_id"];
+            isOneToOne: false;
+            referencedRelation: "organizations";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "esg_indicators_project_id_organization_id_fkey";
+            columns: ["project_id", "organization_id"];
+            isOneToOne: false;
+            referencedRelation: "esg_projects";
+            referencedColumns: ["id", "organization_id"];
+          },
+        ]
+      >;
+    };
+    Views: { [_ in never]: never };
+    Functions: {
+      is_org_member: { Args: { target_org_id: string }; Returns: boolean };
+      is_org_admin: { Args: { target_org_id: string }; Returns: boolean };
+      is_platform_admin: { Args: Record<PropertyKey, never>; Returns: boolean };
+    };
+    Enums: { [_ in never]: never };
+    CompositeTypes: { [_ in never]: never };
+  };
+};
