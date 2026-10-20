@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { connection } from "next/server";
 import { AppShell } from "@/app/components/app-shell";
-import { requireCompanyContext } from "@/lib/auth";
+import { parseEnabledModules, requireCompanyContext } from "@/lib/auth";
 
 export const metadata: Metadata = { title: "Visão geral" };
 
@@ -24,9 +24,14 @@ const dimensionNames: Record<string, string> = {
   G: "Governança",
 };
 
-export default async function DashboardPage() {
+export default async function DashboardPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ moduleDisabled?: string }>;
+}) {
   await connection();
   const { supabase, user, membership, organization } = await requireCompanyContext();
+  const { moduleDisabled } = await searchParams;
   const [
     { data: ideas, error },
     { data: projects, error: projectsError },
@@ -82,6 +87,7 @@ export default async function DashboardPage() {
       organizationName={organization.name}
       userEmail={user.email ?? "Conta"}
       role={membership.role}
+      enabledModules={parseEnabledModules(organization.enabled_modules)}
     >
       <header className="page-header">
         <div>
@@ -91,6 +97,12 @@ export default async function DashboardPage() {
         </div>
         <Link className="button button-primary" href="/ideas/new">＋ Registrar ideia</Link>
       </header>
+
+      {moduleDisabled && (
+        <p className="alert alert-error" role="alert">
+          O módulo &quot;{moduleDisabled}&quot; não está habilitado para a sua organização. Fale com o administrador da plataforma.
+        </p>
+      )}
 
       <section className="metric-grid" aria-label="Indicadores de ideias">
         <article className="metric-card">

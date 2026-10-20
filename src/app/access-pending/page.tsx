@@ -13,11 +13,19 @@ export default async function AccessPendingPage({
       <section className="auth-card" aria-labelledby="pending-title">
         <span className="brand-mark" aria-hidden="true">C</span>
         <p className="eyebrow">ACESSO À ORGANIZAÇÃO</p>
-        <h1 id="pending-title">{status === "inactive" ? "Ambiente indisponível" : "Acesso pendente"}</h1>
+        <h1 id="pending-title">
+          {status === "inactive"
+            ? "Ambiente indisponível"
+            : status === "forbidden"
+              ? "Acesso restrito"
+              : "Acesso pendente"}
+        </h1>
         <p className="muted">
           {status === "inactive"
             ? "O ambiente da sua organização está suspenso ou inativo. Fale com o administrador responsável."
-            : "Sua conta ainda não está vinculada a uma organização ativa. Peça ao administrador para liberar seu acesso."}
+            : status === "forbidden"
+              ? "Esse recurso é restrito a administradores da plataforma."
+              : "Sua conta ainda não está vinculada a uma organização ativa. Peça ao administrador para liberar seu acesso."}
         </p>
         <div className="pending-actions">
           <Link href="/login" className="text-link">Voltar</Link>

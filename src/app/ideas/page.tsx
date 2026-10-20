@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { connection } from "next/server";
 import { AppShell } from "@/app/components/app-shell";
-import { requireCompanyContext } from "@/lib/auth";
+import { assertModuleEnabled, requireCompanyContext } from "@/lib/auth";
 
 export const metadata: Metadata = { title: "Ideias" };
 
@@ -28,6 +28,7 @@ export default async function IdeasPage({
 }) {
   await connection();
   const { supabase, user, membership, organization } = await requireCompanyContext();
+  assertModuleEnabled(organization.enabled_modules, "ideas", "Ideias");
   const params = await searchParams;
   const query = params.q?.trim().slice(0, 100) ?? "";
   const selectedStatus = statuses.find(([value]) => value === params.status)?.[0] ?? "";

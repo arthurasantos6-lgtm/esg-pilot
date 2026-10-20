@@ -4,7 +4,7 @@ import { connection } from "next/server";
 import { redirect } from "next/navigation";
 import { createProject } from "@/app/actions";
 import { AppShell } from "@/app/components/app-shell";
-import { requireCompanyContext } from "@/lib/auth";
+import { assertModuleEnabled, requireCompanyContext } from "@/lib/auth";
 
 export const metadata: Metadata = { title: "Criar projeto ESG" };
 
@@ -15,6 +15,7 @@ export default async function NewProjectPage({
 }) {
   await connection();
   const { supabase, user, membership, organization } = await requireCompanyContext();
+  assertModuleEnabled(organization.enabled_modules, "projects", "Projetos");
   if (membership.role !== "company_admin") redirect("/projects?error=Apenas%20administradores%20da%20empresa%20podem%20criar%20projetos.");
 
   const [{ data: approvedIdeas, error: ideasError }, { error }] = await Promise.all([

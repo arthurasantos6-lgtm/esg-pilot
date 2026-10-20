@@ -24,13 +24,25 @@ type Table<Row, Required extends keyof Row, Relations extends Relationship[] = [
 type Organization = {
   id: string;
   name: string;
+  display_name: string | null;
   legal_name: string | null;
   tax_id: string | null;
   sector: string | null;
   company_size: string | null;
   status: "trial" | "active" | "suspended" | "inactive";
+  enabled_modules: Json;
   created_at: string;
   updated_at: string;
+};
+
+type PlatformAuditLog = {
+  id: string;
+  actor_id: string | null;
+  action: string;
+  target_type: "organization" | "membership";
+  target_id: string | null;
+  details: Json | null;
+  created_at: string;
 };
 
 type Membership = {
@@ -197,12 +209,45 @@ export type Database = {
           },
         ]
       >;
+      platform_audit_log: Table<PlatformAuditLog, "action" | "target_type">;
     };
     Views: { [_ in never]: never };
     Functions: {
       is_org_member: { Args: { target_org_id: string }; Returns: boolean };
       is_org_admin: { Args: { target_org_id: string }; Returns: boolean };
       is_platform_admin: { Args: Record<PropertyKey, never>; Returns: boolean };
+      platform_dashboard_stats: { Args: Record<PropertyKey, never>; Returns: Json };
+      platform_list_organizations: {
+        Args: Record<PropertyKey, never>;
+        Returns: {
+          id: string;
+          name: string;
+          display_name: string | null;
+          sector: string | null;
+          company_size: string | null;
+          status: string;
+          enabled_modules: Json;
+          created_at: string;
+          member_count: number;
+          idea_count: number;
+          project_count: number;
+        }[];
+      };
+      platform_find_user_by_email: {
+        Args: { target_email: string };
+        Returns: { id: string; email: string }[];
+      };
+      platform_list_organization_members: {
+        Args: { target_org_id: string };
+        Returns: {
+          id: string;
+          user_id: string;
+          email: string;
+          role: "company_admin" | "member";
+          status: "active" | "blocked";
+          created_at: string;
+        }[];
+      };
     };
     Enums: { [_ in never]: never };
     CompositeTypes: { [_ in never]: never };

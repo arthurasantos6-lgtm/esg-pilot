@@ -7,6 +7,7 @@ type AppShellProps = {
   organizationName: string;
   userEmail: string;
   role: "company_admin" | "member";
+  enabledModules?: string[];
 };
 
 export function AppShell({
@@ -14,7 +15,11 @@ export function AppShell({
   organizationName,
   userEmail,
   role,
+  enabledModules,
 }: AppShellProps) {
+  const isModuleEnabled = (moduleKey: string) =>
+    !enabledModules || enabledModules.includes(moduleKey);
+
   return (
     <div className="app-frame">
       <aside className="sidebar" aria-label="Navegação principal">
@@ -29,9 +34,15 @@ export function AppShell({
         </div>
         <nav className="main-nav">
           <Link href="/dashboard"><span aria-hidden="true">▦</span> Visão geral</Link>
-          <Link href="/ideas"><span aria-hidden="true">◎</span> Ideias</Link>
-          <Link href="/projects"><span aria-hidden="true">⌁</span> Projetos</Link>
-          <Link href="/ideas/new"><span aria-hidden="true">＋</span> Nova ideia</Link>
+          {isModuleEnabled("ideas") && (
+            <Link href="/ideas"><span aria-hidden="true">◎</span> Ideias</Link>
+          )}
+          {isModuleEnabled("projects") && (
+            <Link href="/projects"><span aria-hidden="true">⌁</span> Projetos</Link>
+          )}
+          {isModuleEnabled("ideas") && (
+            <Link href="/ideas/new"><span aria-hidden="true">＋</span> Nova ideia</Link>
+          )}
         </nav>
         <div className="sidebar-bottom">
           <p className="role-label">{role === "company_admin" ? "Administrador da empresa" : "Colaborador"}</p>

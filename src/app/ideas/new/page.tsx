@@ -3,7 +3,7 @@ import Link from "next/link";
 import { connection } from "next/server";
 import { createIdea } from "@/app/actions";
 import { AppShell } from "@/app/components/app-shell";
-import { requireCompanyContext } from "@/lib/auth";
+import { assertModuleEnabled, requireCompanyContext } from "@/lib/auth";
 
 export const metadata: Metadata = { title: "Registrar ideia" };
 
@@ -14,6 +14,7 @@ export default async function NewIdeaPage({
 }) {
   await connection();
   const { user, membership, organization } = await requireCompanyContext();
+  assertModuleEnabled(organization.enabled_modules, "ideas", "Ideias");
   const { error } = await searchParams;
 
   return (

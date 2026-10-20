@@ -588,6 +588,22 @@ h3 {
   --status-color: #7a6565;
 }
 
+.status-badge-trial {
+  --status-color: #8c6c29;
+}
+
+.status-badge-active {
+  --status-color: #257454;
+}
+
+.status-badge-suspended {
+  --status-color: #876b31;
+}
+
+.status-badge-inactive {
+  --status-color: #7a6565;
+}
+
 .status-list .status-dot {
   background: var(--status-color, #5c9874);
 }
@@ -945,6 +961,47 @@ textarea::placeholder {
   border-color: #c8e1ce;
   background: #f0f8f1;
   color: #2b6742;
+}
+
+.module-fieldset {
+  margin-top: 9px;
+  padding: 12px;
+  border: 1px solid #d9e4dd;
+  border-radius: 7px;
+}
+
+.module-fieldset legend {
+  padding: 0 6px;
+  color: #38574b;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.checkbox-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 0 !important;
+  font-weight: 400 !important;
+}
+
+.checkbox-row input[type="checkbox"] {
+  width: auto;
+  min-height: 0;
+}
+
+.inline-form {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.inline-form select {
+  min-height: 36px;
+  padding: 6px 8px;
+  border: 1px solid #d9e4dd;
+  border-radius: 6px;
+  font-size: 12px;
 }
 
 .recovery-link {
