@@ -52,7 +52,8 @@ Aplicação SaaS multiempresa em Next.js, TypeScript e Supabase. Esta primeira e
     As chaves são lidas apenas no servidor; nunca use o prefixo `NEXT_PUBLIC_` nelas. A tela `/admin/ai` mostra o provedor ativo (sem exibir chaves) e testa a conexão. Sem IA configurada, o fluxo de ideias funciona sem copiloto e sem avaliação por IA, e a interface informa isso.
 12. Execute [a migração de decisões gerenciais](./supabase/migrations/20261024_idea_decisions.sql).
 13. Execute [a migração de acesso por link](./supabase/migrations/20261025_access_links.sql) e, em Authentication > Sign In / Providers, habilite **Allow anonymous sign-ins** (necessário para colaboradores entrarem sem cadastro). Recomenda-se habilitar também CAPTCHA (Authentication > Attack Protection) para reduzir abuso.
-14. Instale dependências e inicie:
+14. Execute [a migração de uso da plataforma](./supabase/migrations/20261026_platform_usage.sql).
+15. Instale dependências e inicie:
 
    ```bash
    npm install
@@ -75,7 +76,11 @@ Cada empresa pode ter os módulos "Ideias" e "Projetos" habilitados ou desabilit
 - Três perfis de acesso: administrador da plataforma, administrador da empresa e colaborador, resolvidos por `app_metadata`/membership no backend (não apenas na interface).
 - Painel administrativo (`/admin`): cadastro e edição de empresas clientes, situação da conta, módulos habilitados por empresa, vínculo de usuários já cadastrados a uma empresa e trocas de perfil/situação, indicadores agregados (contagens) por situação de empresas, ideias e projetos, e trilha de auditoria das ações administrativas.
 - RLS em tabelas de organização, memberships, ideias, auditoria de ideias, projetos, indicadores e auditoria administrativa.
-- Dashboard e lista paginada de ideias com busca e filtro de situação, alimentados por consultas ao Supabase e protegidos por RLS.
+- Painéis por perfil (`/dashboard` e `/admin`), calculados apenas com dados registrados:
+  - **Colaborador**: boas-vindas, botão para enviar ideia, pendências (rascunhos e pedidos de complementação), "Minhas ideias" com situação e próxima ação, e orientações para escrever uma boa proposta. Sem gráficos gerenciais.
+  - **Gestão da empresa**: filtros de período, situação, dimensão ESG e área; ideias recebidas, aguardando a gestão, priorizadas/aprovadas, tempo médio até a primeira decisão e até a decisão final; distribuição por dimensão ESG (indicando quantas vêm da avaliação por IA e quantas da triagem por termos), potencial estimado, situação, área e prioridade; evolução mensal com tabela equivalente; projetos e indicadores separando metas de medições reais.
+  - **Administrador da plataforma**: alertas operacionais (IA não configurada, avaliações com falha ou interrompidas), empresas por situação, usuários (gestão e por link) e uso por empresa no período (ideias, decisões, avaliações por IA, mensagens do copiloto e tokens), com filtros por período, situação e empresa. Apenas contagens, sem conteúdo dos clientes (`platform_usage_overview`).
+- Lista paginada de ideias com busca e filtro de situação, protegida por RLS.
 - Registro e acompanhamento de ideias com trilha de auditoria e atualização de situação por administrador da empresa.
 - Acesso do colaborador por link (`/acesso/[token]`): a gestão da empresa (`/equipe`) ou o administrador da plataforma (detalhe da empresa) gera links com identificação e validade; cada link pertence a uma única empresa, concede apenas o perfil de colaborador e pode ser revogado. O vínculo é feito no banco (`join_organization_with_link`): uma sessão nunca fica em duas empresas, e empresas suspensas ou inativas não aceitam entradas. A gestão vê quem entrou por link e pode bloquear colaboradores. Limite de 20 novas ideias por pessoa em 24 horas.
 - Fluxo do colaborador em texto livre (`/ideas/new`): a ideia nasce como rascunho visível só para o autor; o texto original é preservado e não pode ser alterado (garantido por trigger no banco).

@@ -413,6 +413,26 @@ export type Database = {
         Returns: { organization_id: string; organization_name: string }[];
       };
       join_organization_with_link: { Args: { p_token: string }; Returns: string };
+      platform_usage_overview: {
+        Args: { p_from?: string | null };
+        Returns: {
+          organization_id: string;
+          organization_name: string;
+          organization_status: string;
+          managers_active: number;
+          collaborators_active: number;
+          collaborators_via_link: number;
+          ideas_submitted: number;
+          ideas_decided: number;
+          copilot_messages: number;
+          evaluations_completed: number;
+          evaluations_failed: number;
+          evaluations_pending: number;
+          evaluations_stale: number;
+          ai_input_tokens: number;
+          ai_output_tokens: number;
+        }[];
+      };
       platform_activate_criteria_version: {
         Args: { target_id: string };
         Returns: undefined;
