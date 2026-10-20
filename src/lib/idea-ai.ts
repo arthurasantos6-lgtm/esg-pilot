@@ -6,7 +6,7 @@ import {
   isAiConfigured,
   logAiFailure,
   toUserFacingAiError,
-} from "@/lib/ai/claude";
+} from "@/lib/ai/service";
 import type { CriteriaPromptInput, IdeaPromptInput, KnowledgePromptItem } from "@/lib/ai/prompts";
 import { DEFAULT_CRITERIA, parseEsgCriteria } from "@/lib/esg-analysis";
 import { PROPOSAL_FIELDS, parseStoredProposal } from "@/lib/idea-proposal";

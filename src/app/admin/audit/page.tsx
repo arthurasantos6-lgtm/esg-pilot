@@ -15,6 +15,9 @@ const actionLabels: Record<string, string> = {
   esg_criteria_version_activated: "Versão de critérios ativada",
   esg_knowledge_item_created: "Conhecimento ESG cadastrado",
   esg_knowledge_item_updated: "Conhecimento ESG atualizado",
+  access_link_created: "Link de acesso gerado",
+  access_link_revoked: "Link de acesso revogado",
+  ai_integration_tested: "Integração de IA testada",
 };
 
 const targetTypeLabels: Record<string, string> = {
@@ -22,6 +25,8 @@ const targetTypeLabels: Record<string, string> = {
   membership: "Vínculo de usuário",
   esg_criteria_version: "Critérios ESG",
   esg_knowledge_item: "Base de conhecimento",
+  access_link: "Link de acesso",
+  platform_config: "Configuração da plataforma",
 };
 
 export default async function AdminAuditPage() {

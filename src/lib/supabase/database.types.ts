@@ -39,7 +39,7 @@ type PlatformAuditLog = {
   id: string;
   actor_id: string | null;
   action: string;
-  target_type: "organization" | "membership" | "esg_criteria_version" | "esg_knowledge_item" | "access_link";
+  target_type: "organization" | "membership" | "esg_criteria_version" | "esg_knowledge_item" | "access_link" | "platform_config";
   target_id: string | null;
   details: Json | null;
   created_at: string;

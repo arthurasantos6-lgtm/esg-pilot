@@ -192,4 +192,4 @@ grant execute on function public.org_list_members(uuid) to authenticated;
 
 alter table public.platform_audit_log drop constraint platform_audit_log_target_type_check;
 alter table public.platform_audit_log add constraint platform_audit_log_target_type_check
-  check (target_type in ('organization', 'membership', 'esg_criteria_version', 'esg_knowledge_item', 'access_link'));
+  check (target_type in ('organization', 'membership', 'esg_criteria_version', 'esg_knowledge_item', 'access_link', 'platform_config'));

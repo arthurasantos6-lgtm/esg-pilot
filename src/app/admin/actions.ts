@@ -5,6 +5,7 @@ import { redirect } from "next/navigation";
 import { z } from "zod";
 import { COMPANY_MODULES, requirePlatformAdmin } from "@/lib/auth";
 import { readCreateLinkForm } from "@/lib/access-links";
+import { testAiConnection, toUserFacingAiError } from "@/lib/ai/service";
 import { logAudit } from "@/lib/platform-audit";
 
 const organizationSchema = z.object({
@@ -245,4 +246,20 @@ export async function revokePlatformAccessLink(formData: FormData) {
 
   revalidatePath(companyUrl);
   redirect(`${companyUrl}?linkRevoked=1`);
+}
+
+/** Testa a integração de IA com uma chamada mínima, sem dados de clientes. */
+export async function testAiIntegration() {
+  const { supabase, user } = await requirePlatformAdmin();
+  let target: string;
+  try {
+    const { model, latencyMs } = await testAiConnection();
+    target = `/admin/ai?tested=1&model=${encodeURIComponent(model)}&latency=${latencyMs}`;
+  } catch (error) {
+    target = `/admin/ai?error=${encodeURIComponent(toUserFacingAiError(error))}`;
+  }
+  await logAudit(supabase, user.id, "ai_integration_tested", "platform_config", null, {
+    success: target.includes("tested=1"),
+  });
+  redirect(target);
 }

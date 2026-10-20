@@ -9,7 +9,7 @@ import {
   generateProposalDraft,
   logAiFailure,
   toUserFacingAiError,
-} from "@/lib/ai/claude";
+} from "@/lib/ai/service";
 import { isEvaluationStale } from "@/lib/ai/evaluation-status";
 import type { ChatTurn } from "@/lib/ai/prompts";
 import { assertModuleEnabled, requireCompanyContext } from "@/lib/auth";
