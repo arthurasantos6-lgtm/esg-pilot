@@ -18,12 +18,15 @@ export async function CollaboratorHome({
   organizationName,
   aiAvailable,
   welcome,
+  canCreate,
 }: {
   supabase: Supabase;
   userId: string;
   organizationName: string;
   aiAvailable: boolean;
   welcome: boolean;
+  /** Só colaboradores que entraram pelo link podem enviar ideias. */
+  canCreate: boolean;
 }) {
   const { data: ideas, error } = await supabase
     .from("ideas")
@@ -48,8 +51,14 @@ export async function CollaboratorHome({
             empresa é gerida. {aiAvailable ? "Um copiloto de IA ajuda você a organizar a proposta antes de enviar." : ""}
           </p>
         </div>
-        <Link className="button button-primary" href="/ideas/new">＋ Enviar uma ideia</Link>
+        {canCreate && <Link className="button button-primary" href="/ideas/new">＋ Enviar uma ideia</Link>}
       </header>
+
+      {!canCreate && (
+        <p className="alert alert-info" role="status">
+          O envio de ideias é feito pelo link de acesso da empresa. Peça o link à gestão e abra-o neste navegador.
+        </p>
+      )}
 
       {welcome && (
         <p className="alert alert-success" role="status">
@@ -94,7 +103,7 @@ export async function CollaboratorHome({
               <span className="empty-icon" aria-hidden="true">✳</span>
               <h3>Você ainda não enviou ideias</h3>
               <p className="muted">Comece com poucas linhas. {aiAvailable ? "O copiloto ajuda a completar." : "Você pode completar depois."}</p>
-              <Link className="button button-secondary" href="/ideas/new">Enviar minha primeira ideia</Link>
+              {canCreate && <Link className="button button-secondary" href="/ideas/new">Enviar minha primeira ideia</Link>}
             </div>
           ) : (
             <ul className="home-list">

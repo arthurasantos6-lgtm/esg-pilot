@@ -108,7 +108,8 @@ export async function updateOrganization(formData: FormData) {
 const addMembershipSchema = z.object({
   organizationId: z.string().uuid(),
   email: z.string().trim().email("Informe um e-mail válido."),
-  role: z.enum(["company_admin", "member"]),
+  // Contas com e-mail são da gestão; colaboradores entram pelo link de acesso.
+  role: z.literal("company_admin", "Colaboradores entram pelo link de acesso da empresa."),
 });
 
 export async function addMembership(formData: FormData) {

@@ -37,7 +37,7 @@ export default async function TeamPage({
     <AppShell
       organizationName={organization.name}
       userEmail={user.email}
-      role={membership.role}
+      membership={membership}
       enabledModules={parseEnabledModules(organization.enabled_modules)}
     >
       <header className="page-header">

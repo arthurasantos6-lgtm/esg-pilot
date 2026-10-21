@@ -7,6 +7,7 @@ import { ManagerDashboard } from "@/app/dashboard/manager-dashboard";
 import { parseEnabledModules, requireCompanyContext } from "@/lib/auth";
 import { parsePeriod } from "@/lib/dashboard-metrics";
 import { isAiAvailable } from "@/lib/idea-ai";
+import { canCreateIdeas } from "@/lib/idea-permissions";
 
 export const metadata: Metadata = { title: "Visão geral" };
 
@@ -30,7 +31,7 @@ export default async function DashboardPage({
   const isManager = membership.role === "company_admin";
 
   return (
-    <AppShell organizationName={organization.name} userEmail={user.email} role={membership.role} enabledModules={enabledModules}>
+    <AppShell organizationName={organization.name} userEmail={user.email} membership={membership} enabledModules={enabledModules}>
       {query.moduleDisabled && (
         <p className="alert alert-error" role="alert">
           O módulo &quot;{query.moduleDisabled}&quot; não está habilitado para a sua organização. Fale com o administrador da plataforma.
@@ -67,6 +68,7 @@ export default async function DashboardPage({
           organizationName={organization.name}
           aiAvailable={isAiAvailable()}
           welcome={Boolean(query.welcome)}
+          canCreate={canCreateIdeas(membership)}
         />
       )}
     </AppShell>

@@ -53,7 +53,8 @@ Aplicação SaaS multiempresa em Next.js, TypeScript e Supabase. Esta primeira e
 12. Execute [a migração de decisões gerenciais](./supabase/migrations/20261024_idea_decisions.sql).
 13. Execute [a migração de acesso por link](./supabase/migrations/20261025_access_links.sql) e, em Authentication > Sign In / Providers, habilite **Allow anonymous sign-ins** (necessário para colaboradores entrarem sem cadastro). Recomenda-se habilitar também CAPTCHA (Authentication > Attack Protection) para reduzir abuso.
 14. Execute [a migração de uso da plataforma](./supabase/migrations/20261026_platform_usage.sql).
-15. Instale dependências e inicie:
+15. Execute [a migração que restringe ideias aos colaboradores por link](./supabase/migrations/20261027_ideas_from_link_only.sql).
+16. Instale dependências e inicie:
 
    ```bash
    npm install
@@ -65,7 +66,7 @@ Abra `http://localhost:3000`.
 ## Perfis de acesso
 
 - **Administrador da plataforma** (`auth.users.raw_app_meta_data.platform_admin = true`): acessa `/admin`. Gerencia empresas clientes (cadastro, situação da conta, módulos habilitados), vincula usuários já existentes a empresas e consulta indicadores agregados (contagens) de todas as empresas. Não tem acesso de leitura ao conteúdo de ideias, conversas ou projetos de nenhuma empresa — isso é reforçado por Row Level Security no banco, não apenas pela interface.
-- **Administrador da empresa cliente** (`memberships.role = 'company_admin'`): acesso completo aos dados da própria organização (`/dashboard`, `/ideas`, `/projects`), incluindo mudança de situação de ideias e criação de projetos.
+- **Administrador da empresa cliente** (`memberships.role = 'company_admin'`): acesso completo aos dados da própria organização (`/dashboard`, `/ideas`, `/projects`), avaliando e decidindo sobre as ideias enviadas pelos colaboradores e conduzindo os projetos. A gestão **não cadastra ideias**: ideias só são criadas por colaboradores que entraram pelo link de acesso (regra garantida no banco por `is_link_collaborator`).
 - **Colaborador** (`memberships.role = 'member'`): entra pelo link de acesso da empresa, sem cadastro nem senha (sessão anônima do Supabase Auth vinculada a uma única empresa). Registra ideias, conversa com o copiloto e acompanha apenas as próprias ideias (situação, próxima ação e mensagens da gestão). Não vê ideias de outros colaboradores, justificativas internas nem avaliações humanas da gestão.
 
 Cada empresa pode ter os módulos "Ideias" e "Projetos" habilitados ou desabilitados individualmente pelo administrador da plataforma; a aplicação bloqueia o acesso no backend (não apenas oculta o menu) quando um módulo está desligado.

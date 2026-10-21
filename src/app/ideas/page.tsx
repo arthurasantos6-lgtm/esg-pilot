@@ -3,6 +3,7 @@ import Link from "next/link";
 import { connection } from "next/server";
 import { AppShell } from "@/app/components/app-shell";
 import { assertModuleEnabled, requireCompanyContext } from "@/lib/auth";
+import { canCreateIdeas } from "@/lib/idea-permissions";
 import { IDEA_STATUS_ORDER, ideaStatusLabel, nextStepForAuthor } from "@/lib/idea-status";
 
 export const metadata: Metadata = { title: "Ideias" };
@@ -24,6 +25,7 @@ export default async function IdeasPage({
   const query = params.q?.trim().slice(0, 100) ?? "";
   const selectedStatus = statuses.find(([value]) => value === params.status)?.[0] ?? "";
   const onlyMine = params.mine === "1";
+  const canCreate = canCreateIdeas(membership);
   const requestedPage = Number(params.page);
   const page = Number.isInteger(requestedPage) && requestedPage > 0 ? requestedPage : 1;
   const pageSize = 15;
@@ -52,14 +54,14 @@ export default async function IdeasPage({
   };
 
   return (
-    <AppShell organizationName={organization.name} userEmail={user.email} role={membership.role}>
+    <AppShell organizationName={organization.name} userEmail={user.email} membership={membership}>
       <header className="page-header">
         <div>
           {membership.role === "company_admin" ? (
             <>
               <p className="eyebrow">IDEIAS DA ORGANIZAÇÃO</p>
               <h1>Ideias</h1>
-              <p className="muted">Ideias enviadas pela equipe e seus próprios rascunhos.</p>
+              <p className="muted">Ideias enviadas pelos colaboradores para avaliação da gestão.</p>
             </>
           ) : (
             <>
@@ -69,7 +71,7 @@ export default async function IdeasPage({
             </>
           )}
         </div>
-        <Link className="button button-primary" href="/ideas/new">＋ Nova ideia</Link>
+        {canCreate && <Link className="button button-primary" href="/ideas/new">＋ Nova ideia</Link>}
       </header>
 
       {params.error && <p className="alert alert-error" role="alert">{params.error}</p>}
@@ -86,12 +88,6 @@ export default async function IdeasPage({
               {statuses.map(([value, label]) => <option key={value} value={value}>{label}</option>)}
             </select>
           </label>
-          {membership.role === "company_admin" && (
-            <label className="checkbox-row filter-check">
-              <input type="checkbox" name="mine" value="1" defaultChecked={onlyMine} />
-              Minhas ideias
-            </label>
-          )}
           <button className="button button-secondary" type="submit">Filtrar</button>
         </form>
 
@@ -102,9 +98,16 @@ export default async function IdeasPage({
             <p className="muted">
               {query || selectedStatus || onlyMine
                 ? "Altere os filtros ou tente outra busca."
-                : "Registre a primeira oportunidade de melhoria da sua organização."}
+                : canCreate
+                  ? "Registre a primeira oportunidade de melhoria."
+                  : "As ideias chegam pelos colaboradores. Compartilhe o link de acesso da empresa para começar."}
             </p>
-            {!query && !selectedStatus && !onlyMine && <Link className="button button-secondary" href="/ideas/new">Registrar ideia</Link>}
+            {!query && !selectedStatus && !onlyMine && canCreate && (
+              <Link className="button button-secondary" href="/ideas/new">Registrar ideia</Link>
+            )}
+            {!query && !selectedStatus && !onlyMine && membership.role === "company_admin" && (
+              <Link className="button button-secondary" href="/equipe">Gerar link de acesso</Link>
+            )}
           </div>
         ) : (
           <>

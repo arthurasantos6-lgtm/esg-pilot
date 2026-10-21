@@ -340,6 +340,7 @@ export type Database = {
     Functions: {
       is_org_member: { Args: { target_org_id: string }; Returns: boolean };
       is_org_admin: { Args: { target_org_id: string }; Returns: boolean };
+      is_link_collaborator: { Args: { target_org_id: string }; Returns: boolean };
       is_platform_admin: { Args: Record<PropertyKey, never>; Returns: boolean };
       platform_dashboard_stats: { Args: Record<PropertyKey, never>; Returns: Json };
       platform_list_organizations: {

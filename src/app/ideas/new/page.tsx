@@ -1,11 +1,13 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { redirect } from "next/navigation";
 import { connection } from "next/server";
 import { startIdea } from "@/app/ideas/actions";
 import { AppShell } from "@/app/components/app-shell";
 import { SubmitButton } from "@/app/components/submit-button";
 import { assertModuleEnabled, requireCompanyContext } from "@/lib/auth";
 import { isAiAvailable } from "@/lib/idea-ai";
+import { CANNOT_CREATE_IDEAS_MESSAGE, canCreateIdeas } from "@/lib/idea-permissions";
 
 export const metadata: Metadata = { title: "Registrar ideia" };
 
@@ -20,11 +22,14 @@ export default async function NewIdeaPage({
   await connection();
   const { user, membership, organization } = await requireCompanyContext();
   assertModuleEnabled(organization.enabled_modules, "ideas", "Ideias");
+  if (!canCreateIdeas(membership)) {
+    redirect(`/ideas?error=${encodeURIComponent(CANNOT_CREATE_IDEAS_MESSAGE)}`);
+  }
   const { error } = await searchParams;
   const aiAvailable = isAiAvailable();
 
   return (
-    <AppShell organizationName={organization.name} userEmail={user.email} role={membership.role}>
+    <AppShell organizationName={organization.name} userEmail={user.email} membership={membership}>
       <header className="page-header">
         <div>
           <Link className="back-link" href="/ideas">← Voltar para ideias</Link>

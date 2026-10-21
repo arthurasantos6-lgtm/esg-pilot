@@ -23,6 +23,7 @@ import {
   scheduleIdeaEvaluation,
   toIdeaPromptInput,
 } from "@/lib/idea-ai";
+import { CANNOT_CREATE_IDEAS_MESSAGE, canCreateIdeas } from "@/lib/idea-permissions";
 import { columnText, parseStoredProposal, PROPOSAL_FIELDS, readProposalForm } from "@/lib/idea-proposal";
 import { createServiceClient } from "@/lib/supabase/admin";
 import type { Json } from "@/lib/supabase/database.types";
@@ -103,6 +104,9 @@ export async function startIdea(formData: FormData) {
 
   const context = await requireCompanyContext();
   assertModuleEnabled(context.organization.enabled_modules, "ideas", "Ideias");
+  if (!canCreateIdeas(context.membership)) {
+    redirect(`/ideas?error=${encodeURIComponent(CANNOT_CREATE_IDEAS_MESSAGE)}`);
+  }
 
   const { count: recentIdeas } = await context.supabase
     .from("ideas")

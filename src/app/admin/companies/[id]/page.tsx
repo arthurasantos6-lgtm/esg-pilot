@@ -127,7 +127,7 @@ export default async function CompanyDetailPage({
         </section>
 
         <section className="panel" aria-labelledby="add-member-title">
-          <h2 id="add-member-title">Vincular usuário existente</h2>
+          <h2 id="add-member-title">Vincular gestor da empresa</h2>
           <p className="muted small-copy">
             O usuário precisa já existir em Authentication &gt; Users no Supabase. Informe o e-mail cadastrado lá.
           </p>
@@ -135,11 +135,11 @@ export default async function CompanyDetailPage({
             <input type="hidden" name="organizationId" value={organization.id} />
             <label htmlFor="email">E-mail do usuário <span aria-hidden="true">*</span></label>
             <input id="email" name="email" type="email" required placeholder="usuario@empresa.com" />
-            <label htmlFor="role">Perfil</label>
-            <select id="role" name="role" defaultValue="member">
-              <option value="member">Colaborador</option>
-              <option value="company_admin">Administrador da empresa</option>
-            </select>
+            <input type="hidden" name="role" value="company_admin" />
+            <p className="field-hint">
+              O usuário será vinculado como <strong>gestão da empresa</strong>. Colaboradores não usam conta com e-mail: entram
+              pelo link de acesso abaixo.
+            </p>
             <div className="form-actions">
               <button className="button button-primary" type="submit">Vincular usuário</button>
             </div>

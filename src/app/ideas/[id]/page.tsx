@@ -143,7 +143,7 @@ export default async function IdeaDetailPage({
   const dateFormat = new Intl.DateTimeFormat("pt-BR", { dateStyle: "long" });
 
   return (
-    <AppShell organizationName={organization.name} userEmail={user.email} role={membership.role}>
+    <AppShell organizationName={organization.name} userEmail={user.email} membership={membership}>
       <header className="page-header">
         <div>
           <Link className="back-link" href="/ideas">← Voltar para ideias</Link>

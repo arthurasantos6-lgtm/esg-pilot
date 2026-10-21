@@ -15,7 +15,7 @@ export async function requireCompanyContext() {
 
   const { data: membership, error: membershipError } = await supabase
     .from("memberships")
-    .select("organization_id, role, organizations(name, status, enabled_modules)")
+    .select("organization_id, role, access_link_id, organizations(name, status, enabled_modules)")
     .eq("user_id", user.id)
     .maybeSingle();
 

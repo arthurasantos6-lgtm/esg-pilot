@@ -1,13 +1,14 @@
 import Link from "next/link";
 import type { ReactNode } from "react";
 import { signOut } from "@/app/actions";
+import { canCreateIdeas } from "@/lib/idea-permissions";
 
 type AppShellProps = {
   children: ReactNode;
   organizationName: string;
   /** Ausente para colaboradores que entraram pelo link da empresa (sessão anônima). */
   userEmail?: string | null;
-  role: "company_admin" | "member";
+  membership: { role: "company_admin" | "member"; access_link_id: string | null };
   enabledModules?: string[];
 };
 
@@ -15,9 +16,10 @@ export function AppShell({
   children,
   organizationName,
   userEmail,
-  role,
+  membership,
   enabledModules,
 }: AppShellProps) {
+  const role = membership.role;
   const isModuleEnabled = (moduleKey: string) =>
     !enabledModules || enabledModules.includes(moduleKey);
 
@@ -41,7 +43,7 @@ export function AppShell({
           {isModuleEnabled("projects") && (
             <Link href="/projects"><span aria-hidden="true">⌁</span> Projetos</Link>
           )}
-          {isModuleEnabled("ideas") && (
+          {isModuleEnabled("ideas") && canCreateIdeas(membership) && (
             <Link href="/ideas/new"><span aria-hidden="true">＋</span> Nova ideia</Link>
           )}
           {role === "company_admin" && (

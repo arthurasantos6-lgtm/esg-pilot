@@ -51,7 +51,7 @@ export default async function ProjectDetailPage({
   if (!project) notFound();
 
   return (
-    <AppShell organizationName={organization.name} userEmail={user.email} role={membership.role}>
+    <AppShell organizationName={organization.name} userEmail={user.email} membership={membership}>
       <header className="page-header">
         <div>
           <Link className="back-link" href="/projects">← Voltar para projetos</Link>
