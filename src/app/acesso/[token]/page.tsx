@@ -67,20 +67,15 @@ export default async function AccessLinkPage({
     <main className="auth-page">
       <section className="auth-card" aria-labelledby="link-title">
         <Brand />
-        <p className="eyebrow">ACESSO DO COLABORADOR</p>
         <h1 id="link-title">{link.organization_name}</h1>
-        <p className="muted">
-          Compartilhe ideias de melhoria com a sua empresa. Um copiloto ajuda a organizar a proposta e a identificar
-          possíveis impactos ambientais, sociais e de governança.
-        </p>
+        <p className="muted">Tem uma ideia para melhorar o trabalho na empresa? Conte para o copiloto em uma conversa rápida.</p>
         {error && <p className="alert alert-error" role="alert">{error}</p>}
 
         {otherOrganization ? (
           <form className="form-stack" action={leaveAndReturn}>
             <input type="hidden" name="token" value={token} />
             <p className="alert alert-info">
-              Este navegador está conectado a outra empresa. Para usar este link, saia do acesso atual. Você não verá mais
-              as ideias da outra empresa neste navegador.
+              Este navegador está conectado a outra empresa. Para usar este link, saia do acesso atual.
             </p>
             <SubmitButton className="button button-secondary button-full" pendingLabel="Saindo…">
               Sair do acesso atual
@@ -90,16 +85,12 @@ export default async function AccessLinkPage({
           <form className="form-stack" action={joinWithLink}>
             <input type="hidden" name="token" value={token} />
             <SubmitButton className="button button-primary button-full" pendingLabel="Entrando…">
-              Entrar como colaborador
+              Começar <span aria-hidden="true">→</span>
             </SubmitButton>
           </form>
         )}
 
-        <ul className="auth-footnote link-notes">
-          <li>Não é preciso cadastro. Seu acesso fica salvo neste navegador.</li>
-          <li>Use sempre o mesmo navegador para acompanhar suas ideias. Se limpar os dados do navegador, o acesso às ideias já enviadas é perdido (elas continuam com a empresa).</li>
-          <li>Não inclua dados pessoais ou informações confidenciais nas ideias.</li>
-        </ul>
+        <p className="auth-footnote">Sem cadastro. Seu acesso fica salvo neste navegador.</p>
       </section>
     </main>
   );

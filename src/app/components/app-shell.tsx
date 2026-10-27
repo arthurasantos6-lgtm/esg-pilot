@@ -58,7 +58,7 @@ export function AppShell({
           </form>
           {!userEmail && (
             <p className="small-copy signout-warning">
-              Ao encerrar, você só volta a ver suas ideias se abrir o link da empresa neste mesmo navegador antes de limpar os dados dele.
+              Para voltar depois, abra o link da empresa neste mesmo navegador.
             </p>
           )}
         </div>

@@ -31,15 +31,22 @@ import type { Json } from "@/lib/supabase/database.types";
 const idSchema = z.string().uuid();
 
 const startIdeaSchema = z.object({
-  title: z.string().trim().min(3, "Dê um título com pelo menos 3 caracteres.").max(120, "O título pode ter até 120 caracteres."),
   description: z
     .string()
     .trim()
     .min(10, "Conte um pouco mais sobre a ideia (mínimo 10 caracteres).")
     .max(8000, "A descrição pode ter até 8.000 caracteres."),
-  area: z.string().trim().max(100).optional(),
   intent: z.enum(["copilot", "review"]),
 });
+
+/**
+ * Título provisório a partir da primeira frase da ideia; o copiloto propõe um
+ * título definitivo ao organizar a proposta, e o colaborador pode editá-lo na revisão.
+ */
+function provisionalTitle(description: string) {
+  const sentence = description.split(/[\n.!?]/).map((part) => part.trim()).find((part) => part.length >= 3) ?? description;
+  return sentence.length > 80 ? `${sentence.slice(0, 79).trimEnd()}…` : sentence;
+}
 
 type CompanyContext = Awaited<ReturnType<typeof requireCompanyContext>>;
 
@@ -93,9 +100,7 @@ async function replyAsCopilot(
 
 export async function startIdea(formData: FormData) {
   const parsed = startIdeaSchema.safeParse({
-    title: formData.get("title"),
     description: formData.get("description"),
-    area: formData.get("area") || undefined,
     intent: formData.get("intent"),
   });
   if (!parsed.success) {
@@ -126,9 +131,8 @@ export async function startIdea(formData: FormData) {
     .insert({
       organization_id: context.membership.organization_id,
       author_id: context.user.id,
-      title: parsed.data.title,
+      title: provisionalTitle(parsed.data.description),
       original_description: parsed.data.description,
-      area: parsed.data.area || null,
       status: "draft",
     })
     .select("id, title, original_description, problem, solution, area, status, author_id, structured_proposal")

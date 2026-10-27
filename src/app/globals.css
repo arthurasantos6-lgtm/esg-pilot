@@ -1234,6 +1234,23 @@ textarea::placeholder {
   border-top: 1px solid var(--line);
 }
 
+.chat-standalone {
+  max-width: 760px;
+  margin: 0 auto;
+}
+
+.chat-title {
+  font-size: 22px;
+}
+
+.chat-standalone .chat-log {
+  margin: 18px 0;
+}
+
+.chat-message .small-copy {
+  margin-top: 8px;
+}
+
 .chat-log-readonly .chat-message {
   max-width: 100%;
 }

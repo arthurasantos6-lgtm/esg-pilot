@@ -1,15 +1,21 @@
 "use client";
 
-import { useActionState } from "react";
+import { useActionState, useEffect, useRef } from "react";
 import { sendCopilotMessage, type CopilotFormState } from "@/app/ideas/actions";
 
 const initialState: CopilotFormState = { error: null, sentAt: null };
 
 export function CopilotChatForm({ ideaId, awaitingReply }: { ideaId: string; awaitingReply: boolean }) {
   const [state, formAction, pending] = useActionState(sendCopilotMessage, initialState);
+  const composerRef = useRef<HTMLDivElement>(null);
+
+  // Mantém a última mensagem e o campo de resposta à vista, como em um chat.
+  useEffect(() => {
+    composerRef.current?.scrollIntoView({ block: "end" });
+  }, [state.sentAt, pending]);
 
   return (
-    <div className="chat-composer">
+    <div className="chat-composer" ref={composerRef}>
       {pending && (
         <p className="chat-pending" role="status">
           <span className="chat-pending-dot" aria-hidden="true" /> O copiloto está escrevendo…
@@ -26,7 +32,7 @@ export function CopilotChatForm({ ideaId, awaitingReply }: { ideaId: string; awa
       ) : (
         <form action={formAction} className="idea-form">
           <input type="hidden" name="ideaId" value={ideaId} />
-          <label htmlFor="message">Sua resposta ao copiloto</label>
+          <label htmlFor="message" className="sr-only">Sua resposta ao copiloto</label>
           <textarea
             id="message"
             name="message"
@@ -34,11 +40,17 @@ export function CopilotChatForm({ ideaId, awaitingReply }: { ideaId: string; awa
             maxLength={2000}
             required
             disabled={pending}
-            placeholder="Escreva sua resposta ou dúvida…"
+            placeholder="Escreva sua resposta ou dúvida… (Enter envia, Shift+Enter quebra a linha)"
+            onKeyDown={(event) => {
+              if (event.key === "Enter" && !event.shiftKey && !event.nativeEvent.isComposing) {
+                event.preventDefault();
+                event.currentTarget.form?.requestSubmit();
+              }
+            }}
           />
           <div className="form-actions">
             <button className="button button-primary" type="submit" disabled={pending} aria-disabled={pending}>
-              {pending ? "Enviando…" : "Enviar mensagem"}
+              {pending ? "Enviando…" : "Enviar"}
             </button>
           </div>
         </form>

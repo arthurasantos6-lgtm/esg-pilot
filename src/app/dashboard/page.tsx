@@ -6,7 +6,6 @@ import { CollaboratorHome } from "@/app/dashboard/collaborator-home";
 import { ManagerDashboard } from "@/app/dashboard/manager-dashboard";
 import { parseEnabledModules, requireCompanyContext } from "@/lib/auth";
 import { parsePeriod } from "@/lib/dashboard-metrics";
-import { isAiAvailable } from "@/lib/idea-ai";
 import { canCreateIdeas } from "@/lib/idea-permissions";
 
 export const metadata: Metadata = { title: "Visão geral" };
@@ -17,7 +16,6 @@ export default async function DashboardPage({
   searchParams: Promise<{
     moduleDisabled?: string;
     error?: string;
-    welcome?: string;
     period?: string;
     status?: string;
     dimension?: string;
@@ -66,8 +64,6 @@ export default async function DashboardPage({
           supabase={supabase}
           userId={user.id}
           organizationName={organization.name}
-          aiAvailable={isAiAvailable()}
-          welcome={Boolean(query.welcome)}
           canCreate={canCreateIdeas(membership)}
         />
       )}

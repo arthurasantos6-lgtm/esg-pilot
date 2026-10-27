@@ -48,7 +48,7 @@ export async function joinWithLink(formData: FormData) {
     redirect(`${linkUrl}?error=${encodeURIComponent(code ? joinErrors[code] : "Não foi possível entrar. Tente novamente.")}`);
   }
 
-  redirect("/dashboard?welcome=1");
+  redirect("/ideas/new");
 }
 
 /** Encerra a sessão atual (de outra empresa) e volta para o link. */
