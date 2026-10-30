@@ -46,6 +46,7 @@ const COMPANIES = [
       { days: 110, status: "approved", priority: "alta", name: "Joana Freitas", email: null, area: "Segurança", title: "Treinamento para prevenir acidentes com prensas", text: "Tivemos quase acidentes nas prensas neste ano. Sugiro um treinamento de segurança do trabalho para os operadores dos dois turnos, com registro das ocorrências para comparar antes e depois." },
       { days: 60, status: "technical_review", name: "Everton Lima", email: "everton.lima@example.com", area: "Fundição", title: "Reduzir fumaça e poeira na fundição", text: "Tem muita fumaça e poeira na fundição. Dá para melhorar a exaustão para reduzir a poluição do ar e a exposição das equipes, mas depende de um estudo técnico." },
       { days: 25, status: "rejected", name: "Bruna Castro", email: null, area: "Compras", title: "Avaliar fornecedores de sucata", text: "Podemos criar critérios para fornecedores de sucata e fazer uma avaliação de fornecedores uma vez por ano, para saber a origem do material." },
+      { days: 1, status: "submitted", name: "Sérgio Melo", email: "sergio.melo@example.com", area: "Compras", title: "Critérios para comprar sucata", text: "Sugiro criar critérios para fornecedores de sucata e fazer uma avaliação de fornecedores por ano, para saber a origem do material comprado pelo setor de compras." },
       { days: 4, status: "submitted", name: "Marcos Vieira", email: "marcos.vieira@example.com", area: "Usinagem", title: "Desligar máquinas paradas na troca de turno", text: "Muitas máquinas ficam ligadas na troca de turno sem ninguém usando. Sugiro desligar as máquinas paradas para reduzir o consumo de energia." },
     ],
   },
@@ -138,7 +139,7 @@ for (const company of COMPANIES) {
   });
 }
 
-const sql = `-- População de demonstração: 5 empresas e 25 ideias FICTÍCIAS. Gerado por generate_seed_demo.mjs.
+const sql = `-- População de demonstração: 5 empresas e 26 ideias FICTÍCIAS. Gerado por generate_seed_demo.mjs.
 -- Antes de rodar, troque a senha abaixo: ela vale para os 5 gestores e o repositório é público.
 -- Prévia: rode com "rollback;" no lugar do "commit;" do fim do arquivo.
 -- Pode rodar de novo sem duplicar: só atualiza a análise das ideias de demonstração. Para desfazer: supabase/scripts/rollback_seed_demo.sql.
@@ -193,7 +194,7 @@ on conflict (id) do nothing;
 
 select
   (select count(*) from public.organizations where id in (${COMPANIES.map((company) => id(`org:${company.key}`)).join(", ")})) as empresas,
-  (select count(*) from public.ideas where id::text in (select md5('nuevo-demo:idea:' || c || ':' || n)::uuid::text from unnest(array[${COMPANIES.map((company) => q(company.key)).join(", ")}]) c, generate_series(0, 4) n)) as ideias;
+  (select count(*) from public.ideas where id::text in (select md5('nuevo-demo:idea:' || c || ':' || n)::uuid::text from unnest(array[${COMPANIES.map((company) => q(company.key)).join(", ")}]) c, generate_series(0, 5) n)) as ideias;
 
 commit;
 `;

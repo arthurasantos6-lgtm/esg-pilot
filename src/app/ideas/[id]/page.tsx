@@ -11,7 +11,8 @@ import { LocalAnalysisPanel } from "@/app/ideas/[id]/local-analysis-panel";
 import { ProjectProposalPanel } from "@/app/ideas/[id]/project-proposal-panel";
 import { AppShell } from "@/app/components/app-shell";
 import { parseEnabledModules, requireCompanyContext } from "@/lib/auth";
-import { buildLearningBase, buildProjectProposal } from "@/lib/esg-project-proposal";
+import { buildProjectProposal } from "@/lib/esg-project-proposal";
+import { loadLearningBase } from "@/lib/learning-base";
 import { isAiAvailable } from "@/lib/idea-ai";
 import { parseStoredProposal, PROPOSAL_FIELDS } from "@/lib/idea-proposal";
 import { ideaStatusLabel, nextStepForAuthor } from "@/lib/idea-status";
@@ -130,7 +131,7 @@ export default async function IdeaDetailPage({
     showManagement
       ? supabase
           .from("ideas")
-          .select("id, title, original_description, status, analysis")
+          .select("id, title, original_description")
           .eq("organization_id", membership.organization_id)
           .neq("status", "draft")
           .neq("id", idea.id)
@@ -142,7 +143,7 @@ export default async function IdeaDetailPage({
     { id: idea.id, text: `${idea.title} ${idea.original_description ?? ""}` },
     (otherIdeas ?? []).map((other) => ({ ...other, text: `${other.title} ${other.original_description ?? ""}` })),
   ).slice(0, 5);
-  const learningBase = buildLearningBase(otherIdeas ?? []);
+  const learningBase = showManagement ? await loadLearningBase(supabase, membership.organization_id) : [];
   const emailById = new Map((members ?? []).map((member) => [member.user_id, memberDisplayName(member)]));
 
   const proposal = parseStoredProposal(idea.structured_proposal);

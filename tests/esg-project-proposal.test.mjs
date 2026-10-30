@@ -91,10 +91,14 @@ const ENERGY = approvedIdea("a", "Desligar máquinas ociosas", "As máquinas fic
 const WATER = approvedIdea("b", "Reaproveitar água", "Sugiro reaproveitar água da lavagem para reduzir o consumo de água.");
 const targetOf = (id, title, text) => ({ id, title, original_description: text, subcategories: analyze(`${title} ${text}`).classification.subcategories });
 
-test("only approved ideas with an analysis enter the learning base", () => {
-  const rejected = approvedIdea("c", "Rejeitada", "Reduzir o consumo de energia.", "rejected");
+test("approved and rejected ideas enter the learning base, with the rejection reason", () => {
+  const rejected = { ...approvedIdea("c", "Rejeitada", "Reduzir o consumo de energia.", "rejected"), rejection_reason: "Outra frente em andamento." };
+  const review = approvedIdea("e", "Em avaliação", "Reduzir o consumo de energia.", "in_review");
   const legacy = { id: "d", title: "Antiga", original_description: "Texto", status: "approved", analysis: { method: "triagem_por_termos" } };
-  assert.deepEqual(buildLearningBase([ENERGY, WATER, rejected, legacy]).map(({ id }) => id), ["a", "b"]);
+  const base = buildLearningBase([ENERGY, WATER, rejected, legacy, review]);
+  assert.deepEqual(base.map(({ id, outcome }) => [id, outcome]), [["a", "approved"], ["b", "approved"], ["c", "rejected"]]);
+  assert.equal(base[2].reason, "Outra frente em andamento.");
+  assert.equal(base[0].reason, null);
 });
 
 test("a precedent needs the same theme: shared generic words are not enough", () => {
@@ -110,8 +114,11 @@ test("an idea is not its own precedent, and copies do not count", () => {
   assert.deepEqual(findPrecedents(targetOf("z", ENERGY.title, ENERGY.original_description), base), []);
 });
 
+const APPROVED = { id: "a", title: "Ideia aprovada", similarity: 0.4, outcome: "approved", reason: null };
+const REJECTED = { id: "r", title: "Ideia rejeitada", similarity: 0.4, outcome: "rejected", reason: "Faltou verba neste ciclo." };
+
 test("a precedent raises the recommendation one level, with the reason shown", () => {
-  const precedent = [{ id: "a", title: "Ideia aprovada", similarity: 0.4 }];
+  const precedent = [APPROVED];
   const thin = analyze("Podemos desligar as máquinas.");
   assert.equal(recommendIdea(thin).key, "not_now");
   const raised = recommendIdea(thin, precedent);
@@ -120,7 +127,7 @@ test("a precedent raises the recommendation one level, with the reason shown", (
 });
 
 test("precedents never rescue unclassified ideas or skip the specialist on sensitive themes", () => {
-  const precedent = [{ id: "a", title: "Ideia aprovada", similarity: 0.4 }];
+  const precedent = [APPROVED];
   assert.equal(recommendIdea(analyze("Tenho uma ideia boa."), precedent).key, "not_now");
   const sensitive = recommendIdea(analyze(`${DETAILED} Houve um caso de corrupção nas compras.`), precedent);
   assert.equal(sensitive.key, "accept_with_conditions");
@@ -130,4 +137,37 @@ test("precedents never rescue unclassified ideas or skip the specialist on sensi
 test("database ids from the demo data pass the app validation", () => {
   assert.equal(z.guid().safeParse("c616ccfb-1af5-bb0c-2c2e-5d1c0e4def50").success, true);
   assert.equal(z.guid().safeParse("nao-e-id").success, false);
+});
+
+test("a rejected precedent lowers the recommendation one level, and shows why", () => {
+  assert.equal(recommendIdea(analyze(DETAILED)).key, "accept");
+  const lowered = recommendIdea(analyze(DETAILED), [REJECTED]);
+  assert.equal(lowered.key, "accept_with_conditions");
+  assert.match(lowered.reasons.join(), /Faltou verba neste ciclo/);
+  assert.match(lowered.conditions[0], /Ideia rejeitada/);
+
+  const middle = analyze("Podemos reduzir o consumo de energia na fábrica, com sensores, para as equipes do setor.");
+  assert.equal(recommendIdea(middle).key, "accept_with_conditions");
+  assert.equal(recommendIdea(middle, [REJECTED]).key, "not_now");
+});
+
+test("a rejected precedent does not stack below the lowest level", () => {
+  const thin = analyze("Podemos desligar as máquinas.");
+  const result = recommendIdea(thin, [REJECTED]);
+  assert.equal(result.key, "not_now");
+  assert.match(result.reasons.join(), /não priorizada/);
+});
+
+test("mixed history does not move the recommendation, and says so", () => {
+  const baseline = recommendIdea(analyze(DETAILED)).key;
+  const mixed = recommendIdea(analyze(DETAILED), [APPROVED, REJECTED]);
+  assert.equal(mixed.key, baseline);
+  assert.match(mixed.reasons.join(), /histórico é misto/);
+});
+
+test("on sensitive themes a rejected precedent informs but does not decide", () => {
+  const result = recommendIdea(analyze(`${DETAILED} Houve um caso de corrupção nas compras.`), [REJECTED]);
+  assert.equal(result.key, "accept_with_conditions");
+  assert.match(result.conditions[0], /especialista/);
+  assert.match(result.reasons.join(), /Ideia rejeitada/);
 });

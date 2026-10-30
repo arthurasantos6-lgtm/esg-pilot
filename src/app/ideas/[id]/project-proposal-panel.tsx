@@ -15,6 +15,7 @@ function Field({ label, value }: { label: string; value: string | null }) {
 /** Proposta gerada por regras a partir da ideia, com a recomendação à gestão. */
 export function ProjectProposalPanel({ proposal }: { proposal: ProjectProposal }) {
   const { adoption, recommendation } = proposal;
+  const { approved, rejected } = proposal.learningBaseCounts;
 
   return (
     <section className="panel detail-panel" aria-labelledby="project-proposal-title">
@@ -39,22 +40,26 @@ export function ProjectProposalPanel({ proposal }: { proposal: ProjectProposal }
         </p>
       </div>
 
-      <h3 className="subsection-title">O que aprendemos com as ideias aprovadas</h3>
+      <h3 className="subsection-title">O que aprendemos com as decisões anteriores</h3>
       <p className="small-copy muted">
-        {proposal.learningBaseSize === 0
-          ? "Esta empresa ainda não tem ideias aprovadas para comparar. Cada aprovação passa a servir de referência."
-          : `Comparada com ${proposal.learningBaseSize} ${proposal.learningBaseSize === 1 ? "ideia aprovada" : "ideias aprovadas"} desta empresa, pelo tema e pelo texto.`}
+        {approved + rejected === 0
+          ? "Esta empresa ainda não tem ideias decididas para comparar. Cada aprovação ou rejeição passa a servir de referência."
+          : `Comparada, pelo tema e pelo texto, com ${approved} ${approved === 1 ? "ideia aprovada" : "ideias aprovadas"} e ${rejected} ${rejected === 1 ? "não priorizada" : "não priorizadas"} desta empresa.`}
       </p>
       {proposal.precedents.length > 0 ? (
         <ul className="evaluation-list">
           {proposal.precedents.map((item) => (
             <li key={item.id}>
+              <span className={`score-chip score-${item.outcome === "approved" ? "high" : "low"}`}>
+                {item.outcome === "approved" ? "Aprovada" : "Não priorizada"}
+              </span>{" "}
               <Link className="text-link" href={`/ideas/${item.id}`}>{item.title}</Link> · {Math.round(item.similarity * 100)}% de termos em comum
+              {item.reason && <p className="small-copy muted">Motivo registrado: {item.reason}</p>}
             </li>
           ))}
         </ul>
       ) : (
-        proposal.learningBaseSize > 0 && <p className="empty-inline">Nenhuma ideia aprovada parecida.</p>
+        approved + rejected > 0 && <p className="empty-inline">Nenhuma ideia decidida parecida.</p>
       )}
 
       <h3 className="subsection-title">Proposta</h3>

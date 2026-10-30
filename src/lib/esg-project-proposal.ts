@@ -54,30 +54,51 @@ export type Recommendation = {
 };
 
 /**
- * Aprendizado com as decisões da empresa: cada ideia aprovada vira referência
- * para as próximas. Não é um modelo treinado: compara tema e texto, de forma
- * explicável, e só com ideias da mesma empresa. Palavras genéricas aproximam
- * textos de temas diferentes, por isso o tema em comum é obrigatório.
+ * Aprendizado com as decisões da empresa: ideias aprovadas mostram o que seguir,
+ * e as rejeitadas, o que evitar. Não é um modelo treinado: compara tema e texto,
+ * de forma explicável, e só com ideias da mesma empresa. Palavras genéricas
+ * aproximam textos de temas diferentes, por isso o tema em comum é obrigatório.
  */
 export const APPROVED_STATUSES = ["approved", "in_progress", "implemented"];
+export const REJECTED_STATUSES = ["rejected"];
+export const LEARNING_STATUSES = [...APPROVED_STATUSES, ...REJECTED_STATUSES];
 const PRECEDENT_MIN_SIMILARITY = 0.2;
 /** Acima disso é provável cópia: conta como possível duplicidade, não como precedente. */
 const DUPLICATE_MIN_SIMILARITY = 0.85;
 const MAX_PRECEDENTS = 3;
+const MAX_REASON_LENGTH = 200;
 
-type LearningCandidate = { id: string; title: string; original_description: string | null; status: string; analysis: unknown };
-export type LearningEntry = { id: string; title: string; tokens: Set<string>; subcategories: string[] };
-export type Precedent = { id: string; title: string; similarity: number };
+type LearningCandidate = {
+  id: string;
+  title: string;
+  original_description: string | null;
+  status: string;
+  analysis: unknown;
+  rejection_reason?: string | null;
+};
+type LearningOutcome = "approved" | "rejected";
+export type LearningEntry = {
+  id: string;
+  title: string;
+  tokens: Set<string>;
+  subcategories: string[];
+  outcome: LearningOutcome;
+  reason: string | null;
+};
+export type Precedent = { id: string; title: string; similarity: number; outcome: LearningOutcome; reason: string | null };
 
 export function buildLearningBase(ideas: LearningCandidate[]): LearningEntry[] {
   return ideas.flatMap((idea) => {
     const local = readLocalAnalysis(idea.analysis);
-    if (!APPROVED_STATUSES.includes(idea.status) || !local) return [];
+    if (!LEARNING_STATUSES.includes(idea.status) || !local) return [];
+    const outcome: LearningOutcome = REJECTED_STATUSES.includes(idea.status) ? "rejected" : "approved";
     return [{
       id: idea.id,
       title: idea.title,
       tokens: tokenize(`${idea.title} ${idea.original_description ?? ""}`),
       subcategories: local.classification.subcategories,
+      outcome,
+      reason: outcome === "rejected" ? idea.rejection_reason ?? null : null,
     }];
   });
 }
@@ -89,14 +110,25 @@ export function findPrecedents(
   const tokens = tokenize(`${target.title} ${target.original_description ?? ""}`);
   return base
     .filter((entry) => entry.id !== target.id && entry.subcategories.some((code) => target.subcategories.includes(code)))
-    .map((entry) => ({ id: entry.id, title: entry.title, similarity: similarity(tokens, entry.tokens) }))
+    .map(({ id, title, tokens: other, outcome, reason }) => ({ id, title, outcome, reason, similarity: similarity(tokens, other) }))
     .filter((entry) => entry.similarity >= PRECEDENT_MIN_SIMILARITY && entry.similarity < DUPLICATE_MIN_SIMILARITY)
     .sort((a, b) => b.similarity - a.similarity)
     .slice(0, MAX_PRECEDENTS);
 }
 
-const precedentReason = (precedents: Precedent[]) =>
-  `Parecida com ${precedents.length === 1 ? "uma ideia já aprovada" : `${precedents.length} ideias já aprovadas`} nesta empresa: ${precedents.map(({ title }) => `"${title}"`).join(", ")}.`;
+const quoted = (precedents: Precedent[]) => precedents.map(({ title }) => `"${title}"`).join(", ");
+
+function precedentReasons(precedents: Precedent[]) {
+  const approved = precedents.filter(({ outcome }) => outcome === "approved");
+  const rejected = precedents.filter(({ outcome }) => outcome === "rejected");
+  return [
+    ...(approved.length ? [`Parecida com ${approved.length === 1 ? "uma ideia já aprovada" : `${approved.length} ideias já aprovadas`} nesta empresa: ${quoted(approved)}.`] : []),
+    ...rejected.map(({ title, reason }) =>
+      `Parecida com uma ideia não priorizada nesta empresa: "${title}".${reason ? ` Motivo registrado: ${reason.slice(0, MAX_REASON_LENGTH)}` : ""}`,
+    ),
+    ...(approved.length && rejected.length ? ["O histórico é misto: há decisões nos dois sentidos, então ele não muda a recomendação."] : []),
+  ];
+}
 
 const gradeOf = (assessment: AssessmentSummary, code: string) =>
   assessment.criteria.find((item) => item.code === code)?.grade ?? null;
@@ -118,19 +150,28 @@ export function recommendIdea({ classification, assessment }: LocalAnalysis, pre
   }
   // Tema real, mas com pouco para sustentar a decisão: pede mais informação em vez de aceitar.
   const thin = impact !== null && maturity !== null && impact <= THIN_MAX_IMPACT && maturity <= THIN_MAX_MATURITY;
-  // Um precedente sobe a recomendação um nível, nunca além, e não vale para temas sensíveis.
-  const hasPrecedent = precedents.length > 0 && !classification.needs_human_review;
-  if (impact === null || maturity === null || maturity < ASSESSABLE_MIN_MATURITY || (thin && !hasPrecedent)) {
+  // Precedentes movem a recomendação um nível, nunca além. Com decisões nos dois
+  // sentidos não movem, e em temas sensíveis só aparecem como informação.
+  const sensitive = classification.needs_human_review;
+  const approvedPrecedent = precedents.some(({ outcome }) => outcome === "approved");
+  const rejectedPrecedent = precedents.some(({ outcome }) => outcome === "rejected");
+  const raises = approvedPrecedent && !rejectedPrecedent && !sensitive;
+  const lowers = rejectedPrecedent && !approvedPrecedent && !sensitive;
+  const history = precedentReasons(precedents);
+  const rejectedTitles = quoted(precedents.filter(({ outcome }) => outcome === "rejected"));
+  const avoidCondition = `Explicar o que muda em relação à ideia não priorizada: ${rejectedTitles}`;
+
+  if (impact === null || maturity === null || maturity < ASSESSABLE_MIN_MATURITY || (thin && !raises)) {
     return {
       key: "not_now",
       label: "Não aceitar por enquanto",
-      reasons: ["A proposta ainda está pouco madura: faltam elementos básicos para avaliá-la."],
-      conditions,
+      reasons: ["A proposta ainda está pouco madura: faltam elementos básicos para avaliá-la.", ...history],
+      conditions: lowers ? [avoidCondition, ...conditions] : conditions,
     };
   }
 
   const reasons = [
-    ...(precedents.length ? [precedentReason(precedents)] : []),
+    ...history,
     `Maturidade ${maturity} de 5 e impacto potencial ${impact} de 5.`,
     `Potencial de adesão ${adoption.label.toLowerCase()}.`,
     partial === null ? "Sem pontuação parcial." : `Pontuação parcial de ${Math.round(partial)} de 100, sobre ${assessment.assessed_weight}% dos pesos.`,
@@ -152,7 +193,12 @@ export function recommendIdea({ classification, assessment }: LocalAnalysis, pre
     partial >= ACCEPT_MIN_PARTIAL_SCORE &&
     adoption.level !== "baixo";
   const nearlyStrong = impact >= ACCEPT_MIN_IMPACT && maturity >= ACCEPT_MIN_MATURITY && adoption.level !== "baixo";
-  if (strong || (hasPrecedent && nearlyStrong)) return { key: "accept", label: "Aceitar", reasons, conditions };
+  if (lowers) {
+    return strong
+      ? { key: "accept_with_conditions", label: "Aceitar com condições", reasons, conditions: [avoidCondition, ...conditions] }
+      : { key: "not_now", label: "Não aceitar por enquanto", reasons, conditions: [avoidCondition, ...conditions] };
+  }
+  if (strong || (raises && nearlyStrong)) return { key: "accept", label: "Aceitar", reasons, conditions };
   return { key: "accept_with_conditions", label: "Aceitar com condições", reasons, conditions };
 }
 
@@ -197,7 +243,7 @@ export type ProjectProposal = {
   adoption: AdoptionPotential;
   recommendation: Recommendation;
   precedents: Precedent[];
-  learningBaseSize: number;
+  learningBaseCounts: { approved: number; rejected: number };
 };
 
 /** Monta a proposta: campos preenchidos pela pessoa têm prioridade; depois, frases do próprio texto. */
@@ -206,7 +252,7 @@ export function buildProjectProposal(input: {
   originalText: string;
   proposal: StoredProposal | null;
   analysis: LocalAnalysis;
-  /** Id da ideia e ideias aprovadas da mesma empresa, para aprender com as decisões anteriores. */
+  /** Id da ideia e ideias já decididas da mesma empresa, para aprender com as decisões anteriores. */
   ideaId?: string;
   learningBase?: LearningEntry[];
 }): ProjectProposal {
@@ -267,7 +313,10 @@ export function buildProjectProposal(input: {
     adoption: assessAdoption(classification),
     recommendation: recommendIdea(input.analysis, precedents),
     precedents,
-    learningBaseSize: learningBase.length,
+    learningBaseCounts: {
+      approved: learningBase.filter(({ outcome }) => outcome === "approved").length,
+      rejected: learningBase.filter(({ outcome }) => outcome === "rejected").length,
+    },
   };
 }
 

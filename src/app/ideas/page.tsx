@@ -5,7 +5,8 @@ import { connection } from "next/server";
 import { AppShell } from "@/app/components/app-shell";
 import { assertModuleEnabled, requireCompanyContext } from "@/lib/auth";
 import { potentialBand } from "@/lib/esg-engine";
-import { APPROVED_STATUSES, buildLearningBase, type LearningEntry } from "@/lib/esg-project-proposal";
+import type { LearningEntry } from "@/lib/esg-project-proposal";
+import { loadLearningBase } from "@/lib/learning-base";
 import {
   compareByPotential,
   countByFolder,
@@ -66,13 +67,8 @@ export default async function IdeasPage({
   let evaluations: { idea_id: string; result: unknown; created_at: string }[] = [];
   let learningBase: LearningEntry[] = [];
   if (isManager) {
-    // Consulta própria: os filtros da tela não podem reduzir a base de ideias aprovadas.
-    const { data: approved } = await supabase
-      .from("ideas")
-      .select("id, title, original_description, status, analysis")
-      .eq("organization_id", membership.organization_id)
-      .in("status", APPROVED_STATUSES as "approved"[]);
-    learningBase = buildLearningBase(approved ?? []);
+    // Consulta própria: os filtros da tela não podem reduzir a base de ideias decididas.
+    learningBase = await loadLearningBase(supabase, membership.organization_id);
     const { data, error: evaluationsError } = await supabase
       .from("idea_evaluations")
       .select("idea_id, result, created_at")
