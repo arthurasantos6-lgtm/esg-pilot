@@ -12,7 +12,9 @@ import {
 } from "@/lib/ai/service";
 import { isEvaluationStale } from "@/lib/ai/evaluation-status";
 import type { ChatTurn } from "@/lib/ai/prompts";
+import { parseCollaboratorName } from "@/lib/access-links";
 import { assertModuleEnabled, requireCompanyContext } from "@/lib/auth";
+import { readCollaboratorName, saveCollaboratorName } from "@/lib/collaborator-name";
 import { analyzeIdeaWithCriteria } from "@/lib/esg-analysis";
 import {
   isAiAvailable,
@@ -113,6 +115,11 @@ export async function startIdea(formData: FormData) {
     redirect(`/ideas?error=${encodeURIComponent(CANNOT_CREATE_IDEAS_MESSAGE)}`);
   }
 
+  // O nome vem do link; se a sessão do navegador expirou, o formulário pede de novo.
+  const authorName = (await readCollaboratorName()) ?? parseCollaboratorName(formData.get("authorName"));
+  if (!authorName) redirect(`/ideas/new?error=${encodeURIComponent("Informe seu nome para continuar.")}`);
+  await saveCollaboratorName(authorName);
+
   const { count: recentIdeas } = await context.supabase
     .from("ideas")
     .select("id", { count: "exact", head: true })
@@ -131,6 +138,7 @@ export async function startIdea(formData: FormData) {
     .insert({
       organization_id: context.membership.organization_id,
       author_id: context.user.id,
+      author_name: authorName,
       title: provisionalTitle(parsed.data.description),
       original_description: parsed.data.description,
       status: "draft",

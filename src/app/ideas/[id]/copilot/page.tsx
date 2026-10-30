@@ -32,7 +32,7 @@ export default async function IdeaCopilotPage({
 
   const { data: idea } = await supabase
     .from("ideas")
-    .select("id, title, original_description, problem, solution, area, status, author_id")
+    .select("id, title, original_description, problem, solution, area, status, author_id, author_name")
     .eq("id", id)
     .eq("organization_id", membership.organization_id)
     .maybeSingle();
@@ -66,7 +66,7 @@ export default async function IdeaCopilotPage({
         {query.error && <p className="alert alert-error" role="alert">{query.error}</p>}
 
         <ol className="chat-log" role="log" aria-live="polite" aria-label="Mensagens da conversa">
-          <ChatGreeting aiAvailable={aiAvailable} />
+          <ChatGreeting aiAvailable={aiAvailable} name={idea.author_name} />
           <li className="chat-message chat-message-user">
             <span className="chat-author">Você</span>
             <p className="preserve-lines">{original}</p>

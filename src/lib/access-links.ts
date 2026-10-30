@@ -8,6 +8,13 @@ const createLinkSchema = z.object({
   ),
 });
 
+/** Nome informado pelo colaborador ao abrir o link; `null` quando inválido. */
+export function parseCollaboratorName(value: unknown): string | null {
+  if (typeof value !== "string") return null;
+  const name = value.trim().replace(/\s+/g, " ");
+  return name.length >= 2 && name.length <= 80 ? name : null;
+}
+
 /** Lê o formulário de novo link; validade em dias vira data absoluta. */
 export function readCreateLinkForm(formData: FormData, now = Date.now()) {
   const parsed = createLinkSchema.safeParse({

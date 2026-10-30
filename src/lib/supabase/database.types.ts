@@ -105,6 +105,7 @@ type Idea = {
   id: string;
   organization_id: string;
   author_id: string;
+  author_name: string | null;
   title: string;
   problem: string | null;
   solution: string | null;

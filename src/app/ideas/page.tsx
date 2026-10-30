@@ -32,7 +32,7 @@ export default async function IdeasPage({
 
   let request = supabase
     .from("ideas")
-    .select("id, title, area, status, created_at, author_id", { count: "exact" })
+    .select("id, title, area, status, created_at, author_id, author_name", { count: "exact" })
     .eq("organization_id", membership.organization_id)
     .order("created_at", { ascending: false });
 
@@ -120,7 +120,7 @@ export default async function IdeasPage({
                       <td>
                         <Link className="idea-title-link" href={idea.status === "draft" ? `/ideas/${idea.id}/review` : `/ideas/${idea.id}`}>{idea.title}</Link>
                         <span className="table-subtitle">
-                          {idea.author_id === user.id ? nextStepForAuthor(idea.status) : "Enviada pela equipe"}
+                          {idea.author_id === user.id ? nextStepForAuthor(idea.status) : idea.author_name ? `Enviada por ${idea.author_name}` : "Enviada pela equipe"}
                         </span>
                       </td>
                       <td>{idea.area || "Não informada"}</td>

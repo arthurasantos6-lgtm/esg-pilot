@@ -4,6 +4,7 @@ import { connection } from "next/server";
 import { joinWithLink, leaveAndReturn } from "@/app/acesso/actions";
 import { SubmitButton } from "@/app/components/submit-button";
 import { isSupabaseConfigured } from "@/lib/supabase/config";
+import { canCreateIdeas } from "@/lib/idea-permissions";
 import { createClient } from "@/lib/supabase/server";
 import { BrandMark } from "@/app/components/brand-mark";
 
@@ -55,10 +56,11 @@ export default async function AccessLinkPage({
   if (user) {
     const { data: membership } = await supabase
       .from("memberships")
-      .select("organization_id, status")
+      .select("organization_id, status, role, access_link_id")
       .eq("user_id", user.id)
       .maybeSingle();
-    if (membership?.organization_id === link.organization_id && membership.status === "active") {
+    // A gestão não envia ideias; colaboradores se identificam a cada abertura do link.
+    if (membership?.organization_id === link.organization_id && membership.status === "active" && !canCreateIdeas(membership)) {
       redirect("/dashboard");
     }
     otherOrganization = Boolean(membership && membership.organization_id !== link.organization_id);
@@ -85,13 +87,15 @@ export default async function AccessLinkPage({
         ) : (
           <form className="form-stack" action={joinWithLink}>
             <input type="hidden" name="token" value={token} />
+            <label htmlFor="name">Seu nome</label>
+            <input id="name" name="name" type="text" minLength={2} maxLength={80} required autoFocus autoComplete="name" />
             <SubmitButton className="button button-primary button-full" pendingLabel="Entrando…">
               Começar <span aria-hidden="true">→</span>
             </SubmitButton>
           </form>
         )}
 
-        <p className="auth-footnote">Sem cadastro. Seu acesso fica salvo neste navegador.</p>
+        <p className="auth-footnote">Sem cadastro. A gestão verá seu nome nas ideias que você enviar.</p>
       </section>
     </main>
   );

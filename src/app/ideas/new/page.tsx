@@ -6,6 +6,7 @@ import { ChatGreeting } from "@/app/ideas/chat-greeting";
 import { AppShell } from "@/app/components/app-shell";
 import { SubmitButton } from "@/app/components/submit-button";
 import { assertModuleEnabled, requireCompanyContext } from "@/lib/auth";
+import { readCollaboratorName } from "@/lib/collaborator-name";
 import { isAiAvailable } from "@/lib/idea-ai";
 import { CANNOT_CREATE_IDEAS_MESSAGE, canCreateIdeas } from "@/lib/idea-permissions";
 
@@ -27,16 +28,23 @@ export default async function NewIdeaPage({
   }
   const { error } = await searchParams;
   const aiAvailable = isAiAvailable();
+  const authorName = await readCollaboratorName();
 
   return (
     <AppShell organizationName={organization.name} userEmail={user.email} membership={membership}>
       <section className="panel chat-panel chat-standalone" aria-labelledby="chat-title">
         <h1 id="chat-title" className="chat-title">Nova ideia</h1>
         <ol className="chat-log" role="log" aria-label="Mensagens da conversa">
-          <ChatGreeting aiAvailable={aiAvailable} />
+          <ChatGreeting aiAvailable={aiAvailable} name={authorName} />
         </ol>
         {error && <p className="alert alert-error" role="alert">{error}</p>}
         <form className="chat-composer idea-form" action={startIdea}>
+          {!authorName && (
+            <>
+              <label htmlFor="authorName">Seu nome</label>
+              <input id="authorName" name="authorName" type="text" minLength={2} maxLength={80} required autoComplete="name" />
+            </>
+          )}
           <label htmlFor="description" className="sr-only">Sua ideia</label>
           <textarea
             id="description"
@@ -45,7 +53,7 @@ export default async function NewIdeaPage({
             minLength={10}
             maxLength={8000}
             required
-            autoFocus
+            autoFocus={Boolean(authorName)}
             placeholder="Ex.: Na lavagem de peças usamos muita água limpa que vai direto para o esgoto. Acho que daria para filtrar e reutilizar…"
           />
           <div className="form-actions">

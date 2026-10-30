@@ -2,6 +2,8 @@
 
 import { redirect } from "next/navigation";
 import { z } from "zod";
+import { parseCollaboratorName } from "@/lib/access-links";
+import { clearCollaboratorName, saveCollaboratorName } from "@/lib/collaborator-name";
 import { createClient } from "@/lib/supabase/server";
 
 const tokenSchema = z.string().regex(/^[0-9a-f]{64}$/);
@@ -21,6 +23,9 @@ export async function joinWithLink(formData: FormData) {
   const token = tokenSchema.safeParse(formData.get("token"));
   if (!token.success) redirect("/acesso/invalido");
   const linkUrl = `/acesso/${token.data}`;
+
+  const name = parseCollaboratorName(formData.get("name"));
+  if (!name) redirect(`${linkUrl}?error=${encodeURIComponent("Informe seu nome para continuar.")}`);
 
   const supabase = await createClient();
   const {
@@ -48,6 +53,7 @@ export async function joinWithLink(formData: FormData) {
     redirect(`${linkUrl}?error=${encodeURIComponent(code ? joinErrors[code] : "Não foi possível entrar. Tente novamente.")}`);
   }
 
+  await saveCollaboratorName(name);
   redirect("/ideas/new");
 }
 
@@ -56,5 +62,6 @@ export async function leaveAndReturn(formData: FormData) {
   const token = tokenSchema.safeParse(formData.get("token"));
   const supabase = await createClient();
   await supabase.auth.signOut();
+  await clearCollaboratorName();
   redirect(token.success ? `/acesso/${token.data}` : "/login");
 }

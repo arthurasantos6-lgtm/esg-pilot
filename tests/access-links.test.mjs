@@ -2,7 +2,7 @@
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import test from "node:test";
-import { readCreateLinkForm } from "../src/lib/access-links.ts";
+import { parseCollaboratorName, readCreateLinkForm } from "../src/lib/access-links.ts";
 import { memberDisplayName } from "../src/lib/members.ts";
 
 const migration = readFileSync(new URL("../supabase/migrations/20261025_access_links.sql", import.meta.url), "utf8");
@@ -12,6 +12,14 @@ function functionBody(name) {
   assert.ok(start >= 0, `function ${name} exists`);
   return migration.slice(start, migration.indexOf("$$;", start));
 }
+
+test("the collaborator name is trimmed and must have a reasonable length", () => {
+  assert.equal(parseCollaboratorName("  Maria   Fictícia "), "Maria Fictícia");
+  assert.equal(parseCollaboratorName("A"), null);
+  assert.equal(parseCollaboratorName("   "), null);
+  assert.equal(parseCollaboratorName("x".repeat(81)), null);
+  assert.equal(parseCollaboratorName(null), null);
+});
 
 test("link validity becomes an absolute expiration date and only allowed periods are accepted", () => {
   const now = Date.parse("2026-10-20T12:00:00Z");
