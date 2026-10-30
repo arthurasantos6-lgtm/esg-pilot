@@ -58,7 +58,7 @@ export async function createOrganization(formData: FormData) {
 }
 
 const updateOrganizationSchema = organizationSchema.extend({
-  organizationId: z.string().uuid(),
+  organizationId: z.guid(),
 });
 
 export async function updateOrganization(formData: FormData) {
@@ -105,7 +105,7 @@ export async function updateOrganization(formData: FormData) {
 }
 
 const addMembershipSchema = z.object({
-  organizationId: z.string().uuid(),
+  organizationId: z.guid(),
   email: z.string().trim().email("Informe um e-mail válido."),
   // Contas com e-mail são da gestão; colaboradores entram pelo link de acesso.
   role: z.literal("company_admin", "Colaboradores entram pelo link de acesso da empresa."),
@@ -167,8 +167,8 @@ export async function addMembership(formData: FormData) {
 }
 
 const updateMembershipSchema = z.object({
-  membershipId: z.string().uuid(),
-  organizationId: z.string().uuid(),
+  membershipId: z.guid(),
+  organizationId: z.guid(),
   role: z.enum(["company_admin", "member"]),
   status: z.enum(["active", "blocked"]),
 });
@@ -207,7 +207,7 @@ export async function updateMembership(formData: FormData) {
 
 export async function createPlatformAccessLink(formData: FormData) {
   const { supabase, user } = await requirePlatformAdmin();
-  const organizationId = z.string().uuid().safeParse(formData.get("organizationId"));
+  const organizationId = z.guid().safeParse(formData.get("organizationId"));
   if (!organizationId.success) redirect("/admin/companies?error=Empresa%20inv%C3%A1lida.");
   const companyUrl = `/admin/companies/${organizationId.data}`;
 
@@ -232,8 +232,8 @@ export async function createPlatformAccessLink(formData: FormData) {
 
 export async function revokePlatformAccessLink(formData: FormData) {
   const { supabase, user } = await requirePlatformAdmin();
-  const linkId = z.string().uuid().safeParse(formData.get("linkId"));
-  const organizationId = z.string().uuid().safeParse(formData.get("organizationId"));
+  const linkId = z.guid().safeParse(formData.get("linkId"));
+  const organizationId = z.guid().safeParse(formData.get("organizationId"));
   if (!linkId.success || !organizationId.success) redirect("/admin/companies?error=Link%20inv%C3%A1lido.");
   const companyUrl = `/admin/companies/${organizationId.data}`;
 

@@ -101,7 +101,7 @@ export async function updateCriteriaVersion(formData: FormData) {
     redirect(`/admin/esg-criteria/${criteriaVersionId}?error=${encodeURIComponent(parsed.error.issues[0].message)}`);
   }
 
-  const idResult = z.string().uuid().safeParse(criteriaVersionId);
+  const idResult = z.guid().safeParse(criteriaVersionId);
   if (!idResult.success) {
     redirect("/admin/esg-criteria?error=Identificador%20inv%C3%A1lido.");
   }
@@ -148,7 +148,7 @@ export async function updateCriteriaVersion(formData: FormData) {
 
 export async function activateCriteriaVersion(formData: FormData) {
   const { supabase, user } = await requirePlatformAdmin();
-  const idResult = z.string().uuid().safeParse(formData.get("criteriaVersionId"));
+  const idResult = z.guid().safeParse(formData.get("criteriaVersionId"));
 
   if (!idResult.success) {
     redirect("/admin/esg-criteria?error=Identificador%20inv%C3%A1lido.");
@@ -169,7 +169,7 @@ export async function activateCriteriaVersion(formData: FormData) {
 
 export async function cloneCriteriaVersion(formData: FormData) {
   const { supabase, user } = await requirePlatformAdmin();
-  const idResult = z.string().uuid().safeParse(formData.get("sourceId"));
+  const idResult = z.guid().safeParse(formData.get("sourceId"));
 
   if (!idResult.success) {
     redirect("/admin/esg-criteria?error=Identificador%20inv%C3%A1lido.");
@@ -283,7 +283,7 @@ export async function updateKnowledgeItem(formData: FormData) {
     redirect(`/admin/knowledge/${itemId}?error=${encodeURIComponent(parsed.error.issues[0].message)}`);
   }
 
-  const idResult = z.string().uuid().safeParse(itemId);
+  const idResult = z.guid().safeParse(itemId);
   if (!idResult.success) {
     redirect("/admin/knowledge?error=Identificador%20inv%C3%A1lido.");
   }

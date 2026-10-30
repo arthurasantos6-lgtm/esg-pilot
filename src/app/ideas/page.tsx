@@ -5,6 +5,7 @@ import { connection } from "next/server";
 import { AppShell } from "@/app/components/app-shell";
 import { assertModuleEnabled, requireCompanyContext } from "@/lib/auth";
 import { potentialBand } from "@/lib/esg-engine";
+import { APPROVED_STATUSES, buildLearningBase, type LearningEntry } from "@/lib/esg-project-proposal";
 import {
   compareByPotential,
   countByFolder,
@@ -48,7 +49,7 @@ export default async function IdeasPage({
 
   let request = supabase
     .from("ideas")
-    .select("id, title, area, status, created_at, author_id, author_name, analysis", { count: "exact" })
+    .select("id, title, original_description, area, status, created_at, author_id, author_name, analysis", { count: "exact" })
     .eq("organization_id", membership.organization_id)
     .order("created_at", { ascending: false });
 
@@ -63,7 +64,15 @@ export default async function IdeasPage({
   if (error) throw new Error(`Não foi possível carregar as ideias: ${error.message}`);
 
   let evaluations: { idea_id: string; result: unknown; created_at: string }[] = [];
+  let learningBase: LearningEntry[] = [];
   if (isManager) {
+    // Consulta própria: os filtros da tela não podem reduzir a base de ideias aprovadas.
+    const { data: approved } = await supabase
+      .from("ideas")
+      .select("id, title, original_description, status, analysis")
+      .eq("organization_id", membership.organization_id)
+      .in("status", APPROVED_STATUSES as "approved"[]);
+    learningBase = buildLearningBase(approved ?? []);
     const { data, error: evaluationsError } = await supabase
       .from("idea_evaluations")
       .select("idea_id, result, created_at")
@@ -73,7 +82,7 @@ export default async function IdeasPage({
     evaluations = data ?? [];
   }
 
-  const organized = organizeIdeas(fetchedIdeas ?? [], evaluations);
+  const organized = organizeIdeas(fetchedIdeas ?? [], evaluations, learningBase);
   const folderCounts = countByFolder(organized);
   const matching = isManager
     ? organized.filter((idea) => !folder || isInFolder(idea, folder)).sort(sort === "potential" ? compareByPotential : () => 0)

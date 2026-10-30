@@ -26,7 +26,7 @@ export default async function CriteriaVersionDetailPage({
 }) {
   await connection();
   const [{ id }, query] = await Promise.all([params, searchParams]);
-  if (!z.string().uuid().safeParse(id).success) notFound();
+  if (!z.guid().safeParse(id).success) notFound();
 
   const { supabase, user } = await requirePlatformAdmin();
   const { data: version, error } = await supabase

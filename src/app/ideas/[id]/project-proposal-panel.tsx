@@ -1,3 +1,4 @@
+import Link from "next/link";
 import type { ProjectProposal } from "@/lib/esg-project-proposal";
 
 const recommendationTone = { accept: "high", accept_with_conditions: "medium", not_now: "low" } as const;
@@ -37,6 +38,24 @@ export function ProjectProposalPanel({ proposal }: { proposal: ProjectProposal }
           é uma estimativa pelo que o texto define{adoption.present.length > 0 ? ` (${adoption.present.join(", ")})` : ""}, não uma previsão.
         </p>
       </div>
+
+      <h3 className="subsection-title">O que aprendemos com as ideias aprovadas</h3>
+      <p className="small-copy muted">
+        {proposal.learningBaseSize === 0
+          ? "Esta empresa ainda não tem ideias aprovadas para comparar. Cada aprovação passa a servir de referência."
+          : `Comparada com ${proposal.learningBaseSize} ${proposal.learningBaseSize === 1 ? "ideia aprovada" : "ideias aprovadas"} desta empresa, pelo tema e pelo texto.`}
+      </p>
+      {proposal.precedents.length > 0 ? (
+        <ul className="evaluation-list">
+          {proposal.precedents.map((item) => (
+            <li key={item.id}>
+              <Link className="text-link" href={`/ideas/${item.id}`}>{item.title}</Link> · {Math.round(item.similarity * 100)}% de termos em comum
+            </li>
+          ))}
+        </ul>
+      ) : (
+        proposal.learningBaseSize > 0 && <p className="empty-inline">Nenhuma ideia aprovada parecida.</p>
+      )}
 
       <h3 className="subsection-title">Proposta</h3>
       <p className="small-copy">{proposal.objective}</p>

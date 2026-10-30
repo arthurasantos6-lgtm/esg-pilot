@@ -38,7 +38,7 @@ const projectSchema = z
   .object({
     title: z.string().trim().min(3, "O título deve ter pelo menos 3 caracteres.").max(160),
     objective: z.string().trim().min(10, "Descreva o objetivo do projeto.").max(4000),
-    ideaId: z.string().uuid().optional(),
+    ideaId: z.guid().optional(),
     startsOn: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
     targetDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
   })
@@ -49,7 +49,7 @@ const projectSchema = z
   );
 
 const indicatorSchema = z.object({
-  projectId: z.string().uuid(),
+  projectId: z.guid(),
   name: z.string().trim().min(2).max(160),
   dimension: z.enum(["E", "S", "G"]),
   unit: z.string().trim().min(1).max(40),
@@ -199,7 +199,7 @@ export async function createProject(formData: FormData) {
 }
 
 export async function updateProjectStatus(formData: FormData) {
-  const projectId = z.string().uuid().safeParse(formData.get("projectId"));
+  const projectId = z.guid().safeParse(formData.get("projectId"));
   const status = projectStatusSchema.safeParse(formData.get("status"));
   if (!projectId.success || !status.success) {
     redirect("/projects?error=Não%20foi%20possível%20atualizar%20a%20situação.");
@@ -233,7 +233,7 @@ export async function createIndicator(formData: FormData) {
     target: formData.get("target"),
   });
 
-  const projectId = z.string().uuid().safeParse(formData.get("projectId"));
+  const projectId = z.guid().safeParse(formData.get("projectId"));
   if (!parsed.success || !projectId.success) {
     redirect(`/projects/${encodeURIComponent(String(formData.get("projectId") ?? ""))}?error=Confira%20os%20dados%20do%20indicador.`);
   }
@@ -264,8 +264,8 @@ export async function createIndicator(formData: FormData) {
 
 export async function recordIndicatorMeasurement(formData: FormData) {
   const parsed = z.object({
-    indicatorId: z.string().uuid(),
-    projectId: z.string().uuid(),
+    indicatorId: z.guid(),
+    projectId: z.guid(),
       measured: z.preprocess(
         (value) => value === "" ? Number.NaN : value,
         z.coerce.number().finite(),

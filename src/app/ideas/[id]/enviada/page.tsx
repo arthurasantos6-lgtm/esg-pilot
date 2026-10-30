@@ -12,7 +12,7 @@ export const metadata: Metadata = { title: "Ideia enviada" };
 export default async function IdeaSentPage({ params }: { params: Promise<{ id: string }> }) {
   await connection();
   const { id } = await params;
-  if (!z.string().uuid().safeParse(id).success) notFound();
+  if (!z.guid().safeParse(id).success) notFound();
 
   const { supabase, user, membership, organization } = await requireCompanyContext();
   const { data: idea } = await supabase

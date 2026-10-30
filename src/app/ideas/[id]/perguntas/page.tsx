@@ -22,7 +22,7 @@ export default async function GuidedQuestionsPage({
 }) {
   await connection();
   const [{ id }, query] = await Promise.all([params, searchParams]);
-  if (!z.string().uuid().safeParse(id).success) notFound();
+  if (!z.guid().safeParse(id).success) notFound();
 
   const { supabase, user, membership, organization } = await requireCompanyContext();
   assertModuleEnabled(organization.enabled_modules, "ideas", "Ideias");

@@ -33,7 +33,7 @@ export async function createCompanyAccessLink(formData: FormData) {
 
 export async function revokeCompanyAccessLink(formData: FormData) {
   const { supabase } = await requireCompanyAdmin();
-  const linkId = z.string().uuid().safeParse(formData.get("linkId"));
+  const linkId = z.guid().safeParse(formData.get("linkId"));
   if (!linkId.success) redirect("/equipe?error=Link%20inv%C3%A1lido.");
 
   const { error } = await supabase.rpc("revoke_access_link", { link_id: linkId.data });
@@ -47,7 +47,7 @@ export async function revokeCompanyAccessLink(formData: FormData) {
 export async function setCollaboratorStatus(formData: FormData) {
   const { supabase, user, membership } = await requireCompanyAdmin();
   const parsed = z
-    .object({ userId: z.string().uuid(), status: z.enum(["active", "blocked"]) })
+    .object({ userId: z.guid(), status: z.enum(["active", "blocked"]) })
     .safeParse({ userId: formData.get("userId"), status: formData.get("status") });
   if (!parsed.success || parsed.data.userId === user.id) redirect("/equipe?error=Opera%C3%A7%C3%A3o%20inv%C3%A1lida.");
 

@@ -3,7 +3,8 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { assessCriteria, summarizeAssessment } from "../src/lib/esg-assessment.ts";
 import { classifyText } from "../src/lib/esg-classifier.ts";
-import { assessAdoption, buildProjectProposal, projectObjectiveText, recommendIdea } from "../src/lib/esg-project-proposal.ts";
+import { assessAdoption, buildLearningBase, buildProjectProposal, findPrecedents, projectObjectiveText, recommendIdea } from "../src/lib/esg-project-proposal.ts";
+import { z } from "zod";
 
 const analyze = (text) => {
   const classification = classifyText(text);
@@ -83,4 +84,50 @@ test("unclassified ideas still get an honest objective, and the project text fit
   const objective = projectObjectiveText(build(DETAILED));
   assert.match(objective, /O que fazer:/);
   assert.ok(objective.length >= 10 && objective.length <= 4000);
+});
+
+const approvedIdea = (id, title, text, status = "approved") => ({ id, title, original_description: text, status, analysis: { local: analyze(`${title} ${text}`) } });
+const ENERGY = approvedIdea("a", "Desligar máquinas ociosas", "As máquinas ficam ligadas sem uso. Sugiro desligar as máquinas para reduzir o consumo de energia.", "implemented");
+const WATER = approvedIdea("b", "Reaproveitar água", "Sugiro reaproveitar água da lavagem para reduzir o consumo de água.");
+const targetOf = (id, title, text) => ({ id, title, original_description: text, subcategories: analyze(`${title} ${text}`).classification.subcategories });
+
+test("only approved ideas with an analysis enter the learning base", () => {
+  const rejected = approvedIdea("c", "Rejeitada", "Reduzir o consumo de energia.", "rejected");
+  const legacy = { id: "d", title: "Antiga", original_description: "Texto", status: "approved", analysis: { method: "triagem_por_termos" } };
+  assert.deepEqual(buildLearningBase([ENERGY, WATER, rejected, legacy]).map(({ id }) => id), ["a", "b"]);
+});
+
+test("a precedent needs the same theme: shared generic words are not enough", () => {
+  const base = buildLearningBase([ENERGY, WATER]);
+  const similar = findPrecedents(targetOf("x", "Desligar máquinas paradas", "Muitas máquinas ficam ligadas. Sugiro desligar para reduzir o consumo de energia."), base);
+  assert.deepEqual(similar.map(({ id }) => id), ["a"]);
+  assert.deepEqual(findPrecedents(targetOf("y", "Treinar equipe", "Sugiro um treinamento de segurança para prevenir acidentes."), base), []);
+});
+
+test("an idea is not its own precedent, and copies do not count", () => {
+  const base = buildLearningBase([ENERGY]);
+  assert.deepEqual(findPrecedents(targetOf("a", ENERGY.title, ENERGY.original_description), base), []);
+  assert.deepEqual(findPrecedents(targetOf("z", ENERGY.title, ENERGY.original_description), base), []);
+});
+
+test("a precedent raises the recommendation one level, with the reason shown", () => {
+  const precedent = [{ id: "a", title: "Ideia aprovada", similarity: 0.4 }];
+  const thin = analyze("Podemos desligar as máquinas.");
+  assert.equal(recommendIdea(thin).key, "not_now");
+  const raised = recommendIdea(thin, precedent);
+  assert.equal(raised.key, "accept_with_conditions");
+  assert.match(raised.reasons[0], /Ideia aprovada/);
+});
+
+test("precedents never rescue unclassified ideas or skip the specialist on sensitive themes", () => {
+  const precedent = [{ id: "a", title: "Ideia aprovada", similarity: 0.4 }];
+  assert.equal(recommendIdea(analyze("Tenho uma ideia boa."), precedent).key, "not_now");
+  const sensitive = recommendIdea(analyze(`${DETAILED} Houve um caso de corrupção nas compras.`), precedent);
+  assert.equal(sensitive.key, "accept_with_conditions");
+  assert.match(sensitive.conditions[0], /especialista/);
+});
+
+test("database ids from the demo data pass the app validation", () => {
+  assert.equal(z.guid().safeParse("c616ccfb-1af5-bb0c-2c2e-5d1c0e4def50").success, true);
+  assert.equal(z.guid().safeParse("nao-e-id").success, false);
 });

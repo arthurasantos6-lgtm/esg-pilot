@@ -40,7 +40,7 @@ import { createServiceClient } from "@/lib/supabase/admin";
 import { selectRelevantKnowledge } from "@/lib/text-similarity";
 import type { Json } from "@/lib/supabase/database.types";
 
-const idSchema = z.string().uuid();
+const idSchema = z.guid();
 
 const startIdeaSchema = z.object({
   description: z
@@ -444,10 +444,10 @@ const optionalEnum = <T extends [string, ...string[]]>(values: T) =>
   z.preprocess((value) => (value === "" || value === null ? undefined : value), z.enum(values).optional());
 
 const decisionSchema = z.object({
-  ideaId: z.string().uuid(),
+  ideaId: z.guid(),
   toStatus: z.string().min(1),
   justification: z.string().trim().min(10, "Registre uma justificativa com pelo menos 10 caracteres.").max(2000),
-  responsibleId: z.preprocess((value) => (value === "" ? undefined : value), z.string().uuid().optional()),
+  responsibleId: z.preprocess((value) => (value === "" ? undefined : value), z.guid().optional()),
   followUpDate: z.preprocess(
     (value) => (value === "" ? undefined : value),
     z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Informe uma data válida.").optional(),
