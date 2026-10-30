@@ -1726,9 +1726,37 @@ details summary h2 {
   }
 
   .workspace-label,
-  .organization-chip,
-  .sidebar-bottom {
+  .organization-chip {
     display: none;
+  }
+
+  .sidebar-bottom {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 2px 12px;
+    margin-top: 10px;
+    padding: 9px 2px 2px;
+  }
+
+  .sidebar-bottom .role-label,
+  .sidebar-bottom .signout-warning {
+    display: none;
+  }
+
+  .sidebar-bottom .user-email {
+    min-width: 0;
+    flex: 1 1 0;
+    margin: 0;
+  }
+
+  .sidebar-bottom .signout-button {
+    min-height: 32px;
+    margin: 0;
+    padding: 0 12px;
+    border: 1px solid rgb(255 255 255 / 30%);
+    border-radius: 999px;
   }
 
   .main-nav {
