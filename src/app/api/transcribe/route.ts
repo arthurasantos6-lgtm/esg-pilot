@@ -42,7 +42,7 @@ export async function POST(request: Request) {
   if (insertError) return failure("A transcrição de áudio não está disponível no momento.", 503);
 
   try {
-    const text = await transcribeAudio(wav);
+    const { text } = await transcribeAudio(wav);
     if (!text) return failure("Não identificamos fala no áudio. Tente gravar de novo.", 422);
     return NextResponse.json({ text });
   } catch (error) {

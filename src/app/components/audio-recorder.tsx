@@ -1,7 +1,14 @@
 "use client";
 
 import { useEffect, useRef, useState, useSyncExternalStore } from "react";
-import { encodeWav, MAX_RECORDING_SECONDS, TRANSCRIPTION_SAMPLE_RATE } from "@/lib/audio-wav";
+import {
+  encodeWav,
+  MAX_RECORDING_SECONDS,
+  MIN_AUDIBLE_PEAK,
+  normalizeVolume,
+  peakLevel,
+  TRANSCRIPTION_SAMPLE_RATE,
+} from "@/lib/audio-wav";
 
 const subscribe = () => () => {};
 
@@ -20,7 +27,9 @@ async function toWav(recording: Blob) {
     source.connect(offline.destination);
     source.start();
     const rendered = await offline.startRendering();
-    return encodeWav(rendered.getChannelData(0), TRANSCRIPTION_SAMPLE_RATE);
+    const samples = rendered.getChannelData(0);
+    if (peakLevel(samples) < MIN_AUDIBLE_PEAK) return null;
+    return encodeWav(normalizeVolume(samples), TRANSCRIPTION_SAMPLE_RATE);
   } finally {
     await decoder.close();
   }
@@ -54,6 +63,10 @@ export function AudioRecorder({ targetId }: { targetId: string }) {
     setStatus("transcribing");
     try {
       const wav = await toWav(recording);
+      if (!wav) {
+        setError("O microfone não captou som. Confira se o microfone certo está selecionado no navegador e tente de novo.");
+        return;
+      }
       const response = await fetch("/api/transcribe", {
         method: "POST",
         headers: { "Content-Type": "audio/wav" },

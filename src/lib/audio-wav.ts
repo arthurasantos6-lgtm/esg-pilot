@@ -31,6 +31,23 @@ export function encodeWav(samples: Float32Array, sampleRate: number): Uint8Array
   return new Uint8Array(buffer);
 }
 
+/** Volume máximo da gravação; abaixo do limite mínimo, o microfone não captou som útil. */
+export function peakLevel(samples: Float32Array) {
+  let peak = 0;
+  for (const sample of samples) peak = Math.max(peak, Math.abs(sample));
+  return peak;
+}
+
+export const MIN_AUDIBLE_PEAK = 0.005;
+
+/** Aumenta gravações baixas, para o modelo ouvir bem microfones de volume fraco. */
+export function normalizeVolume(samples: Float32Array, target = 0.9): Float32Array {
+  const peak = peakLevel(samples);
+  if (peak === 0 || peak >= target) return samples;
+  const gain = target / peak;
+  return samples.map((sample) => sample * gain);
+}
+
 export function isWav(bytes: Uint8Array): boolean {
   const text = (start: number, end: number) => String.fromCharCode(...bytes.subarray(start, end));
   return bytes.length > 44 && text(0, 4) === "RIFF" && text(8, 12) === "WAVE";

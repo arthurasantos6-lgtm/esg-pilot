@@ -6,7 +6,7 @@ import { z } from "zod";
 import { COMPANY_MODULES, requirePlatformAdmin } from "@/lib/auth";
 import { readCreateLinkForm } from "@/lib/access-links";
 import { testAiConnection, toAdminAiTestError } from "@/lib/ai/service";
-import { testTranscription } from "@/lib/ai/transcription";
+import { transcribeAudio } from "@/lib/ai/transcription";
 import { logAudit } from "@/lib/platform-audit";
 
 const organizationSchema = z.object({
@@ -255,8 +255,12 @@ export async function testTranscriptionIntegration() {
   const { supabase, user } = await requirePlatformAdmin();
   let target: string;
   try {
-    const { model, latencyMs } = await testTranscription();
-    target = `/admin/ai?tested=1&model=${encodeURIComponent(model)}&latency=${latencyMs}`;
+    // Uma frase gravada, sem dados de clientes: silêncio não provaria que a transcrição funciona.
+    const startedAt = Date.now();
+    const sample = await fetch(new URL("/transcription-test.wav", process.env.NEXT_PUBLIC_SITE_URL), { cache: "no-store" });
+    if (!sample.ok) throw new Error("transcription_sample_unavailable");
+    const { text, model } = await transcribeAudio(new Uint8Array(await sample.arrayBuffer()));
+    target = `/admin/ai?tested=1&model=${encodeURIComponent(model)}&latency=${Date.now() - startedAt}&transcript=${encodeURIComponent(text || "(o modelo não identificou fala)")}`;
   } catch (error) {
     target = `/admin/ai?error=${encodeURIComponent(toAdminAiTestError(error))}`;
   }

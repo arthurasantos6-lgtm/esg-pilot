@@ -2,7 +2,8 @@
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import test from "node:test";
-import { encodeWav, isWav, MAX_WAV_BYTES } from "../src/lib/audio-wav.ts";
+import { encodeWav, isWav, MAX_WAV_BYTES, MIN_AUDIBLE_PEAK, normalizeVolume, peakLevel } from "../src/lib/audio-wav.ts";
+import { NO_SPEECH_MARKER, readTranscription } from "../src/lib/ai/transcription-response.ts";
 import { isTranscriptionOnlyModel, resolveTranscriptionConfig } from "../src/lib/ai/config.ts";
 import {
   computeEsgScore,
@@ -93,10 +94,30 @@ test("recordings become valid WAV files within the upload limit", () => {
   assert.ok(MAX_WAV_BYTES < 4.5 * 1024 * 1024);
 });
 
+test("quiet recordings are amplified, silence is detected and loud ones stay as they are", () => {
+  const quiet = new Float32Array([0.1, -0.2, 0.05]);
+  assert.ok(Math.abs(peakLevel(normalizeVolume(quiet)) - 0.9) < 0.0001);
+  const loud = new Float32Array([0.95, -0.1]);
+  assert.equal(normalizeVolume(loud), loud);
+  assert.deepEqual([...normalizeVolume(new Float32Array(2))], [0, 0]);
+  assert.ok(peakLevel(new Float32Array(10)) < MIN_AUDIBLE_PEAK);
+});
+
+test("an empty model answer is not confused with audio without speech", () => {
+  const answer = (parts, extra = {}) => ({ candidates: [{ finishReason: "STOP", content: { parts }, ...extra }] });
+  assert.deepEqual(readTranscription(answer([{ text: " Olá, " }, { text: "tudo bem? " }])), { kind: "text", text: "Olá, tudo bem?" });
+  assert.deepEqual(readTranscription(answer([{ text: "rascunho interno", thought: true }, { text: "Olá" }])), { kind: "text", text: "Olá" });
+  assert.deepEqual(readTranscription(answer([{ text: NO_SPEECH_MARKER }])), { kind: "no_speech" });
+  assert.deepEqual(readTranscription(answer([])), { kind: "empty", detail: "resposta sem texto (finishReason=STOP, partes=0)" });
+  assert.match(readTranscription({ promptFeedback: { blockReason: "SAFETY" } }).detail, /bloqueio=SAFETY/);
+  assert.match(readTranscription({}).detail, /finishReason=ausente/);
+});
+
 test("transcription has its own model and falls back to the main one", () => {
   const base = { AI_PROVIDER: "gemini", AI_API_KEY: "segredo-123", AI_MODEL: "conversa" };
-  assert.equal(resolveTranscriptionConfig(base)?.model, "conversa");
-  assert.equal(resolveTranscriptionConfig({ ...base, AI_TRANSCRIPTION_MODEL: "models/audio" })?.model, "audio");
+  assert.deepEqual(resolveTranscriptionConfig(base)?.models, ["conversa"]);
+  assert.deepEqual(resolveTranscriptionConfig({ ...base, AI_TRANSCRIPTION_MODEL: "models/audio" })?.models, ["audio", "conversa"]);
+  assert.deepEqual(resolveTranscriptionConfig({ ...base, AI_TRANSCRIPTION_MODEL: "conversa" })?.models, ["conversa"]);
   assert.equal(resolveTranscriptionConfig({ AI_PROVIDER: "groq", AI_API_KEY: "k", AI_MODEL: "m" }), null);
   assert.equal(resolveTranscriptionConfig({ AI_PROVIDER: "gemini", AI_MODEL: "m" }), null);
   assert.equal(isTranscriptionOnlyModel("gemini-3.5-transcribe"), true);

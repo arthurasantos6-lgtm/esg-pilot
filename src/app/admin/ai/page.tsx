@@ -13,7 +13,7 @@ export const metadata: Metadata = { title: "IA e integrações" };
 export default async function AdminAiPage({
   searchParams,
 }: {
-  searchParams: Promise<{ tested?: string; model?: string; latency?: string; error?: string }>;
+  searchParams: Promise<{ tested?: string; model?: string; latency?: string; error?: string; transcript?: string }>;
 }) {
   await connection();
   const { user } = await requirePlatformAdmin();
@@ -41,6 +41,7 @@ export default async function AdminAiPage({
       {query.tested && (
         <p className="alert alert-success" role="status">
           Conexão funcionando · modelo {query.model} · {query.latency} ms
+          {query.transcript && <> · transcrição: “{query.transcript}”</>}
         </p>
       )}
 
@@ -57,7 +58,7 @@ export default async function AdminAiPage({
           <div><dt>Modelo</dt><dd>{config?.model ?? "—"}</dd></div>
           <div><dt>Endereço da API</dt><dd>{config?.host ?? (config ? "padrão do provedor" : "—")}</dd></div>
           <div><dt>Chave do provedor</dt><dd>{config ? (config.hasApiKey ? "Configurada" : "Não usada") : "—"}</dd></div>
-          <div><dt>Modelo de transcrição de áudio</dt><dd>{transcription?.model ?? "Não configurado"}</dd></div>
+          <div><dt>Modelo de transcrição de áudio</dt><dd>{transcription?.models.join(", depois ") ?? "Não configurado"}</dd></div>
           <div><dt>Chave service role (Supabase)</dt><dd>{serviceRoleConfigured ? "Configurada" : "Ausente"}</dd></div>
         </dl>
         {!aiActive && (
@@ -82,7 +83,7 @@ export default async function AdminAiPage({
         {transcription && (
           <form action={testTranscriptionIntegration}>
             <SubmitButton className="button button-secondary" pendingLabel="Testando…">Testar transcrição</SubmitButton>
-            <p className="field-hint">Envia um segundo de silêncio, sem dados de clientes.</p>
+            <p className="field-hint">Envia uma frase gravada, sem dados de clientes, e mostra o texto que o modelo devolveu.</p>
           </form>
         )}
       </section>

@@ -41,16 +41,32 @@ export function toUserFacingAiError(error: unknown): string {
   return "Ocorreu um erro inesperado ao processar com a IA.";
 }
 
+/** O provedor respondeu sem texto: é diferente de um áudio realmente sem fala. */
+export class EmptyTranscriptionError extends AiUnavailableError {
+  constructor(readonly detail: string) {
+    super("A IA não devolveu a transcrição do áudio. Você pode digitar a ideia.");
+    this.name = "EmptyTranscriptionError";
+  }
+}
+
 /** Mensagem do teste de conexão do administrador (sem dados de clientes): inclui o motivo do provedor. */
 export function toAdminAiTestError(error: unknown): string {
   const message = toUserFacingAiError(error);
+  if (error instanceof EmptyTranscriptionError) return `${message} (${error.detail})`;
   if (!(error instanceof ProviderHttpError)) return message;
   return `${message} (HTTP ${error.status}${error.detail ? `: ${error.detail}` : ""})`;
 }
 
 /** Falha na transcrição, sem o áudio nem o texto. */
 export function logTranscriptionFailure(error: unknown) {
-  const detail = error instanceof ProviderHttpError ? `status=${error.status}` : error instanceof Error ? error.name : "unknown";
+  const detail =
+    error instanceof ProviderHttpError
+      ? `status=${error.status}`
+      : error instanceof EmptyTranscriptionError
+        ? error.detail
+        : error instanceof Error
+          ? error.name
+          : "unknown";
   console.error(`[ai] transcrição falhou: ${detail}`);
 }
 
