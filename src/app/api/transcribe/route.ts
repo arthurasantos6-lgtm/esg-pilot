@@ -5,8 +5,8 @@ import { assertModuleEnabled, requireCompanyContext } from "@/lib/auth";
 import { isWav, MAX_WAV_BYTES } from "@/lib/audio-wav";
 import { canCreateIdeas } from "@/lib/idea-permissions";
 
-// Abaixo do limite de tempo da Vercel, com folga para as novas tentativas.
-export const maxDuration = 60;
+// Comporta a tentativa nos dois modelos de transcrição.
+export const maxDuration = 120;
 
 /** Limite por pessoa em 24 h: o acesso por link não exige cadastro e cada áudio tem custo. */
 const MAX_TRANSCRIPTIONS_PER_DAY = 30;

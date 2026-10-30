@@ -6,7 +6,7 @@ import { z } from "zod";
 import { COMPANY_MODULES, requirePlatformAdmin } from "@/lib/auth";
 import { readCreateLinkForm } from "@/lib/access-links";
 import { testAiConnection, toAdminAiTestError } from "@/lib/ai/service";
-import { transcribeAudio } from "@/lib/ai/transcription";
+import { describeTranscriptionModels, transcribeAudio } from "@/lib/ai/transcription";
 import { logAudit } from "@/lib/platform-audit";
 
 const organizationSchema = z.object({
@@ -262,7 +262,8 @@ export async function testTranscriptionIntegration() {
     const { text, model } = await transcribeAudio(new Uint8Array(await sample.arrayBuffer()));
     target = `/admin/ai?tested=1&model=${encodeURIComponent(model)}&latency=${Date.now() - startedAt}&transcript=${encodeURIComponent(text || "(o modelo não identificou fala)")}`;
   } catch (error) {
-    target = `/admin/ai?error=${encodeURIComponent(toAdminAiTestError(error))}`;
+    const availability = await describeTranscriptionModels();
+    target = `/admin/ai?error=${encodeURIComponent(`${toAdminAiTestError(error)} Disponibilidade: ${availability.join("; ")}.`)}`;
   }
   await logAudit(supabase, user.id, "ai_integration_tested", "platform_config", null, {
     success: target.includes("tested=1"),

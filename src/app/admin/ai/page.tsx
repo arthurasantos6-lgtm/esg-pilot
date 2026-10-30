@@ -10,6 +10,9 @@ import { requirePlatformAdmin } from "@/lib/auth";
 
 export const metadata: Metadata = { title: "IA e integrações" };
 
+// O teste de transcrição pode aguardar os dois modelos.
+export const maxDuration = 120;
+
 export default async function AdminAiPage({
   searchParams,
 }: {
