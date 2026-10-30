@@ -104,29 +104,3 @@ export async function transcribeAudio(wav: Uint8Array) {
   }
   throw new TranscriptionFailedError(message, attempts);
 }
-
-/** Para o teste do administrador: o provedor oferece cada modelo a esta chave? */
-export async function describeTranscriptionModels() {
-  const config = getTranscriptionConfig();
-  if (!config) return [];
-  return Promise.all(
-    config.models.map(async (model) => {
-      const isGroq = config.provider === "groq";
-      try {
-        const response = await fetch(
-          isGroq
-            ? `https://api.groq.com/openai/v1/models/${encodeURIComponent(model)}`
-            : `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}`,
-          {
-            headers: isGroq ? { Authorization: `Bearer ${config.apiKey}` } : { "x-goog-api-key": config.apiKey },
-            signal: AbortSignal.timeout(8_000),
-            cache: "no-store",
-          },
-        );
-        return `${model}: ${response.ok ? "disponível" : `não encontrado para esta chave (HTTP ${response.status})`}`;
-      } catch {
-        return `${model}: não foi possível consultar`;
-      }
-    }),
-  );
-}

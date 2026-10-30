@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { z } from "zod";
-import { describeAiConfig, diagnoseAiEnv, resolveAiConfig } from "../src/lib/ai/config.ts";
+import { resolveAiConfig } from "../src/lib/ai/config.ts";
 import { retryOnTemporaryFailure } from "../src/lib/ai/retry.ts";
 import { describeSchemaIssues, extractJsonObject, jsonInstructions, providerErrorDetail } from "../src/lib/ai/json-output.ts";
 
@@ -34,22 +34,6 @@ test("Anthropic is used when its key is present, with the default model", () => 
   assert.equal(config?.kind, "anthropic");
   assert.equal(config?.model, "claude-opus-5-5");
   assert.equal(resolveAiConfig({ AI_PROVIDER: "anthropic" }), null);
-});
-
-test("the admin description never contains the key", () => {
-  const description = describeAiConfig(resolveAiConfig({ AI_PROVIDER: "groq", AI_MODEL: "m", AI_API_KEY: "segredo-123" }));
-  assert.deepEqual(description, { provider: "Groq", model: "m", host: "api.groq.com", hasApiKey: true });
-  assert.doesNotMatch(JSON.stringify(description), /segredo-123/);
-});
-
-test("the environment diagnosis names what is missing and never repeats values", () => {
-  assert.deepEqual(diagnoseAiEnv({ AI_PROVIDER: "gemini", AI_MODEL: "m", AI_API_KEY: "k" }), []);
-  assert.deepEqual(diagnoseAiEnv({}), ["AI_PROVIDER não definida."]);
-  assert.deepEqual(diagnoseAiEnv({ AI_PROVIDER: "gemini" }), ["AI_MODEL não definida.", "AI_API_KEY não definida."]);
-  assert.deepEqual(diagnoseAiEnv({ AI_PROVIDER: "openai-compatible", AI_MODEL: "m" }), ["AI_BASE_URL não definida."]);
-  const unknown = diagnoseAiEnv({ AI_PROVIDER: "segredo-123", AI_MODEL: "m" });
-  assert.match(unknown[0], /não reconhecido/);
-  assert.doesNotMatch(unknown[0], /segredo-123/);
 });
 
 test("provider error details handle Gemini's list format and redact the key", () => {

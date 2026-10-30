@@ -20,7 +20,7 @@ import {
 import { evaluationResultSchema, proposalDraftSchema } from "@/lib/ai/schemas";
 import type { ChatRequest, Effort } from "@/lib/ai/types";
 
-export { AiUnavailableError, logAiFailure, toAdminAiTestError, toUserFacingAiError } from "@/lib/ai/errors";
+export { AiUnavailableError, logAiFailure, toUserFacingAiError } from "@/lib/ai/errors";
 
 /** Configuração lida do ambiente a cada chamada (sem cache de segredos em módulo). */
 export function getAiConfig() {
@@ -85,17 +85,4 @@ export async function generateEvaluation(
     "high",
   );
   return { result: data, usage };
-}
-
-/** Chamada mínima para o administrador verificar a integração (sem dados de clientes). */
-export async function testAiConnection() {
-  const startedAt = Date.now();
-  const { usage } = await chat(
-    {
-      system: "Você verifica se uma integração está funcionando.",
-      messages: [{ role: "user", content: "Responda apenas com a palavra: ok" }],
-    },
-    "low",
-  );
-  return { model: usage.model, latencyMs: Date.now() - startedAt };
 }

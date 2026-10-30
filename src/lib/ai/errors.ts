@@ -52,14 +52,6 @@ export class TranscriptionFailedError extends AiUnavailableError {
   }
 }
 
-/** Mensagem do teste de conexão do administrador (sem dados de clientes): inclui o motivo do provedor. */
-export function toAdminAiTestError(error: unknown): string {
-  const message = toUserFacingAiError(error);
-  if (error instanceof TranscriptionFailedError) return `${message} (${error.attempts.join("; ")})`;
-  if (!(error instanceof ProviderHttpError)) return message;
-  return `${message} (HTTP ${error.status}${error.detail ? `: ${error.detail}` : ""})`;
-}
-
 /** Falha na transcrição, sem o áudio nem o texto. */
 export function logTranscriptionFailure(error: unknown) {
   const detail = error instanceof TranscriptionFailedError ? error.attempts.join("; ") : error instanceof Error ? error.name : "unknown";

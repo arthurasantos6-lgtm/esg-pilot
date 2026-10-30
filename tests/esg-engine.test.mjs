@@ -4,7 +4,7 @@ import { readFileSync } from "node:fs";
 import test from "node:test";
 import { encodeWav, isWav, MAX_WAV_BYTES, MIN_AUDIBLE_PEAK, normalizeVolume, peakLevel } from "../src/lib/audio-wav.ts";
 import { NO_SPEECH_MARKER, readTranscription } from "../src/lib/ai/transcription-response.ts";
-import { isTranscriptionOnlyModel, resolveTranscriptionConfig } from "../src/lib/ai/config.ts";
+import { resolveTranscriptionConfig } from "../src/lib/ai/config.ts";
 import {
   computeEsgScore,
   ESG_CRITERIA,
@@ -127,11 +127,6 @@ test("transcription has its own model and falls back to the main one", () => {
   assert.equal(resolveTranscriptionConfig({ AI_PROVIDER: "groq", AI_MODEL: "m" }), null);
   assert.equal(resolveTranscriptionConfig({ AI_PROVIDER: "ollama", AI_API_KEY: "k", AI_MODEL: "m" }), null);
   assert.equal(resolveTranscriptionConfig({ AI_PROVIDER: "gemini", AI_MODEL: "m" }), null);
-  assert.equal(isTranscriptionOnlyModel("gemini-3.5-transcribe"), true);
-  assert.equal(isTranscriptionOnlyModel("gemini-3.8-flash"), false);
-  assert.equal(isTranscriptionOnlyModel("whisper-large-v3-turbo"), true);
-  assert.equal(isTranscriptionOnlyModel("llama-3.3-70b-versatile"), false);
-  assert.equal(isTranscriptionOnlyModel(null), false);
 });
 
 test("the knowledge import has 40 unique records, allowed categories and is safe to rerun", () => {

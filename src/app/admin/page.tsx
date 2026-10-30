@@ -3,6 +3,7 @@ import Link from "next/link";
 import { connection } from "next/server";
 import { AdminShell } from "@/app/admin/components/admin-shell";
 import { BarList } from "@/app/dashboard/charts";
+import { isExternalAiEnabled } from "@/lib/ai/config";
 import { getAiConfig } from "@/lib/ai/service";
 import { requirePlatformAdmin } from "@/lib/auth";
 import { PERIOD_LABELS, parsePeriod, periodStart } from "@/lib/dashboard-metrics";
@@ -58,13 +59,15 @@ export default async function AdminDashboardPage({
   const sum = (key: keyof (typeof rows)[number]) => rows.reduce((total, row) => total + Number(row[key] ?? 0), 0);
   const filtered = Boolean(query.orgStatus || query.org);
 
+  // Com a IA externa desligada (padrão), a falta de provedor não é um problema.
+  const externalAi = isExternalAiEnabled(process.env);
   const aiConfigured = Boolean(getAiConfig());
   const serviceRoleConfigured = Boolean(process.env.SUPABASE_SERVICE_ROLE_KEY);
   const failed = sum("evaluations_failed");
   const stale = sum("evaluations_stale");
   const alerts = [
-    !aiConfigured && "Nenhum provedor de IA configurado: o copiloto e a avaliação por IA estão indisponíveis para todas as empresas.",
-    aiConfigured && !serviceRoleConfigured && "SUPABASE_SERVICE_ROLE_KEY ausente: a IA está configurada, mas não consegue gravar respostas e avaliações.",
+    externalAi && !aiConfigured && "Nenhum provedor de IA configurado: o copiloto e a avaliação por IA estão indisponíveis para todas as empresas.",
+    externalAi && aiConfigured && !serviceRoleConfigured && "SUPABASE_SERVICE_ROLE_KEY ausente: a IA está configurada, mas não consegue gravar respostas e avaliações.",
     failed > 0 && `${failed} ${failed === 1 ? "avaliação por IA falhou" : "avaliações por IA falharam"} no período. As ideias foram preservadas e podem ser reprocessadas pelas empresas.`,
     stale > 0 && `${stale} ${stale === 1 ? "avaliação está pendente" : "avaliações estão pendentes"} há mais de 10 minutos (processamento interrompido).`,
   ].filter((alert): alert is string => Boolean(alert));
@@ -92,7 +95,6 @@ export default async function AdminDashboardPage({
         ) : (
           <p className="alert alert-success"><span aria-hidden="true">✓ </span>Nenhum alerta no período selecionado.</p>
         )}
-        <Link className="text-link" href="/admin/ai">Ver integração de IA <span aria-hidden="true">→</span></Link>
       </section>
 
       <section className="metric-grid" aria-label="Indicadores gerais da plataforma">
