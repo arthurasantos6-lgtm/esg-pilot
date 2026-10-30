@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { BrandMark } from "@/app/components/brand-mark";
 
 export const metadata: Metadata = { title: "Sessão encerrada", robots: { index: false, follow: false } };
 
@@ -7,7 +8,7 @@ export default function AccessEndedPage() {
     <main className="auth-page">
       <section className="auth-card" aria-labelledby="ended-title">
         <div className="brand auth-brand">
-          <span className="brand-mark" aria-hidden="true">C</span>
+          <BrandMark />
           <span>copiloto<span className="brand-accent">ESG</span></span>
         </div>
         <p className="eyebrow">ACESSO DO COLABORADOR</p>

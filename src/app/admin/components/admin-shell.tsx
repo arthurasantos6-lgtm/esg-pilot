@@ -1,6 +1,7 @@
 import Link from "next/link";
 import type { ReactNode } from "react";
 import { signOut } from "@/app/actions";
+import { BrandMark } from "@/app/components/brand-mark";
 
 type AdminShellProps = {
   children: ReactNode;
@@ -12,7 +13,7 @@ export function AdminShell({ children, userEmail }: AdminShellProps) {
     <div className="app-frame">
       <aside className="sidebar" aria-label="Navegação administrativa">
         <Link className="brand" href="/admin" aria-label="Copiloto ESG, administração da plataforma">
-          <span className="brand-mark" aria-hidden="true">C</span>
+          <BrandMark />
           <span>copiloto<span className="brand-accent">ESG</span></span>
         </Link>
         <div className="workspace-label">ADMINISTRAÇÃO DA PLATAFORMA</div>

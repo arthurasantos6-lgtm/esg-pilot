@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { BrandMark } from "@/app/components/brand-mark";
 
 export const metadata: Metadata = { title: "Configuração necessária" };
 
@@ -6,7 +7,7 @@ export default function SetupPage() {
   return (
     <main className="auth-page">
       <section className="auth-card setup-card" aria-labelledby="setup-title">
-        <span className="brand-mark" aria-hidden="true">C</span>
+        <BrandMark />
         <p className="eyebrow">CONFIGURAÇÃO INICIAL</p>
         <h1 id="setup-title">Conecte seu projeto Supabase</h1>
         <p className="muted">

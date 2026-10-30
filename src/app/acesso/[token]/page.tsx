@@ -5,13 +5,14 @@ import { joinWithLink, leaveAndReturn } from "@/app/acesso/actions";
 import { SubmitButton } from "@/app/components/submit-button";
 import { isSupabaseConfigured } from "@/lib/supabase/config";
 import { createClient } from "@/lib/supabase/server";
+import { BrandMark } from "@/app/components/brand-mark";
 
 export const metadata: Metadata = { title: "Acesso do colaborador", robots: { index: false, follow: false } };
 
 function Brand() {
   return (
     <div className="brand auth-brand">
-      <span className="brand-mark" aria-hidden="true">C</span>
+      <BrandMark />
       <span>copiloto<span className="brand-accent">ESG</span></span>
     </div>
   );

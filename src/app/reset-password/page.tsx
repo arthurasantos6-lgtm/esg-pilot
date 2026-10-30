@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 import { connection } from "next/server";
 import { updatePassword } from "@/app/actions";
 import { createClient } from "@/lib/supabase/server";
+import { BrandMark } from "@/app/components/brand-mark";
 
 export default async function ResetPasswordPage({
   searchParams,
@@ -17,7 +18,7 @@ export default async function ResetPasswordPage({
   return (
     <main className="auth-page">
       <section className="auth-card" aria-labelledby="reset-title">
-        <span className="brand-mark" aria-hidden="true">C</span>
+        <BrandMark />
         <p className="eyebrow">NOVA SENHA</p>
         <h1 id="reset-title">Redefina sua senha</h1>
         <p className="muted">Use pelo menos 12 caracteres e evite reutilizar uma senha antiga.</p>

@@ -2,6 +2,7 @@ import Link from "next/link";
 import type { ReactNode } from "react";
 import { signOut } from "@/app/actions";
 import { canCreateIdeas } from "@/lib/idea-permissions";
+import { BrandMark } from "@/app/components/brand-mark";
 
 type AppShellProps = {
   children: ReactNode;
@@ -27,7 +28,7 @@ export function AppShell({
     <div className="app-frame">
       <aside className="sidebar" aria-label="Navegação principal">
         <Link className="brand" href="/dashboard" aria-label="Copiloto ESG, início">
-          <span className="brand-mark" aria-hidden="true">C</span>
+          <BrandMark />
           <span>copiloto<span className="brand-accent">ESG</span></span>
         </Link>
         <div className="workspace-label">ESPAÇO DE TRABALHO</div>

@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { signOut } from "@/app/actions";
+import { BrandMark } from "@/app/components/brand-mark";
 
 export default async function AccessPendingPage({
   searchParams,
@@ -11,7 +12,7 @@ export default async function AccessPendingPage({
   return (
     <main className="auth-page">
       <section className="auth-card" aria-labelledby="pending-title">
-        <span className="brand-mark" aria-hidden="true">C</span>
+        <BrandMark />
         <p className="eyebrow">ACESSO À ORGANIZAÇÃO</p>
         <h1 id="pending-title">
           {status === "inactive"
