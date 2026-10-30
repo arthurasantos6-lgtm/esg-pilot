@@ -3,7 +3,7 @@ import { connection } from "next/server";
 import { testAiIntegration } from "@/app/admin/actions";
 import { AdminShell } from "@/app/admin/components/admin-shell";
 import { SubmitButton } from "@/app/components/submit-button";
-import { describeAiConfig, OPENAI_COMPATIBLE_PRESETS } from "@/lib/ai/config";
+import { describeAiConfig, diagnoseAiEnv, OPENAI_COMPATIBLE_PRESETS } from "@/lib/ai/config";
 import { getAiConfig } from "@/lib/ai/service";
 import { requirePlatformAdmin } from "@/lib/auth";
 
@@ -20,6 +20,7 @@ export default async function AdminAiPage({
   const config = describeAiConfig(getAiConfig());
   const serviceRoleConfigured = Boolean(process.env.SUPABASE_SERVICE_ROLE_KEY);
   const aiActive = Boolean(config && serviceRoleConfigured);
+  const envProblems = diagnoseAiEnv(process.env);
 
   return (
     <AdminShell userEmail={user.email ?? "Conta"}>
@@ -61,6 +62,7 @@ export default async function AdminAiPage({
             <p className="alert alert-info">
               Sem IA ativa, as empresas continuam registrando, revisando e enviando ideias; o copiloto e a avaliação por IA
               aparecem como indisponíveis. {!serviceRoleConfigured && "Defina SUPABASE_SERVICE_ROLE_KEY no servidor."}
+              {envProblems.length > 0 && ` Falta ajustar: ${envProblems.join(" ")}`}
             </p>
           )}
           {config && (

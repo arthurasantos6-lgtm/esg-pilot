@@ -20,7 +20,7 @@ import {
 import { evaluationResultSchema, proposalDraftSchema } from "@/lib/ai/schemas";
 import type { ChatRequest, Effort } from "@/lib/ai/types";
 
-export { AiUnavailableError, logAiFailure, toUserFacingAiError } from "@/lib/ai/errors";
+export { AiUnavailableError, logAiFailure, toAdminAiTestError, toUserFacingAiError } from "@/lib/ai/errors";
 
 /** Configuração lida do ambiente a cada chamada (sem cache de segredos em módulo). */
 export function getAiConfig() {

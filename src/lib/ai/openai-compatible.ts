@@ -2,7 +2,7 @@ import "server-only";
 import type { z } from "zod";
 import type { AiConfig } from "@/lib/ai/config";
 import { AiUnavailableError, ProviderHttpError } from "@/lib/ai/errors";
-import { describeSchemaIssues, extractJsonObject, jsonInstructions } from "@/lib/ai/json-output";
+import { describeSchemaIssues, extractJsonObject, jsonInstructions, providerErrorDetail } from "@/lib/ai/json-output";
 import type { AiUsage, ChatRequest } from "@/lib/ai/types";
 
 /**
@@ -56,7 +56,10 @@ async function complete(config: AiConfig, messages: OpenAiMessage[], jsonMode: b
   let response = await send(jsonMode);
   // Alguns provedores/modelos não aceitam response_format; repete sem ele.
   if (jsonMode && response.status === 400) response = await send(false);
-  if (!response.ok) throw new ProviderHttpError(response.status);
+  if (!response.ok) {
+    const errorBody: unknown = await response.json().catch(() => null);
+    throw new ProviderHttpError(response.status, providerErrorDetail(errorBody, config.apiKey));
+  }
 
   const body = (await response.json()) as CompletionResponse;
   const choice = body.choices?.[0];

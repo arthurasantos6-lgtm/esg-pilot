@@ -11,7 +11,11 @@ export class AiUnavailableError extends Error {
 
 /** Resposta HTTP de erro de um provedor compatível com OpenAI. */
 export class ProviderHttpError extends Error {
-  constructor(readonly status: number) {
+  constructor(
+    readonly status: number,
+    /** Motivo informado pelo provedor; exibido apenas no teste do administrador. */
+    readonly detail: string | null = null,
+  ) {
     super(`provider_http_${status}`);
     this.name = "ProviderHttpError";
   }
@@ -35,6 +39,13 @@ export function toUserFacingAiError(error: unknown): string {
   }
   if (error instanceof TypeError) return "Não foi possível conectar ao serviço de IA. Tente novamente em instantes.";
   return "Ocorreu um erro inesperado ao processar com a IA.";
+}
+
+/** Mensagem do teste de conexão do administrador (sem dados de clientes): inclui o motivo do provedor. */
+export function toAdminAiTestError(error: unknown): string {
+  const message = toUserFacingAiError(error);
+  if (!(error instanceof ProviderHttpError)) return message;
+  return `${message} (HTTP ${error.status}${error.detail ? `: ${error.detail}` : ""})`;
 }
 
 /** Registra a falha sem o conteúdo da ideia ou da conversa. */

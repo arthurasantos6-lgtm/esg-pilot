@@ -33,3 +33,16 @@ export function describeSchemaIssues(error: z.ZodError): string {
     .map((issue) => `${issue.path.join(".") || "(raiz)"}: ${issue.message}`)
     .join("; ");
 }
+
+/**
+ * Motivo curto de um erro HTTP do provedor. Aceita `{ error }` e o formato em
+ * lista do Gemini (`[{ error }]`), e remove a chave caso o provedor a repita.
+ */
+export function providerErrorDetail(body: unknown, apiKey: string | null): string | null {
+  const root = Array.isArray(body) ? body[0] : body;
+  const error = (root as { error?: unknown } | null | undefined)?.error;
+  const message = typeof error === "string" ? error : (error as { message?: unknown } | null | undefined)?.message;
+  if (typeof message !== "string" || !message.trim()) return null;
+  const safe = apiKey ? message.replaceAll(apiKey, "[chave]") : message;
+  return safe.trim().slice(0, 300);
+}

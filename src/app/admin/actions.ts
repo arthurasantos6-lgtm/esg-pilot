@@ -5,7 +5,7 @@ import { redirect } from "next/navigation";
 import { z } from "zod";
 import { COMPANY_MODULES, requirePlatformAdmin } from "@/lib/auth";
 import { readCreateLinkForm } from "@/lib/access-links";
-import { testAiConnection, toUserFacingAiError } from "@/lib/ai/service";
+import { testAiConnection, toAdminAiTestError } from "@/lib/ai/service";
 import { logAudit } from "@/lib/platform-audit";
 
 const organizationSchema = z.object({
@@ -257,7 +257,7 @@ export async function testAiIntegration() {
     const { model, latencyMs } = await testAiConnection();
     target = `/admin/ai?tested=1&model=${encodeURIComponent(model)}&latency=${latencyMs}`;
   } catch (error) {
-    target = `/admin/ai?error=${encodeURIComponent(toUserFacingAiError(error))}`;
+    target = `/admin/ai?error=${encodeURIComponent(toAdminAiTestError(error))}`;
   }
   await logAudit(supabase, user.id, "ai_integration_tested", "platform_config", null, {
     success: target.includes("tested=1"),

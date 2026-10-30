@@ -70,6 +70,26 @@ export function resolveAiConfig(env: Env): AiConfig | null {
   };
 }
 
+/** Variáveis que impedem a configuração da IA; nunca repete os valores do ambiente. */
+export function diagnoseAiEnv(env: Env): string[] {
+  if (resolveAiConfig(env)) return [];
+  const provider = clean(env.AI_PROVIDER)?.toLowerCase() ?? null;
+  if (provider === "anthropic") return ["ANTHROPIC_API_KEY não definida."];
+
+  const preset = provider ? OPENAI_COMPATIBLE_PRESETS[provider] : undefined;
+  if (provider && provider !== "openai-compatible" && !preset) {
+    const accepted = ["anthropic", "openai-compatible", ...Object.keys(OPENAI_COMPATIBLE_PRESETS)].join(", ");
+    return [`AI_PROVIDER com valor não reconhecido. Use: ${accepted}.`];
+  }
+  if (!provider && !clean(env.AI_BASE_URL)) return ["AI_PROVIDER não definida."];
+
+  const problems: string[] = [];
+  if (!preset && !clean(env.AI_BASE_URL)) problems.push("AI_BASE_URL não definida.");
+  if (!clean(env.AI_MODEL)) problems.push("AI_MODEL não definida.");
+  if (preset?.requiresKey && !clean(env.AI_API_KEY)) problems.push("AI_API_KEY não definida.");
+  return problems;
+}
+
 /** Descrição segura para exibição: nunca inclui a chave. */
 export function describeAiConfig(config: AiConfig | null) {
   if (!config) return null;
