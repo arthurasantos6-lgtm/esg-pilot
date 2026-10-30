@@ -3,6 +3,7 @@ import type { z } from "zod";
 import type { AiConfig } from "@/lib/ai/config";
 import { AiUnavailableError, ProviderHttpError } from "@/lib/ai/errors";
 import { describeSchemaIssues, extractJsonObject, jsonInstructions, providerErrorDetail } from "@/lib/ai/json-output";
+import { retryOnTemporaryFailure } from "@/lib/ai/retry";
 import type { AiUsage, ChatRequest } from "@/lib/ai/types";
 
 /**
@@ -53,9 +54,9 @@ async function complete(config: AiConfig, messages: OpenAiMessage[], jsonMode: b
       cache: "no-store",
     });
 
-  let response = await send(jsonMode);
+  let response = await retryOnTemporaryFailure(() => send(jsonMode));
   // Alguns provedores/modelos não aceitam response_format; repete sem ele.
-  if (jsonMode && response.status === 400) response = await send(false);
+  if (jsonMode && response.status === 400) response = await retryOnTemporaryFailure(() => send(false));
   if (!response.ok) {
     const errorBody: unknown = await response.json().catch(() => null);
     throw new ProviderHttpError(response.status, providerErrorDetail(errorBody, config.apiKey));

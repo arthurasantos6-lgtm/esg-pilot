@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { z } from "zod";
 import { describeAiConfig, diagnoseAiEnv, resolveAiConfig } from "../src/lib/ai/config.ts";
+import { retryOnTemporaryFailure } from "../src/lib/ai/retry.ts";
 import { describeSchemaIssues, extractJsonObject, jsonInstructions, providerErrorDetail } from "../src/lib/ai/json-output.ts";
 
 test("no AI is configured when no provider variables are set", () => {
@@ -57,6 +58,29 @@ test("provider error details handle Gemini's list format and redact the key", ()
   assert.equal(providerErrorDetail({ error: "limite" }, null), "limite");
   assert.equal(providerErrorDetail(null, "k"), null);
   assert.equal(providerErrorDetail({}, "k"), null);
+});
+
+test("temporary provider failures are retried and other responses are returned at once", async () => {
+  const run = async (statuses) => {
+    const queue = [...statuses];
+    const waits = [];
+    let calls = 0;
+    const response = await retryOnTemporaryFailure(
+      async () => {
+        calls += 1;
+        return new Response(null, { status: queue.shift() });
+      },
+      [1, 2],
+      async (ms) => waits.push(ms),
+    );
+    return { status: response.status, calls, waits };
+  };
+
+  assert.deepEqual(await run([200]), { status: 200, calls: 1, waits: [] });
+  assert.deepEqual(await run([404]), { status: 404, calls: 1, waits: [] });
+  assert.deepEqual(await run([429]), { status: 429, calls: 1, waits: [] });
+  assert.deepEqual(await run([503, 200]), { status: 200, calls: 2, waits: [1] });
+  assert.deepEqual(await run([503, 503, 503]), { status: 503, calls: 3, waits: [1, 2] });
 });
 
 test("JSON is extracted from fenced or wrapped answers and invalid answers are rejected", () => {
