@@ -28,6 +28,7 @@ const JUSTIFICATIONS = {
 };
 
 // Tudo aqui é fictício: empresas, pessoas, números e situações.
+// Os IDs vêm da posição na lista: novas ideias entram sempre no fim de cada empresa.
 const COMPANIES = [
   {
     key: "vale-claro", name: "Vale Claro Alimentos", legal: "Vale Claro Alimentos Ltda. (fictícia)", sector: "Indústria de alimentos", size: "Média",
@@ -46,8 +47,8 @@ const COMPANIES = [
       { days: 110, status: "approved", priority: "alta", name: "Joana Freitas", email: null, area: "Segurança", title: "Treinamento para prevenir acidentes com prensas", text: "Tivemos quase acidentes nas prensas neste ano. Sugiro um treinamento de segurança do trabalho para os operadores dos dois turnos, com registro das ocorrências para comparar antes e depois." },
       { days: 60, status: "technical_review", name: "Everton Lima", email: "everton.lima@example.com", area: "Fundição", title: "Reduzir fumaça e poeira na fundição", text: "Tem muita fumaça e poeira na fundição. Dá para melhorar a exaustão para reduzir a poluição do ar e a exposição das equipes, mas depende de um estudo técnico." },
       { days: 25, status: "rejected", name: "Bruna Castro", email: null, area: "Compras", title: "Avaliar fornecedores de sucata", text: "Podemos criar critérios para fornecedores de sucata e fazer uma avaliação de fornecedores uma vez por ano, para saber a origem do material." },
-      { days: 1, status: "submitted", name: "Sérgio Melo", email: "sergio.melo@example.com", area: "Compras", title: "Critérios para comprar sucata", text: "Sugiro criar critérios para fornecedores de sucata e fazer uma avaliação de fornecedores por ano, para saber a origem do material comprado pelo setor de compras." },
       { days: 4, status: "submitted", name: "Marcos Vieira", email: "marcos.vieira@example.com", area: "Usinagem", title: "Desligar máquinas paradas na troca de turno", text: "Muitas máquinas ficam ligadas na troca de turno sem ninguém usando. Sugiro desligar as máquinas paradas para reduzir o consumo de energia." },
+      { days: 1, status: "submitted", name: "Sérgio Melo", email: "sergio.melo@example.com", area: "Compras", title: "Critérios para comprar sucata", text: "Sugiro criar critérios para fornecedores de sucata e fazer uma avaliação de fornecedores por ano, para saber a origem do material comprado pelo setor de compras." },
     ],
   },
   {
