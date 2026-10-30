@@ -7,6 +7,7 @@ import {
   logAiFailure,
   toUserFacingAiError,
 } from "@/lib/ai/service";
+import { isExternalAiEnabled } from "@/lib/ai/config";
 import type { CriteriaPromptInput, IdeaPromptInput, KnowledgePromptItem } from "@/lib/ai/prompts";
 import { DEFAULT_CRITERIA, parseEsgCriteria } from "@/lib/esg-analysis";
 import { computeEsgScore, ENGINE_VERSION, humanReviewReasons, PROMPT_VERSION } from "@/lib/esg-engine";
@@ -25,7 +26,7 @@ export const MAX_IDEAS_PER_USER_PER_DAY = 20;
 
 /** Os recursos de IA exigem a chave do provedor e a chave service role do Supabase. */
 export function isAiAvailable() {
-  return isAiConfigured() && Boolean(process.env.SUPABASE_SERVICE_ROLE_KEY);
+  return isExternalAiEnabled(process.env) && isAiConfigured() && Boolean(process.env.SUPABASE_SERVICE_ROLE_KEY);
 }
 
 export type ActiveCriteria = CriteriaPromptInput & { id: string | null };
@@ -179,7 +180,7 @@ async function runEvaluation(service: ServiceClient, evaluationId: string, ideaI
  */
 export async function scheduleIdeaEvaluation(ideaId: string, organizationId: string): Promise<boolean> {
   const service = createServiceClient();
-  if (!service || !isAiConfigured()) return false;
+  if (!service || !isAiAvailable()) return false;
 
   const { data, error } = await service
     .from("idea_evaluations")

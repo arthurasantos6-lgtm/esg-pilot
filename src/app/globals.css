@@ -2533,3 +2533,31 @@ details summary h2 {
     padding: 22px 14px 40px;
   }
 }
+
+.recorder {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  flex-basis: 100%;
+}
+
+.recorder-clock {
+  color: var(--brand);
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.recorder-audio {
+  width: min(100%, 320px);
+  height: 40px;
+}
+
+.recorder-note {
+  flex-basis: 100%;
+  margin: 0;
+}
+
+.proposal-more {
+  margin: 8px 0 14px;
+}

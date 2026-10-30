@@ -1,5 +1,5 @@
 import "server-only";
-import { resolveTranscriptionConfig } from "@/lib/ai/config";
+import { isExternalAiEnabled, resolveTranscriptionConfig } from "@/lib/ai/config";
 import { AiUnavailableError, ProviderHttpError, TranscriptionFailedError, toUserFacingAiError } from "@/lib/ai/errors";
 import { providerErrorDetail } from "@/lib/ai/json-output";
 import { retryOnTemporaryFailure } from "@/lib/ai/retry";
@@ -15,8 +15,9 @@ const TRANSCRIPTION_PROMPT = `Transcreva fielmente a fala deste áudio em portug
 /** Tempo por modelo: em picos de demanda, a resposta pode levar dezenas de segundos. */
 const MODEL_TIMEOUT_MS = 45_000;
 
+/** `null` enquanto a IA externa não estiver habilitada: por padrão, o áudio é transcrito no aparelho. */
 export function getTranscriptionConfig() {
-  return resolveTranscriptionConfig(process.env);
+  return isExternalAiEnabled(process.env) ? resolveTranscriptionConfig(process.env) : null;
 }
 
 async function failure(response: Response, apiKey: string) {

@@ -70,6 +70,11 @@ export function resolveAiConfig(env: Env): AiConfig | null {
   };
 }
 
+/** A IA externa só roda com habilitação explícita: o fluxo principal usa o motor local. */
+export function isExternalAiEnabled(env: Env) {
+  return clean(env.ESG_EXTERNAL_AI)?.toLowerCase() === "true";
+}
+
 export type TranscriptionProvider = "gemini" | "groq";
 
 const DEFAULT_GROQ_TRANSCRIPTION_MODEL = "whisper-large-v3-turbo";

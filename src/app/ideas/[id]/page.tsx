@@ -7,11 +7,13 @@ import { DecisionHistory } from "@/app/ideas/[id]/decision-history";
 import { DecisionPanel } from "@/app/ideas/[id]/decision-panel";
 import { EvaluationPanel } from "@/app/ideas/[id]/evaluation-panel";
 import { FeedbackPanel } from "@/app/ideas/[id]/feedback-panel";
+import { LocalAnalysisPanel } from "@/app/ideas/[id]/local-analysis-panel";
 import { AppShell } from "@/app/components/app-shell";
 import { parseEnabledModules, requireCompanyContext } from "@/lib/auth";
 import { isAiAvailable } from "@/lib/idea-ai";
 import { parseStoredProposal, PROPOSAL_FIELDS } from "@/lib/idea-proposal";
 import { ideaStatusLabel, nextStepForAuthor } from "@/lib/idea-status";
+import { readLocalAnalysis } from "@/lib/local-analysis";
 import { memberDisplayName } from "@/lib/members";
 import { findSimilarIdeas } from "@/lib/text-similarity";
 
@@ -141,6 +143,7 @@ export default async function IdeaDetailPage({
   const emailById = new Map((members ?? []).map((member) => [member.user_id, memberDisplayName(member)]));
 
   const proposal = parseStoredProposal(idea.structured_proposal);
+  const localAnalysis = readLocalAnalysis(idea.analysis);
   const dimensions = getDimensions(idea.analysis);
   const analysisObject = isRecord(idea.analysis) ? idea.analysis : null;
   const notice =
@@ -239,7 +242,9 @@ export default async function IdeaDetailPage({
             </section>
           )}
 
-          {showManagement && (
+          {showManagement && localAnalysis && <LocalAnalysisPanel analysis={localAnalysis} notice={notice} />}
+
+          {showManagement && (evaluation || isAiAvailable()) && (
             <EvaluationPanel
               ideaId={idea.id}
               evaluation={evaluation}
@@ -273,7 +278,7 @@ export default async function IdeaDetailPage({
 
           {showManagement && <DecisionHistory decisions={decisions ?? []} emailById={emailById} />}
 
-          {analysisObject && (
+          {analysisObject && !localAnalysis && (
             <section className="panel detail-panel" aria-labelledby="analysis-title">
               <div className="panel-heading">
                 <div>

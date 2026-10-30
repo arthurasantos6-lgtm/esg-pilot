@@ -2,7 +2,6 @@
 
 import { useActionState, useEffect, useRef } from "react";
 import { AudioRecorder } from "@/app/components/audio-recorder";
-import { DictationButton } from "@/app/components/dictation-button";
 import { sendCopilotMessage, type CopilotFormState } from "@/app/ideas/actions";
 
 const initialState: CopilotFormState = { error: null, sentAt: null };
@@ -14,7 +13,7 @@ export function CopilotChatForm({
 }: {
   ideaId: string;
   awaitingReply: boolean;
-  /** Com transcrição configurada, grava áudio; sem ela, usa o ditado do navegador. */
+  /** Com a IA externa habilitada, a transcrição usa o servidor; senão, roda no aparelho. */
   audioAvailable: boolean;
 }) {
   const [state, formAction, pending] = useActionState(sendCopilotMessage, initialState);
@@ -60,7 +59,7 @@ export function CopilotChatForm({
             }}
           />
           <div className="form-actions">
-            {audioAvailable ? <AudioRecorder targetId="message" /> : <DictationButton targetId="message" />}
+            <AudioRecorder targetId="message" serverTranscription={audioAvailable} />
             <button className="button button-primary" type="submit" disabled={pending} aria-disabled={pending}>
               {pending ? "Enviando…" : "Enviar"}
             </button>

@@ -5,7 +5,6 @@ import { startIdea } from "@/app/ideas/actions";
 import { ChatGreeting } from "@/app/ideas/chat-greeting";
 import { AppShell } from "@/app/components/app-shell";
 import { AudioRecorder } from "@/app/components/audio-recorder";
-import { DictationButton } from "@/app/components/dictation-button";
 import { SubmitButton } from "@/app/components/submit-button";
 import { getTranscriptionConfig } from "@/lib/ai/transcription";
 import { assertModuleEnabled, requireCompanyContext } from "@/lib/auth";
@@ -59,10 +58,10 @@ export default async function NewIdeaPage({
             maxLength={8000}
             required
             autoFocus={Boolean(authorName)}
-            placeholder="Ex.: Na lavagem de peças usamos muita água limpa que vai direto para o esgoto. Acho que daria para filtrar e reutilizar…"
+            placeholder="Escreva aqui ou grave um áudio. Ex.: Na lavagem de peças usamos muita água limpa que vai direto para o esgoto…"
           />
           <div className="form-actions">
-            {getTranscriptionConfig() ? <AudioRecorder targetId="description" /> : <DictationButton targetId="description" />}
+            <AudioRecorder targetId="description" serverTranscription={Boolean(getTranscriptionConfig())} />
             {aiAvailable && (
               <SubmitButton name="intent" value="review" className="button button-secondary" pendingLabel="Salvando…">
                 Preencher sem o copiloto

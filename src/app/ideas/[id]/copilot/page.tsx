@@ -1,5 +1,4 @@
 import type { Metadata } from "next";
-import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { connection } from "next/server";
 import { z } from "zod";
@@ -52,6 +51,7 @@ export default async function IdeaCopilotPage({
   const userMessageCount = conversation.filter((message) => message.role === "user").length;
   const awaitingReply = !conversation.length || conversation.at(-1)?.role === "user";
   const aiAvailable = isAiAvailable();
+  if (!aiAvailable) redirect(`/ideas/${idea.id}/perguntas`);
   const original = toIdeaPromptInput(idea).originalDescription;
 
   return (
@@ -82,26 +82,17 @@ export default async function IdeaCopilotPage({
           ))}
         </ol>
 
-        {!aiAvailable ? (
-          <p className="alert alert-info" role="status">
-            O copiloto de IA não está disponível no momento.{" "}
-            <Link className="text-link" href={`/ideas/${idea.id}/review`}>Continuar sem ele</Link>
+        <CopilotChatForm ideaId={idea.id} awaitingReply={awaitingReply} audioAvailable={Boolean(getTranscriptionConfig())} />
+        <form action={organizeProposal} className="chat-organize">
+          <input type="hidden" name="ideaId" value={idea.id} />
+          <p className="small-copy muted">
+            Ideia clara o suficiente? O copiloto monta a proposta e você revisa antes de enviar. Após o envio, a gestão
+            poderá ver esta conversa.
           </p>
-        ) : (
-          <>
-            <CopilotChatForm ideaId={idea.id} awaitingReply={awaitingReply} audioAvailable={Boolean(getTranscriptionConfig())} />
-            <form action={organizeProposal} className="chat-organize">
-              <input type="hidden" name="ideaId" value={idea.id} />
-              <p className="small-copy muted">
-                Ideia clara o suficiente? O copiloto monta a proposta e você revisa antes de enviar. Após o envio, a gestão
-                poderá ver esta conversa.
-              </p>
-              <SubmitButton pendingLabel="Organizando a proposta…" className="button button-primary">
-                Organizar proposta <span aria-hidden="true">→</span>
-              </SubmitButton>
-            </form>
-          </>
-        )}
+          <SubmitButton pendingLabel="Organizando a proposta…" className="button button-primary">
+            Organizar proposta <span aria-hidden="true">→</span>
+          </SubmitButton>
+        </form>
       </section>
     </AppShell>
   );

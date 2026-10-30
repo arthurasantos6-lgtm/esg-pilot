@@ -15,7 +15,7 @@ import type { ChatTurn } from "@/lib/ai/prompts";
 import { parseCollaboratorEmail, parseCollaboratorName } from "@/lib/access-links";
 import { assertModuleEnabled, requireCompanyContext } from "@/lib/auth";
 import { readCollaboratorEmail, readCollaboratorName, saveCollaboratorIdentity } from "@/lib/collaborator-name";
-import { analyzeIdeaWithCriteria } from "@/lib/esg-analysis";
+import { findQuestion } from "@/lib/esg-questions";
 import {
   isAiAvailable,
   loadActiveCriteria,
@@ -27,7 +27,15 @@ import {
 } from "@/lib/idea-ai";
 import { CANNOT_CREATE_IDEAS_MESSAGE, canCreateIdeas } from "@/lib/idea-permissions";
 import { isDecisionOffered } from "@/lib/idea-status";
-import { columnText, parseStoredProposal, PROPOSAL_FIELDS, readProposalForm } from "@/lib/idea-proposal";
+import {
+  columnText,
+  parseStoredProposal,
+  PROPOSAL_FIELD_MAX_LENGTH,
+  PROPOSAL_FIELDS,
+  readProposalForm,
+  type StoredProposal,
+} from "@/lib/idea-proposal";
+import { buildLocalAnalysis } from "@/lib/local-analysis";
 import { createServiceClient } from "@/lib/supabase/admin";
 import { selectRelevantKnowledge } from "@/lib/text-similarity";
 import type { Json } from "@/lib/supabase/database.types";
@@ -162,9 +170,8 @@ export async function startIdea(formData: FormData) {
 
   revalidatePath("/ideas");
 
-  if (parsed.data.intent === "review" || !isAiAvailable()) {
-    redirect(`/ideas/${idea.id}/review`);
-  }
+  if (!isAiAvailable()) redirect(`/ideas/${idea.id}/perguntas`);
+  if (parsed.data.intent === "review") redirect(`/ideas/${idea.id}/review`);
 
   let copilotError: string | null = null;
   try {
@@ -174,6 +181,49 @@ export async function startIdea(formData: FormData) {
     copilotError = toUserFacingAiError(aiError);
   }
   redirect(`/ideas/${idea.id}/copilot${copilotError ? `?error=${encodeURIComponent(copilotError)}` : ""}`);
+}
+
+/** Respostas às perguntas guiadas: entram na proposta como dados informados pela pessoa. */
+export async function saveGuidedAnswers(formData: FormData) {
+  const ideaId = idSchema.safeParse(formData.get("ideaId"));
+  if (!ideaId.success) redirect("/ideas/new");
+  const reviewUrl = `/ideas/${ideaId.data}/review`;
+
+  const context = await requireCompanyContext();
+  const idea = await loadOwnDraft(context, ideaId.data);
+  if (!idea) redirect("/ideas/new?error=Rascunho%20n%C3%A3o%20encontrado.");
+
+  const proposal: StoredProposal = parseStoredProposal(idea.structured_proposal) ?? {
+    title: idea.title,
+    problem: null,
+    solution: null,
+    context: null,
+    beneficiaries: null,
+    esgDimensions: null,
+    expectedBenefits: null,
+    indicators: null,
+    resourcesAndRisks: null,
+    nextSteps: null,
+    source: "manual",
+    updatedAt: new Date().toISOString(),
+  };
+  for (const [name, value] of formData.entries()) {
+    if (!name.startsWith("answer:") || typeof value !== "string") continue;
+    const question = findQuestion(name.slice("answer:".length));
+    const answer = value.trim().slice(0, 1000);
+    if (!question || !answer) continue;
+    const current = proposal[question.field];
+    proposal[question.field] = `${current ? `${current}\n` : ""}${question.text} ${answer}`.slice(0, PROPOSAL_FIELD_MAX_LENGTH);
+  }
+  proposal.updatedAt = new Date().toISOString();
+
+  const { error } = await context.supabase
+    .from("ideas")
+    .update({ structured_proposal: proposal as unknown as Json })
+    .eq("id", idea.id)
+    .eq("status", "draft");
+  if (error) redirect(`/ideas/${idea.id}/perguntas?error=${encodeURIComponent("Não foi possível salvar as respostas. Tente novamente.")}`);
+  redirect(reviewUrl);
 }
 
 export type CopilotFormState = { error: string | null; sentAt: number | null };
@@ -295,17 +345,16 @@ export async function saveProposal(formData: FormData) {
     redirect(`${reviewUrl}?error=${encodeURIComponent("Marque a confirmação de que revisou a proposta antes de enviar.")}`);
   }
 
-  // Triagem por termos (determinística) sobre o texto original e a proposta revisada.
+  // Motor local (determinístico) sobre o texto original e a proposta revisada.
   const criteria = await loadActiveCriteria(context.supabase);
   const triageText = [
     idea.original_description ?? "",
     ...PROPOSAL_FIELDS.map(({ key }) => proposal[key] ?? ""),
   ].join(" ");
-  const analysis = analyzeIdeaWithCriteria(
-    triageText,
-    criteria.criteria,
-    criteria.id ? { criteriaVersionId: criteria.id, criteriaVersionLabel: criteria.label } : undefined,
-  );
+  const analysis = buildLocalAnalysis(triageText, criteria.criteria, {
+    criteriaVersionId: criteria.id,
+    criteriaVersionLabel: criteria.label,
+  });
 
   // O filtro por status impede envio duplicado (duplo clique ou duas abas).
   const { data: submitted, error } = await context.supabase

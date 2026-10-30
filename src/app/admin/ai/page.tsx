@@ -3,7 +3,7 @@ import { connection } from "next/server";
 import { testAiIntegration, testTranscriptionIntegration } from "@/app/admin/actions";
 import { AdminShell } from "@/app/admin/components/admin-shell";
 import { SubmitButton } from "@/app/components/submit-button";
-import { describeAiConfig, diagnoseAiEnv, isTranscriptionOnlyModel } from "@/lib/ai/config";
+import { describeAiConfig, diagnoseAiEnv, isExternalAiEnabled, isTranscriptionOnlyModel } from "@/lib/ai/config";
 import { getTranscriptionConfig } from "@/lib/ai/transcription";
 import { getAiConfig } from "@/lib/ai/service";
 import { requirePlatformAdmin } from "@/lib/auth";
@@ -26,6 +26,7 @@ export default async function AdminAiPage({
   const aiActive = Boolean(config && serviceRoleConfigured);
   const envProblems = diagnoseAiEnv(process.env);
   const transcription = getTranscriptionConfig();
+  const externalEnabled = isExternalAiEnabled(process.env);
 
   return (
     <AdminShell userEmail={user.email ?? "Conta"}>
@@ -39,6 +40,13 @@ export default async function AdminAiPage({
           </p>
         </div>
       </header>
+
+      {!externalEnabled && (
+        <p className="alert alert-info" role="status">
+          A IA externa está desligada: ideias, classificação e transcrição usam o motor local e nada é enviado a terceiros. Para
+          religar, defina <code>ESG_EXTERNAL_AI=true</code> no servidor.
+        </p>
+      )}
 
       {query.error && <p className="alert alert-error" role="alert">Teste falhou: {query.error}</p>}
       {query.tested && (

@@ -195,7 +195,9 @@ export default async function IdeasPage({
                           {idea.potentialScore === null ? (
                             <span className="muted small-copy">Sem nota</span>
                           ) : (
-                            <span className="small-copy"><strong>{Math.round(idea.potentialScore)}</strong> · {potentialBand(idea.potentialScore).label}</span>
+                            <span className="small-copy">
+                              <strong>{Math.round(idea.potentialScore)}</strong> · {idea.potentialIsPartial ? "parcial" : potentialBand(idea.potentialScore).label}
+                            </span>
                           )}
                         </td>
                       )}

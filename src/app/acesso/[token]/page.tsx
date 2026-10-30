@@ -71,7 +71,7 @@ export default async function AccessLinkPage({
       <section className="auth-card" aria-labelledby="link-title">
         <Brand />
         <h1 id="link-title">{link.organization_name}</h1>
-        <p className="muted">Tem uma ideia para melhorar o trabalho na empresa? Conte para o copiloto em uma conversa rápida.</p>
+        <p className="muted">Tem uma ideia para melhorar o trabalho na empresa? Conte por texto ou áudio. O áudio é transcrito no seu aparelho e não é enviado nem guardado.</p>
         {error && <p className="alert alert-error" role="alert">{error}</p>}
 
         {signedInAsManagement ? (

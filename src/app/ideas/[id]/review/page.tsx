@@ -8,7 +8,7 @@ import { AppShell } from "@/app/components/app-shell";
 import { SubmitButton } from "@/app/components/submit-button";
 import { assertModuleEnabled, requireCompanyContext } from "@/lib/auth";
 import { isAiAvailable, toIdeaPromptInput } from "@/lib/idea-ai";
-import { missingProposalFields, parseStoredProposal, PROPOSAL_FIELD_MAX_LENGTH, PROPOSAL_FIELDS } from "@/lib/idea-proposal";
+import { parseStoredProposal, PROPOSAL_FIELD_MAX_LENGTH, PROPOSAL_FIELDS } from "@/lib/idea-proposal";
 
 export const metadata: Metadata = { title: "Revisar proposta" };
 
@@ -40,9 +40,25 @@ export default async function ReviewProposalPage({
   if (idea.author_id !== user.id || idea.status !== "draft") redirect(`/ideas/${idea.id}`);
 
   const proposal = parseStoredProposal(idea.structured_proposal);
-  const missing = proposal ? missingProposalFields(proposal) : PROPOSAL_FIELDS.map(({ label }) => label);
   const original = toIdeaPromptInput(idea).originalDescription;
   const aiAvailable = isAiAvailable();
+  const filledFields = PROPOSAL_FIELDS.filter(({ key }) => proposal?.[key]);
+  const emptyFields = PROPOSAL_FIELDS.filter(({ key }) => !proposal?.[key]);
+  const renderField = ({ key, label, hint }: (typeof PROPOSAL_FIELDS)[number]) => (
+    <div key={key} className="proposal-field">
+      <label htmlFor={key}>{label}</label>
+      <p id={`${key}-hint`} className="field-hint">{hint}</p>
+      <textarea
+        id={key}
+        name={key}
+        rows={key === "problem" || key === "solution" ? 4 : 3}
+        maxLength={PROPOSAL_FIELD_MAX_LENGTH}
+        aria-describedby={`${key}-hint`}
+        defaultValue={proposal?.[key] ?? ""}
+        placeholder="Não informado"
+      />
+    </div>
+  );
 
   return (
     <AppShell organizationName={organization.name} userEmail={user.email} membership={membership}>
@@ -80,37 +96,22 @@ export default async function ReviewProposalPage({
             <label htmlFor="title">Título <span aria-hidden="true">*</span></label>
             <input id="title" name="title" type="text" minLength={3} maxLength={120} required defaultValue={proposal?.title ?? idea.title} />
 
-            {PROPOSAL_FIELDS.map(({ key, label, hint }) => (
-              <div key={key} className="proposal-field">
-                <label htmlFor={key}>{label}</label>
-                <p id={`${key}-hint`} className="field-hint">{hint}</p>
-                <textarea
-                  id={key}
-                  name={key}
-                  rows={key === "problem" || key === "solution" ? 4 : 3}
-                  maxLength={PROPOSAL_FIELD_MAX_LENGTH}
-                  aria-describedby={`${key}-hint`}
-                  defaultValue={proposal?.[key] ?? ""}
-                  placeholder="Não informado"
-                />
-              </div>
-            ))}
+            {filledFields.map(renderField)}
+            {emptyFields.length > 0 && (
+              <details className="proposal-more">
+                <summary className="small-copy">Adicionar mais detalhes (opcional)</summary>
+                {emptyFields.map(renderField)}
+              </details>
+            )}
 
             <label htmlFor="area">Área ou setor relacionado</label>
             <input id="area" name="area" type="text" maxLength={100} defaultValue={idea.area ?? ""} />
-
-            {missing.length > 0 && (
-              <div className="alert alert-info">
-                <strong>Campos ainda não informados:</strong> {missing.join(", ")}. Você pode enviar mesmo assim; a gestão
-                poderá pedir complementação.
-              </div>
-            )}
 
             <div className="checkbox-row confirm-row">
               <input id="confirmReview" name="confirmReview" type="checkbox" />
               <label htmlFor="confirmReview">
                 Revisei a proposta e quero enviá-la para avaliação. Entendo que, após o envio, a gestão da empresa verá a
-                ideia, a proposta e a conversa com o copiloto.
+                ideia e a proposta.
               </label>
             </div>
 
