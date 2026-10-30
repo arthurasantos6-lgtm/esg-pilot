@@ -70,22 +70,32 @@ export function resolveAiConfig(env: Env): AiConfig | null {
   };
 }
 
+export type TranscriptionProvider = "gemini" | "groq";
+
+const DEFAULT_GROQ_TRANSCRIPTION_MODEL = "whisper-large-v3-turbo";
+
 /**
- * Transcrição de áudio: hoje disponível com o Gemini, cuja API nativa aceita
- * áudio. Usa AI_TRANSCRIPTION_MODEL e, se ela falhar ou não existir, AI_MODEL.
+ * Transcrição de áudio, disponível com Gemini e Groq. No Gemini, usa
+ * AI_TRANSCRIPTION_MODEL e, se ela falhar ou não existir, AI_MODEL. Na Groq, os
+ * modelos de conversa não recebem áudio, então não há essa alternativa.
  */
-export function resolveTranscriptionConfig(env: Env): { models: string[]; apiKey: string } | null {
-  if (clean(env.AI_PROVIDER)?.toLowerCase() !== "gemini") return null;
+export function resolveTranscriptionConfig(env: Env): { provider: TranscriptionProvider; models: string[]; apiKey: string } | null {
+  const provider = clean(env.AI_PROVIDER)?.toLowerCase();
   const apiKey = clean(env.AI_API_KEY);
+  if (!apiKey) return null;
+  if (provider === "groq") {
+    return { provider, models: [clean(env.AI_TRANSCRIPTION_MODEL) ?? DEFAULT_GROQ_TRANSCRIPTION_MODEL], apiKey };
+  }
+  if (provider !== "gemini") return null;
   const models = [clean(env.AI_TRANSCRIPTION_MODEL), clean(env.AI_MODEL)].flatMap((model) =>
     model ? [model.replace(/^models\//, "")] : [],
   );
-  return apiKey && models.length ? { models: [...new Set(models)], apiKey } : null;
+  return models.length ? { provider, models: [...new Set(models)], apiKey } : null;
 }
 
 /** Modelos de transcrição não conversam nem geram JSON: não servem como AI_MODEL. */
 export function isTranscriptionOnlyModel(model: string | null | undefined) {
-  return Boolean(model && /transcri/i.test(model));
+  return Boolean(model && /transcri|whisper/i.test(model));
 }
 
 /** Variáveis que impedem a configuração da IA; nunca repete os valores do ambiente. */

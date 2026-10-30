@@ -118,10 +118,19 @@ test("transcription has its own model and falls back to the main one", () => {
   assert.deepEqual(resolveTranscriptionConfig(base)?.models, ["conversa"]);
   assert.deepEqual(resolveTranscriptionConfig({ ...base, AI_TRANSCRIPTION_MODEL: "models/audio" })?.models, ["audio", "conversa"]);
   assert.deepEqual(resolveTranscriptionConfig({ ...base, AI_TRANSCRIPTION_MODEL: "conversa" })?.models, ["conversa"]);
-  assert.equal(resolveTranscriptionConfig({ AI_PROVIDER: "groq", AI_API_KEY: "k", AI_MODEL: "m" }), null);
+  assert.deepEqual(resolveTranscriptionConfig({ AI_PROVIDER: "groq", AI_API_KEY: "k", AI_MODEL: "m" }), {
+    provider: "groq",
+    models: ["whisper-large-v3-turbo"],
+    apiKey: "k",
+  });
+  assert.deepEqual(resolveTranscriptionConfig({ AI_PROVIDER: "groq", AI_API_KEY: "k", AI_TRANSCRIPTION_MODEL: "whisper-large-v3" })?.models, ["whisper-large-v3"]);
+  assert.equal(resolveTranscriptionConfig({ AI_PROVIDER: "groq", AI_MODEL: "m" }), null);
+  assert.equal(resolveTranscriptionConfig({ AI_PROVIDER: "ollama", AI_API_KEY: "k", AI_MODEL: "m" }), null);
   assert.equal(resolveTranscriptionConfig({ AI_PROVIDER: "gemini", AI_MODEL: "m" }), null);
   assert.equal(isTranscriptionOnlyModel("gemini-3.5-transcribe"), true);
   assert.equal(isTranscriptionOnlyModel("gemini-3.8-flash"), false);
+  assert.equal(isTranscriptionOnlyModel("whisper-large-v3-turbo"), true);
+  assert.equal(isTranscriptionOnlyModel("llama-3.3-70b-versatile"), false);
   assert.equal(isTranscriptionOnlyModel(null), false);
 });
 

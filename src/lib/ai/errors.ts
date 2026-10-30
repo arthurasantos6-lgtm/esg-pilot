@@ -24,7 +24,7 @@ export class ProviderHttpError extends Error {
 function messageForStatus(status: number | undefined): string {
   if (status === 401 || status === 403) return "A integração de IA está com problema de credencial. Avise o administrador da plataforma.";
   if (status === 404) return "O modelo de IA configurado não foi encontrado. Avise o administrador da plataforma.";
-  if (status === 429) return "O serviço de IA atingiu o limite de uso no momento. Aguarde um pouco e tente novamente.";
+  if (status === 413 || status === 429) return "O serviço de IA atingiu o limite de uso no momento. Aguarde um pouco e tente novamente.";
   return "O serviço de IA está indisponível no momento. Tente novamente mais tarde.";
 }
 

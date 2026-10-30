@@ -19,6 +19,9 @@ type CompletionResponse = {
   usage?: { prompt_tokens?: number; completion_tokens?: number };
 };
 
+const MAX_CHAT_TOKENS = 1500;
+const MAX_JSON_TOKENS = 4000;
+
 function toOpenAiMessages(request: ChatRequest, extraSystem?: string): OpenAiMessage[] {
   const system = extraSystem ? `${request.system}\n\n${extraSystem}` : request.system;
   return [
@@ -47,7 +50,8 @@ async function complete(config: AiConfig, messages: OpenAiMessage[], jsonMode: b
         model: config.model,
         messages,
         temperature: 0.3,
-        max_tokens: 8000,
+        // Provedores gratuitos limitam tokens por minuto, contando o que é pedido aqui.
+        max_tokens: jsonMode ? MAX_JSON_TOKENS : MAX_CHAT_TOKENS,
         ...(withFormat ? { response_format: { type: "json_object" } } : {}),
       }),
       signal: AbortSignal.timeout(180_000),
