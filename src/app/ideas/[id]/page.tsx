@@ -57,7 +57,7 @@ export default async function IdeaDetailPage({
   searchParams,
 }: {
   params: Promise<{ id: string }>;
-  searchParams: Promise<{ submitted?: string; error?: string; decided?: string; responded?: string }>;
+  searchParams: Promise<{ error?: string; decided?: string; responded?: string }>;
 }) {
   await connection();
   const [{ id }, query] = await Promise.all([params, searchParams]);
@@ -162,7 +162,7 @@ export default async function IdeaDetailPage({
     <AppShell organizationName={organization.name} userEmail={user.email} membership={membership}>
       <header className="page-header">
         <div>
-          <Link className="back-link" href="/ideas">← Voltar para ideias</Link>
+          {isCompanyAdmin && <Link className="back-link" href="/ideas">← Voltar para ideias</Link>}
           <p className="eyebrow">IDEIA ESG</p>
           <h1>{idea.title}</h1>
           <p className="muted">
@@ -176,13 +176,6 @@ export default async function IdeaDetailPage({
         <span className={`status-badge status-badge-${idea.status}`}>{ideaStatusLabel(idea.status)}</span>
       </header>
 
-      {query.submitted && (
-        <p className="alert alert-success" role="status">
-          Ideia enviada para avaliação. Acompanhe a situação por aqui.
-        </p>
-      )}
-      {query.error && <p className="alert alert-error" role="alert">{query.error}</p>}
-      {query.decided && <p className="alert alert-success" role="status">Decisão registrada no histórico.</p>}
       {query.responded && (
         <p className="alert alert-success" role="status">Resposta enviada. A ideia voltou para avaliação da gestão.</p>
       )}

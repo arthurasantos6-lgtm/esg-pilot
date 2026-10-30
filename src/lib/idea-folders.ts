@@ -16,7 +16,7 @@ export function parseFolder(value: string | undefined): IdeaFolder | null {
   return IDEA_FOLDERS.find(({ key }) => key === value)?.key ?? null;
 }
 
-export type OrganizedIdea = { dimensions: string[]; score: number | null; created_at: string };
+export type OrganizedIdea = { dimensions: string[]; potentialScore: number | null; created_at: string };
 
 export function isInFolder(idea: Pick<OrganizedIdea, "dimensions">, folder: IdeaFolder) {
   return folder === "none" ? idea.dimensions.length === 0 : idea.dimensions.includes(folder);
@@ -28,14 +28,7 @@ export function countByFolder(ideas: Pick<OrganizedIdea, "dimensions">[]) {
   ) as Record<IdeaFolder, number>;
 }
 
-/** Maior nota primeiro; ideias sem nota vão para o fim, das mais recentes às mais antigas. */
-export function compareByPotential(
-  a: Pick<OrganizedIdea, "created_at"> & { potentialScore: number | null },
-  b: Pick<OrganizedIdea, "created_at"> & { potentialScore: number | null },
-) {
+/** Maior potencial primeiro; ideias sem nota vão para o fim, das mais recentes às mais antigas. */
+export function compareByPotential(a: OrganizedIdea, b: OrganizedIdea) {
   return (b.potentialScore ?? -1) - (a.potentialScore ?? -1) || b.created_at.localeCompare(a.created_at);
-}
-
-export function compareByScore(a: OrganizedIdea, b: OrganizedIdea) {
-  return (b.score ?? -1) - (a.score ?? -1) || b.created_at.localeCompare(a.created_at);
 }

@@ -4,7 +4,6 @@ import { SubmitButton } from "@/app/components/submit-button";
 import { parseEvaluationResult, type EvaluationResult } from "@/lib/ai/schemas";
 import { isEvaluationStale } from "@/lib/ai/evaluation-status";
 import { CONFIDENCE_THRESHOLD, ESG_CRITERIA, ESG_SUBCATEGORIES, potentialBand } from "@/lib/esg-engine";
-import { EXECUTABILITY_FACTORS, executabilityLevel, executabilityScore } from "@/lib/executability";
 import type { Json } from "@/lib/supabase/database.types";
 
 export type EvaluationRow = {
@@ -56,37 +55,7 @@ function RetryForm({ ideaId, label }: { ideaId: string; label: string }) {
   );
 }
 
-function ExecutabilityScore({ result }: { result: EvaluationResult }) {
-  const score = executabilityScore(result);
-  if (score === null || !result.executability) return null;
-  const level = executabilityLevel(score);
-  return (
-    <div className="score-panel">
-      <div className="score-total">
-        <span className="score-number">{score}</span>
-        <span className="small-copy muted">de 100</span>
-        <span className={`score-chip score-${level.key}`}>Executabilidade {level.label.toLowerCase()}</span>
-      </div>
-      <ul className="score-factors">
-        {EXECUTABILITY_FACTORS.map(({ key, label, weight }) => {
-          const factor = result.executability![key];
-          return (
-            <li key={key}>
-              <div className="score-factor-heading">
-                <strong>{label}</strong>
-                <span className="small-copy muted">{Math.round(factor.score)} · peso {weight * 100}%</span>
-              </div>
-              <div className="score-track" aria-hidden="true">
-                <span style={{ width: `${Math.min(100, Math.max(0, factor.score))}%` }} />
-              </div>
-              <p className="small-copy">{factor.rationale}</p>
-            </li>
-          );
-        })}
-      </ul>
-    </div>
-  );
-}
+const bandTone = { very_high: "high", high: "high", moderate: "medium", low: "low", very_low: "low" } as const;
 
 const subcategoryLabels = Object.fromEntries(ESG_SUBCATEGORIES.map(({ code, label }) => [code, label]));
 
@@ -100,7 +69,7 @@ function PotentialScore({ result }: { result: EvaluationResult }) {
       <div className="score-total">
         <span className="score-number">{Math.round(result.engine.score)}</span>
         <span className="small-copy muted">de 100 · potencial</span>
-        <span className="score-chip score-medium">{band.label}</span>
+        <span className={`score-chip score-${bandTone[band.key]}`}>{band.label}</span>
         <p className="small-copy"><strong>Encaminhamento sugerido:</strong> {band.routing}</p>
       </div>
       <ul className="score-factors">
@@ -133,7 +102,6 @@ function CompletedEvaluation({ result }: { result: EvaluationResult }) {
       {result.engine && result.engine.humanReviewReasons.length > 0 && (
         <p className="alert alert-info"><strong>Revisão humana necessária:</strong> {result.engine.humanReviewReasons.join("; ")}.</p>
       )}
-      <ExecutabilityScore result={result} />
       <p>{result.summary}</p>
       {result.primaryPillar && (
         <p className="small-copy">

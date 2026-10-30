@@ -7,7 +7,6 @@ import { BrandMark } from "@/app/components/brand-mark";
 type AppShellProps = {
   children: ReactNode;
   organizationName: string;
-  /** Ausente para colaboradores que entraram pelo link da empresa (sessão anônima). */
   userEmail?: string | null;
   membership: { role: "company_admin" | "member"; access_link_id: string | null };
   enabledModules?: string[];
@@ -23,6 +22,25 @@ export function AppShell({
   const role = membership.role;
   const isModuleEnabled = (moduleKey: string) =>
     !enabledModules || enabledModules.includes(moduleKey);
+
+  // Colaborador por link: só o envio da ideia, sem painel nem menu.
+  if (canCreateIdeas(membership)) {
+    return (
+      <div className="collab-frame">
+        <header className="collab-header">
+          <Link className="brand" href="/ideas/new" aria-label="Copiloto ESG, nova ideia">
+            <BrandMark />
+            <span>copiloto<span className="brand-accent">ESG</span></span>
+          </Link>
+          <span className="collab-organization">{organizationName}</span>
+          <form action={signOut}>
+            <button className="signout-button" type="submit">Sair</button>
+          </form>
+        </header>
+        <main className="collab-main">{children}</main>
+      </div>
+    );
+  }
 
   return (
     <div className="app-frame">
@@ -46,24 +64,16 @@ export function AppShell({
           {role === "company_admin" && isModuleEnabled("projects") && (
             <Link href="/projects"><span aria-hidden="true">⌁</span> Projetos</Link>
           )}
-          {isModuleEnabled("ideas") && canCreateIdeas(membership) && (
-            <Link href="/ideas/new"><span aria-hidden="true">＋</span> Nova ideia</Link>
-          )}
           {role === "company_admin" && (
             <Link href="/equipe"><span aria-hidden="true">⚇</span> Equipe e acesso</Link>
           )}
         </nav>
         <div className="sidebar-bottom">
           <p className="role-label">{role === "company_admin" ? "Administrador da empresa" : "Colaborador"}</p>
-          <p className="user-email">{userEmail ?? "Acesso pelo link da empresa"}</p>
+          <p className="user-email">{userEmail}</p>
           <form action={signOut}>
             <button className="signout-button" type="submit">Encerrar sessão</button>
           </form>
-          {!userEmail && (
-            <p className="small-copy signout-warning">
-              Para voltar depois, abra o link da empresa neste mesmo navegador.
-            </p>
-          )}
         </div>
       </aside>
       <main className="main-panel">{children}</main>

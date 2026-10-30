@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { redirect } from "next/navigation";
 import { connection } from "next/server";
 import { AppShell } from "@/app/components/app-shell";
 import { CollaboratorHome } from "@/app/dashboard/collaborator-home";
@@ -24,6 +25,7 @@ export default async function DashboardPage({
 }) {
   await connection();
   const { supabase, user, membership, organization } = await requireCompanyContext();
+  if (canCreateIdeas(membership)) redirect("/ideas/new");
   const query = await searchParams;
   const enabledModules = parseEnabledModules(organization.enabled_modules);
   const isManager = membership.role === "company_admin";

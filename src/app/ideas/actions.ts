@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
+import { after } from "next/server";
 import { z } from "zod";
 import {
   AiUnavailableError,
@@ -12,9 +13,11 @@ import {
 } from "@/lib/ai/service";
 import { isEvaluationStale } from "@/lib/ai/evaluation-status";
 import type { ChatTurn } from "@/lib/ai/prompts";
-import { parseCollaboratorName } from "@/lib/access-links";
+import { parseCollaboratorEmail, parseCollaboratorName } from "@/lib/access-links";
 import { assertModuleEnabled, requireCompanyContext } from "@/lib/auth";
-import { readCollaboratorName, saveCollaboratorName } from "@/lib/collaborator-name";
+import { readCollaboratorEmail, readCollaboratorName, saveCollaboratorIdentity } from "@/lib/collaborator-name";
+import { isEmailConfigured, sendEmail } from "@/lib/email";
+import { ideaDecisionMessage, ideaProtocol, ideaReceivedMessage } from "@/lib/email-messages";
 import { analyzeIdeaWithCriteria } from "@/lib/esg-analysis";
 import {
   isAiAvailable,
@@ -104,6 +107,20 @@ async function replyAsCopilot(
   if (error) throw new Error("copilot_message_not_saved");
 }
 
+/** Agenda o e-mail ao colaborador, se ele informou um endereço; o envio roda depois da resposta. */
+async function notifyAuthor(
+  context: CompanyContext,
+  ideaId: string,
+  buildMessage: (organizationName: string) => { subject: string; text: string } | null,
+) {
+  if (!isEmailConfigured()) return;
+  const { data } = await context.supabase.from("ideas").select("author_email").eq("id", ideaId).maybeSingle();
+  const message = buildMessage(context.organization.name);
+  if (!data?.author_email || !message) return;
+  const to = data.author_email;
+  after(() => sendEmail(to, message));
+}
+
 export async function startIdea(formData: FormData) {
   const parsed = startIdeaSchema.safeParse({
     description: formData.get("description"),
@@ -120,9 +137,13 @@ export async function startIdea(formData: FormData) {
   }
 
   // O nome vem do link; se a sessão do navegador expirou, o formulário pede de novo.
-  const authorName = (await readCollaboratorName()) ?? parseCollaboratorName(formData.get("authorName"));
+  const savedName = await readCollaboratorName();
+  const authorName = savedName ?? parseCollaboratorName(formData.get("authorName"));
   if (!authorName) redirect(`/ideas/new?error=${encodeURIComponent("Informe seu nome para continuar.")}`);
-  await saveCollaboratorName(authorName);
+  const contact = savedName ? { email: await readCollaboratorEmail() } : parseCollaboratorEmail(formData.get("authorEmail"));
+  if (contact.error !== undefined) redirect(`/ideas/new?error=${encodeURIComponent(contact.error)}`);
+  const authorEmail = contact.email;
+  await saveCollaboratorIdentity(authorName, authorEmail);
 
   const { count: recentIdeas } = await context.supabase
     .from("ideas")
@@ -143,6 +164,7 @@ export async function startIdea(formData: FormData) {
       organization_id: context.membership.organization_id,
       author_id: context.user.id,
       author_name: authorName,
+      ...(authorEmail ? { author_email: authorEmail } : {}),
       title: provisionalTitle(parsed.data.description),
       original_description: parsed.data.description,
       status: "draft",
@@ -324,9 +346,13 @@ export async function saveProposal(formData: FormData) {
 
   await scheduleIdeaEvaluation(idea.id, context.membership.organization_id);
 
+  await notifyAuthor(context, idea.id, (organizationName) =>
+    ideaReceivedMessage({ organizationName, protocol: ideaProtocol(idea.id) }),
+  );
+
   revalidatePath("/dashboard");
   revalidatePath("/ideas");
-  redirect(`/ideas/${idea.id}?submitted=1`);
+  redirect(`/ideas/${idea.id}/enviada`);
 }
 
 /** Reprocessa a avaliação da IA, a pedido da gestão. */
@@ -430,6 +456,13 @@ export async function recordIdeaDecision(formData: FormData) {
     redirect(`${detailUrl}?error=${encodeURIComponent(decisionErrorMessages.access_denied)}`);
   }
 
+  const { data: before } = await context.supabase
+    .from("ideas")
+    .select("id, title, status")
+    .eq("id", parsed.data.ideaId)
+    .eq("organization_id", context.membership.organization_id)
+    .maybeSingle();
+
   const { error } = await context.supabase.rpc("record_idea_decision", {
     p_idea_id: parsed.data.ideaId,
     p_to_status: parsed.data.toStatus,
@@ -445,6 +478,20 @@ export async function recordIdeaDecision(formData: FormData) {
 
   if (error) {
     redirect(`${detailUrl}?error=${encodeURIComponent(databaseErrorMessage(error, "Não foi possível registrar a decisão."))}#decision`);
+  }
+
+  if (before && before.status !== parsed.data.toStatus) {
+    const siteUrl = process.env.NEXT_PUBLIC_SITE_URL?.replace(/\/$/, "");
+    await notifyAuthor(context, before.id, (organizationName) =>
+      ideaDecisionMessage({
+        status: parsed.data.toStatus,
+        organizationName,
+        protocol: ideaProtocol(before.id),
+        title: before.title,
+        managerMessage: parsed.data.authorMessage,
+        ideaUrl: siteUrl ? `${siteUrl}/ideas/${before.id}#feedback` : null,
+      }),
+    );
   }
 
   revalidatePath("/dashboard");

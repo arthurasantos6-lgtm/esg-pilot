@@ -30,7 +30,7 @@ export default async function ProjectDetailPage({
   const [{ id }, query] = await Promise.all([params, searchParams]);
   if (!z.string().uuid().safeParse(id).success) notFound();
   const { supabase, user, membership, organization } = await requireCompanyContext();
-  if (membership.role !== "company_admin") redirect("/ideas");
+  if (membership.role !== "company_admin") redirect("/ideas/new");
   const [{ data: project, error: projectError }, { data: indicators, error: indicatorError }] =
     await Promise.all([
       supabase

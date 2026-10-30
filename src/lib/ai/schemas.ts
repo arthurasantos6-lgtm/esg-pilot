@@ -22,11 +22,6 @@ export type ProposalDraft = z.infer<typeof proposalDraftSchema>;
 
 const level = z.enum(["baixa", "media", "alta"]);
 
-const executabilityFactor = z.object({
-  score: z.number().describe("Nota inteira de 0 a 100."),
-  rationale: z.string().describe("Justificativa curta, citando elementos da proposta."),
-});
-
 const subcategoryCodes = ESG_SUBCATEGORIES.map(({ code }) => code) as [string, ...string[]];
 const criterionCodes = ESG_CRITERIA.map(({ code }) => code) as [string, ...string[]];
 const criticalRisks = Object.keys(CRITICAL_RISK_LABELS) as [keyof typeof CRITICAL_RISK_LABELS, ...(keyof typeof CRITICAL_RISK_LABELS)[]];
@@ -51,11 +46,6 @@ const evaluationFields = z.object({
   unverifiedClaims: z.array(z.string()).describe("Alegações ambientais ou sociais sem evidência, a verificar. Sem acusar greenwashing."),
   complementaryQuestions: z.array(z.string()).describe("Perguntas objetivas para esclarecer lacunas."),
   technicalSummary: z.string().describe("A ideia reescrita em linguagem técnica corporativa, formal e sem erros, sem acrescentar fatos."),
-  executability: z.object({
-    urgency: executabilityFactor.describe("Urgência: riscos à segurança, à saúde ou de conformidade, ou perdas em andamento."),
-    impact: executabilityFactor.describe("Impacto socioambiental esperado, sem presumir resultado comprovado."),
-    ease: executabilityFactor.describe("Facilidade de implementação: esforço, dependências e recursos. 100 é muito fácil."),
-  }),
   regulatoryNorms: z.array(
     z.object({
       norm: z.string().describe("Nome da norma exatamente como consta na base de conhecimento fornecida."),
@@ -100,7 +90,11 @@ const engineSnapshot = z.object({
 });
 
 /** Avaliações antigas foram gravadas antes destes campos e continuam válidas. */
-const storedEvaluationSchema = evaluationFields.extend({ engine: engineSnapshot }).partial({
+const storedEvaluationSchema = evaluationFields.extend({
+  engine: engineSnapshot,
+  // Campo retirado; avaliações antigas ainda o trazem.
+  executability: z.unknown(),
+}).partial({
   technicalSummary: true,
   executability: true,
   regulatoryNorms: true,

@@ -46,6 +46,8 @@ export default async function NewIdeaPage({
             <>
               <label htmlFor="authorName">Seu nome</label>
               <input id="authorName" name="authorName" type="text" minLength={2} maxLength={80} required autoComplete="name" />
+              <label htmlFor="authorEmail">E-mail (opcional)</label>
+              <input id="authorEmail" name="authorEmail" type="email" maxLength={254} autoComplete="email" />
             </>
           )}
           <label htmlFor="description" className="sr-only">Sua ideia</label>

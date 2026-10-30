@@ -15,6 +15,13 @@ export function parseCollaboratorName(value: unknown): string | null {
   return name.length >= 2 && name.length <= 80 ? name : null;
 }
 
+/** E-mail opcional do colaborador: vazio vira `null`; inválido devolve erro. */
+export function parseCollaboratorEmail(value: unknown): { email: string | null; error?: undefined } | { email?: undefined; error: string } {
+  const text = typeof value === "string" ? value.trim().toLowerCase() : "";
+  if (!text) return { email: null };
+  return z.string().email().max(254).safeParse(text).success ? { email: text } : { error: "Informe um e-mail válido ou deixe o campo em branco." };
+}
+
 /** Lê o formulário de novo link; validade em dias vira data absoluta. */
 export function readCreateLinkForm(formData: FormData, now = Date.now()) {
   const parsed = createLinkSchema.safeParse({

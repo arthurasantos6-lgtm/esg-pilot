@@ -25,7 +25,7 @@ export default async function ProjectsPage({
   await connection();
   const { supabase, user, membership, organization } = await requireCompanyContext();
   assertModuleEnabled(organization.enabled_modules, "projects", "Projetos");
-  if (membership.role !== "company_admin") redirect("/ideas");
+  if (membership.role !== "company_admin") redirect("/ideas/new");
   const params = await searchParams;
   const selectedStatus = projectStatuses.find(([status]) => status === params.status)?.[0] ?? "";
 

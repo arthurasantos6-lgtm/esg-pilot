@@ -1,13 +1,12 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { redirect } from "next/navigation";
 import { connection } from "next/server";
 import { AppShell } from "@/app/components/app-shell";
 import { assertModuleEnabled, requireCompanyContext } from "@/lib/auth";
 import { potentialBand } from "@/lib/esg-engine";
-import { executabilityLevel } from "@/lib/executability";
 import {
   compareByPotential,
-  compareByScore,
   countByFolder,
   IDEA_FOLDERS,
   isInFolder,
@@ -33,6 +32,7 @@ export default async function IdeasPage({
   const { supabase, user, membership, organization } = await requireCompanyContext();
   assertModuleEnabled(organization.enabled_modules, "ideas", "Ideias");
   const params = await searchParams;
+  if (canCreateIdeas(membership)) redirect(`/ideas/new${params.error ? `?error=${encodeURIComponent(params.error)}` : ""}`);
   const query = params.q?.trim().slice(0, 100) ?? "";
   const selectedStatus = statuses.find(([value]) => value === params.status)?.[0] ?? "";
   const onlyMine = params.mine === "1";
@@ -42,7 +42,7 @@ export default async function IdeasPage({
   const pageSize = 15;
   const isManager = membership.role === "company_admin";
   const folder = isManager ? parseFolder(params.folder) : null;
-  const sort = isManager && (params.sort === "score" || params.sort === "potential") ? params.sort : "";
+  const sort = isManager && params.sort === "potential" ? params.sort : "";
 
   let request = supabase
     .from("ideas")
@@ -74,7 +74,7 @@ export default async function IdeasPage({
   const organized = organizeIdeas(fetchedIdeas ?? [], evaluations);
   const folderCounts = countByFolder(organized);
   const matching = isManager
-    ? organized.filter((idea) => !folder || isInFolder(idea, folder)).sort(sort === "score" ? compareByScore : sort === "potential" ? compareByPotential : () => 0)
+    ? organized.filter((idea) => !folder || isInFolder(idea, folder)).sort(sort === "potential" ? compareByPotential : () => 0)
     : organized;
   const ideas = isManager ? matching.slice((page - 1) * pageSize, page * pageSize) : matching;
   const count = isManager ? matching.length : fetchedCount;
@@ -152,7 +152,6 @@ export default async function IdeasPage({
               <select name="sort" defaultValue={sort}>
                 <option value="">Mais recentes</option>
                 <option value="potential">Maior potencial ESG</option>
-                <option value="score">Maior executabilidade</option>
               </select>
             </label>
           )}
@@ -181,7 +180,7 @@ export default async function IdeasPage({
           <>
             <div className="table-wrap">
               <table>
-                <thead><tr><th scope="col">Ideia</th>{isManager && <th scope="col">Potencial</th>}{isManager && <th scope="col">Executabilidade</th>}{isManager && <th scope="col">Dimensões</th>}<th scope="col">Área</th><th scope="col">Situação</th><th scope="col">Data</th><th scope="col"><span className="sr-only">Abrir ideia</span></th></tr></thead>
+                <thead><tr><th scope="col">Ideia</th>{isManager && <th scope="col">Potencial</th>}{isManager && <th scope="col">Dimensões</th>}<th scope="col">Área</th><th scope="col">Situação</th><th scope="col">Data</th><th scope="col"><span className="sr-only">Abrir ideia</span></th></tr></thead>
                 <tbody>
                   {ideas.map((idea) => (
                     <tr key={idea.id}>
@@ -197,15 +196,6 @@ export default async function IdeasPage({
                             <span className="muted small-copy">Sem nota</span>
                           ) : (
                             <span className="small-copy"><strong>{Math.round(idea.potentialScore)}</strong> · {potentialBand(idea.potentialScore).label}</span>
-                          )}
-                        </td>
-                      )}
-                      {isManager && (
-                        <td>
-                          {idea.score === null ? (
-                            <span className="muted small-copy">Sem nota</span>
-                          ) : (
-                            <span className={`score-chip score-${executabilityLevel(idea.score).key}`}>{idea.score}</span>
                           )}
                         </td>
                       )}

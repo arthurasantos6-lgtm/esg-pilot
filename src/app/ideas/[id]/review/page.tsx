@@ -48,7 +48,6 @@ export default async function ReviewProposalPage({
     <AppShell organizationName={organization.name} userEmail={user.email} membership={membership}>
       <header className="page-header">
         <div>
-          <Link className="back-link" href="/ideas">← Voltar para ideias</Link>
           <p className="eyebrow">REVISÃO ANTES DO ENVIO</p>
           <h1>Revisar proposta</h1>
           <p className="muted">

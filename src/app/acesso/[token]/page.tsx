@@ -53,16 +53,16 @@ export default async function AccessLinkPage({
     data: { user },
   } = await supabase.auth.getUser();
   let otherOrganization = false;
+  let signedInAsManagement = false;
   if (user) {
     const { data: membership } = await supabase
       .from("memberships")
       .select("organization_id, status, role, access_link_id")
       .eq("user_id", user.id)
       .maybeSingle();
-    // A gestão não envia ideias; colaboradores se identificam a cada abertura do link.
-    if (membership?.organization_id === link.organization_id && membership.status === "active" && !canCreateIdeas(membership)) {
-      redirect("/dashboard");
-    }
+    // Quem está logado como gestão não envia ideias: avisa em vez de levar ao painel.
+    signedInAsManagement =
+      membership?.organization_id === link.organization_id && membership.status === "active" && !canCreateIdeas(membership);
     otherOrganization = Boolean(membership && membership.organization_id !== link.organization_id);
   }
 
@@ -74,7 +74,18 @@ export default async function AccessLinkPage({
         <p className="muted">Tem uma ideia para melhorar o trabalho na empresa? Conte para o copiloto em uma conversa rápida.</p>
         {error && <p className="alert alert-error" role="alert">{error}</p>}
 
-        {otherOrganization ? (
+        {signedInAsManagement ? (
+          <form className="form-stack" action={leaveAndReturn}>
+            <input type="hidden" name="token" value={token} />
+            <p className="alert alert-info">
+              Você está conectado como gestão neste navegador. Para enviar uma ideia pelo link, saia da conta ou abra o link em
+              uma aba anônima.
+            </p>
+            <SubmitButton className="button button-secondary button-full" pendingLabel="Saindo…">
+              Sair da conta
+            </SubmitButton>
+          </form>
+        ) : otherOrganization ? (
           <form className="form-stack" action={leaveAndReturn}>
             <input type="hidden" name="token" value={token} />
             <p className="alert alert-info">
@@ -89,6 +100,9 @@ export default async function AccessLinkPage({
             <input type="hidden" name="token" value={token} />
             <label htmlFor="name">Seu nome</label>
             <input id="name" name="name" type="text" minLength={2} maxLength={80} required autoFocus autoComplete="name" />
+            <label htmlFor="email">E-mail (opcional)</label>
+            <input id="email" name="email" type="email" maxLength={254} autoComplete="email" aria-describedby="email-hint" />
+            <p id="email-hint" className="field-hint">Para receber a confirmação e a resposta da empresa.</p>
             <SubmitButton className="button button-primary button-full" pendingLabel="Entrando…">
               Começar <span aria-hidden="true">→</span>
             </SubmitButton>

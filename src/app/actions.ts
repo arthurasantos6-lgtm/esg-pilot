@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { z } from "zod";
 import { requireCompanyContext } from "@/lib/auth";
-import { clearCollaboratorName } from "@/lib/collaborator-name";
+import { clearCollaboratorIdentity } from "@/lib/collaborator-name";
 import { createClient } from "@/lib/supabase/server";
 
 const loginSchema = z.object({
@@ -88,7 +88,7 @@ export async function signOut() {
     throw new Error(`Não foi possível encerrar a sessão: ${error.message}`);
   }
 
-  await clearCollaboratorName();
+  await clearCollaboratorIdentity();
 
   // Colaboradores por link não têm senha; voltam pelo link da empresa.
   redirect(user?.is_anonymous ? "/acesso/encerrado" : "/login");
