@@ -44,5 +44,5 @@ export function providerErrorDetail(body: unknown, apiKey: string | null): strin
   const message = typeof error === "string" ? error : (error as { message?: unknown } | null | undefined)?.message;
   if (typeof message !== "string" || !message.trim()) return null;
   const safe = apiKey ? message.replaceAll(apiKey, "[chave]") : message;
-  return safe.trim().slice(0, 300);
+  return safe.trim().slice(0, 800);
 }

@@ -67,8 +67,8 @@ export async function transcribeAudio(wav: Uint8Array) {
     } catch (error) {
       attempts.push(`${model}: ${describeFailure(error)}`);
       message = toUserFacingAiError(error);
-      // Chave recusada ou cota esgotada valem para todos os modelos.
-      if (error instanceof ProviderHttpError && [401, 403, 429].includes(error.status)) break;
+      // Chave recusada vale para todos os modelos; a cota é por modelo, então o próximo ainda pode responder.
+      if (error instanceof ProviderHttpError && [401, 403].includes(error.status)) break;
     }
   }
   throw new TranscriptionFailedError(message, attempts);
