@@ -6,7 +6,7 @@ import { SubmitButton } from "@/app/components/submit-button";
 import { isSupabaseConfigured } from "@/lib/supabase/config";
 import { canCreateIdeas } from "@/lib/idea-permissions";
 import { createClient } from "@/lib/supabase/server";
-import { BrandMark } from "@/app/components/brand-mark";
+import { BrandMark, BrandWordmark } from "@/app/components/brand-mark";
 
 export const metadata: Metadata = { title: "Acesso do colaborador", robots: { index: false, follow: false } };
 
@@ -14,7 +14,7 @@ function Brand() {
   return (
     <div className="brand auth-brand">
       <BrandMark />
-      <span>copiloto<span className="brand-accent">ESG</span></span>
+      <BrandWordmark />
     </div>
   );
 }

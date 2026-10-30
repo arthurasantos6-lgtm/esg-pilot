@@ -8,7 +8,7 @@ import { buildTfIdf, findPhrase, hasNearby, isNegated, normalizeForMatch, phrase
  * limiares ainda não foram calibrados com propostas rotuladas por especialistas.
  */
 
-export const LOCAL_ENGINE_VERSION = "2.0.0";
+export const LOCAL_ENGINE_VERSION = "2.1.0";
 
 /** A regra soma no máximo uma vez, e a subcategoria satura aqui: repetir palavras não aumenta o escore. */
 const MAX_SUBCATEGORY_POINTS = 6;

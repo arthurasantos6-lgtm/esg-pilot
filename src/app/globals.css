@@ -2561,3 +2561,75 @@ details summary h2 {
 .proposal-more {
   margin: 8px 0 14px;
 }
+
+.recommendation-box {
+  margin: 12px 0 16px;
+  padding: 16px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: var(--brand-pale);
+}
+
+.recommendation-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.recommendation-box .score-chip {
+  font-size: 14px;
+}
+
+.proposal-list {
+  display: grid;
+  gap: 10px;
+  margin: 10px 0 0;
+}
+
+.proposal-list dt {
+  color: var(--ink);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.proposal-list dd {
+  margin: 2px 0 0;
+  font-size: 13px;
+}
+
+.brand-wordmark {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 1px;
+  white-space: nowrap;
+}
+
+.brand-logotype {
+  display: inline-flex;
+  align-items: center;
+  font-weight: 400;
+  letter-spacing: 0.05em;
+}
+
+/* O "E" da logo: três barras arredondadas, no lugar da letra. */
+.brand-logotype-e {
+  display: inline-flex;
+  width: 0.62em;
+  height: 0.7em;
+  margin: 0 0.08em 0 0.06em;
+  flex-direction: column;
+  justify-content: space-between;
+}
+
+.brand-logotype-e span {
+  display: block;
+  height: 0.1em;
+  border-radius: 999px;
+  background: currentColor;
+}
+
+.brand-wordmark .brand-accent {
+  font-weight: 800;
+  letter-spacing: -0.02em;
+}

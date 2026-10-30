@@ -8,8 +8,10 @@ import { DecisionPanel } from "@/app/ideas/[id]/decision-panel";
 import { EvaluationPanel } from "@/app/ideas/[id]/evaluation-panel";
 import { FeedbackPanel } from "@/app/ideas/[id]/feedback-panel";
 import { LocalAnalysisPanel } from "@/app/ideas/[id]/local-analysis-panel";
+import { ProjectProposalPanel } from "@/app/ideas/[id]/project-proposal-panel";
 import { AppShell } from "@/app/components/app-shell";
 import { parseEnabledModules, requireCompanyContext } from "@/lib/auth";
+import { buildProjectProposal } from "@/lib/esg-project-proposal";
 import { isAiAvailable } from "@/lib/idea-ai";
 import { parseStoredProposal, PROPOSAL_FIELDS } from "@/lib/idea-proposal";
 import { ideaStatusLabel, nextStepForAuthor } from "@/lib/idea-status";
@@ -240,6 +242,17 @@ export default async function IdeaDetailPage({
                 ))}
               </dl>
             </section>
+          )}
+
+          {showManagement && localAnalysis && (
+            <ProjectProposalPanel
+              proposal={buildProjectProposal({
+                title: idea.title,
+                originalText: idea.original_description ?? "",
+                proposal,
+                analysis: localAnalysis,
+              })}
+            />
           )}
 
           {showManagement && localAnalysis && <LocalAnalysisPanel analysis={localAnalysis} notice={notice} />}

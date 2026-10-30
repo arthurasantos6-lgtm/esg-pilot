@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { requestPasswordReset } from "@/app/actions";
-import { BrandMark } from "@/app/components/brand-mark";
+import { BrandMark, BrandWordmark } from "@/app/components/brand-mark";
 
 export default async function ForgotPasswordPage({
   searchParams,
@@ -14,7 +14,7 @@ export default async function ForgotPasswordPage({
       <section className="auth-card" aria-labelledby="recovery-title">
         <Link className="brand auth-brand" href="/login">
           <BrandMark />
-          <span>copiloto<span className="brand-accent">ESG</span></span>
+          <BrandWordmark />
         </Link>
         <p className="eyebrow">RECUPERAÇÃO DE ACESSO</p>
         <h1 id="recovery-title">Esqueceu a senha?</h1>

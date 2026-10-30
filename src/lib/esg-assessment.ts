@@ -61,7 +61,7 @@ function assessMeasurability(s: Signals) {
 
 function assessMaturity(s: Signals) {
   const elements = [s.problem, s.action, s.audience, s.measurement, s.resources].filter(Boolean).length;
-  const grade = elements <= 1 ? 1 : elements === 2 ? 2 : elements === 3 ? 3 : 4;
+  const grade = Math.min(elements, 4);
   return graded("C8", grade, `A proposta descreve ${elements} de 5 elementos: problema, ação, público, medição e recursos.`);
 }
 

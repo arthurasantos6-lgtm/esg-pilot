@@ -5,7 +5,7 @@ import { connection } from "next/server";
 import { signIn } from "@/app/actions";
 import { isSupabaseConfigured } from "@/lib/supabase/config";
 import { createClient } from "@/lib/supabase/server";
-import { BrandMark } from "@/app/components/brand-mark";
+import { BrandMark, BrandWordmark } from "@/app/components/brand-mark";
 
 export const metadata: Metadata = { title: "Entrar" };
 
@@ -28,7 +28,7 @@ export default async function LoginPage({
       <section className="auth-card" aria-labelledby="login-title">
         <Link className="brand auth-brand" href="/">
           <BrandMark />
-          <span>copiloto<span className="brand-accent">ESG</span></span>
+          <BrandWordmark />
         </Link>
         <p className="eyebrow">SEU ESPAÇO DE TRABALHO</p>
         <h1 id="login-title">Boas-vindas</h1>

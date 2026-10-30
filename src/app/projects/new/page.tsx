@@ -5,6 +5,9 @@ import { redirect } from "next/navigation";
 import { createProject } from "@/app/actions";
 import { AppShell } from "@/app/components/app-shell";
 import { assertModuleEnabled, requireCompanyContext } from "@/lib/auth";
+import { buildProjectProposal, projectObjectiveText } from "@/lib/esg-project-proposal";
+import { parseStoredProposal } from "@/lib/idea-proposal";
+import { readLocalAnalysis } from "@/lib/local-analysis";
 
 export const metadata: Metadata = { title: "Criar projeto ESG" };
 
@@ -29,6 +32,26 @@ export default async function NewProjectPage({
   ]);
   if (ideasError) throw new Error(`Não foi possível carregar as ideias aprovadas: ${ideasError.message}`);
 
+  // Com uma ideia aprovada escolhida, o formulário já vem com a proposta, para a gestão revisar.
+  const { data: sourceIdea } = approvedIdeas?.some((idea) => idea.id === ideaId)
+    ? await supabase
+        .from("ideas")
+        .select("title, original_description, structured_proposal, analysis")
+        .eq("id", ideaId as string)
+        .eq("organization_id", membership.organization_id)
+        .maybeSingle()
+    : { data: null };
+  const sourceAnalysis = sourceIdea ? readLocalAnalysis(sourceIdea.analysis) : null;
+  const suggested =
+    sourceIdea && sourceAnalysis
+      ? buildProjectProposal({
+          title: sourceIdea.title,
+          originalText: sourceIdea.original_description ?? "",
+          proposal: parseStoredProposal(sourceIdea.structured_proposal),
+          analysis: sourceAnalysis,
+        })
+      : null;
+
   return (
     <AppShell organizationName={organization.name} userEmail={user.email} membership={membership}>
       <header className="page-header">
@@ -43,9 +66,9 @@ export default async function NewProjectPage({
         {error && <p className="alert alert-error" role="alert">{error}</p>}
         <form className="idea-form" action={createProject}>
           <label htmlFor="title">Nome do projeto <span aria-hidden="true">*</span></label>
-          <input id="title" name="title" type="text" minLength={3} maxLength={160} required placeholder="Ex.: Redução do consumo de água" />
+          <input id="title" name="title" type="text" minLength={3} maxLength={160} required defaultValue={sourceIdea?.title} placeholder="Ex.: Redução do consumo de água" />
           <label htmlFor="objective">Objetivo e meta pretendida <span aria-hidden="true">*</span></label>
-          <textarea id="objective" name="objective" rows={5} minLength={10} maxLength={4000} required placeholder="Descreva o objetivo, as metas e como pretende acompanhar a iniciativa." />
+          <textarea id="objective" name="objective" rows={suggested ? 10 : 5} minLength={10} maxLength={4000} required defaultValue={suggested ? projectObjectiveText(suggested) : undefined} placeholder="Descreva o objetivo, as metas e como pretende acompanhar a iniciativa." />
           <label htmlFor="ideaId">Ideia aprovada relacionada</label>
           <select id="ideaId" name="ideaId" defaultValue={approvedIdeas?.some((idea) => idea.id === ideaId) ? ideaId : ""}>
             <option value="">Sem vínculo com uma ideia</option>

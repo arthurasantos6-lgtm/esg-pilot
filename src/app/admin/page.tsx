@@ -3,8 +3,6 @@ import Link from "next/link";
 import { connection } from "next/server";
 import { AdminShell } from "@/app/admin/components/admin-shell";
 import { BarList } from "@/app/dashboard/charts";
-import { isExternalAiEnabled } from "@/lib/ai/config";
-import { getAiConfig } from "@/lib/ai/service";
 import { requirePlatformAdmin } from "@/lib/auth";
 import { PERIOD_LABELS, parsePeriod, periodStart } from "@/lib/dashboard-metrics";
 import { IDEA_STATUS_ORDER, ideaStatusLabel } from "@/lib/idea-status";
@@ -59,19 +57,6 @@ export default async function AdminDashboardPage({
   const sum = (key: keyof (typeof rows)[number]) => rows.reduce((total, row) => total + Number(row[key] ?? 0), 0);
   const filtered = Boolean(query.orgStatus || query.org);
 
-  // Com a IA externa desligada (padrão), a falta de provedor não é um problema.
-  const externalAi = isExternalAiEnabled(process.env);
-  const aiConfigured = Boolean(getAiConfig());
-  const serviceRoleConfigured = Boolean(process.env.SUPABASE_SERVICE_ROLE_KEY);
-  const failed = sum("evaluations_failed");
-  const stale = sum("evaluations_stale");
-  const alerts = [
-    externalAi && !aiConfigured && "Nenhum provedor de IA configurado: o copiloto e a avaliação por IA estão indisponíveis para todas as empresas.",
-    externalAi && aiConfigured && !serviceRoleConfigured && "SUPABASE_SERVICE_ROLE_KEY ausente: a IA está configurada, mas não consegue gravar respostas e avaliações.",
-    failed > 0 && `${failed} ${failed === 1 ? "avaliação por IA falhou" : "avaliações por IA falharam"} no período. As ideias foram preservadas e podem ser reprocessadas pelas empresas.`,
-    stale > 0 && `${stale} ${stale === 1 ? "avaliação está pendente" : "avaliações estão pendentes"} há mais de 10 minutos (processamento interrompido).`,
-  ].filter((alert): alert is string => Boolean(alert));
-
   return (
     <AdminShell userEmail={user.email ?? "Conta"}>
       <header className="page-header">
@@ -82,20 +67,6 @@ export default async function AdminDashboardPage({
         </div>
         <Link className="button button-primary" href="/admin/companies/new">＋ Nova empresa</Link>
       </header>
-
-      <section className="panel" aria-labelledby="alerts-title">
-        <p className="eyebrow">ALERTAS OPERACIONAIS</p>
-        <h2 id="alerts-title">Situação do processamento</h2>
-        {alerts.length ? (
-          <ul className="alert-list">
-            {alerts.map((alert) => (
-              <li key={alert} className="alert alert-error"><span aria-hidden="true">⚠ </span>{alert}</li>
-            ))}
-          </ul>
-        ) : (
-          <p className="alert alert-success"><span aria-hidden="true">✓ </span>Nenhum alerta no período selecionado.</p>
-        )}
-      </section>
 
       <section className="metric-grid" aria-label="Indicadores gerais da plataforma">
         <article className="metric-card">
@@ -162,7 +133,7 @@ export default async function AdminDashboardPage({
           <div><dt>Ideias enviadas</dt><dd>{numberFormat.format(sum("ideas_submitted"))}</dd></div>
           <div><dt>Ideias com decisão</dt><dd>{numberFormat.format(sum("ideas_decided"))}</dd></div>
           <div><dt>Avaliações por IA concluídas</dt><dd>{numberFormat.format(sum("evaluations_completed"))}</dd></div>
-          <div><dt>Avaliações com falha</dt><dd>{numberFormat.format(failed)}</dd></div>
+          <div><dt>Avaliações com falha</dt><dd>{numberFormat.format(sum("evaluations_failed"))}</dd></div>
           <div><dt>Avaliações em andamento</dt><dd>{numberFormat.format(sum("evaluations_pending"))}</dd></div>
           <div><dt>Mensagens com o copiloto</dt><dd>{numberFormat.format(sum("copilot_messages"))}</dd></div>
           <div><dt>Tokens de entrada (IA)</dt><dd>{numberFormat.format(sum("ai_input_tokens"))}</dd></div>

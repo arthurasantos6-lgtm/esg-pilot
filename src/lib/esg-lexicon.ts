@@ -4,7 +4,7 @@
  * Peso: 3 = indica a subcategoria sozinho; 2 = forte; 1 = sinal auxiliar.
  */
 
-export const LEXICON_VERSION = "lexico-2.0.0";
+export const LEXICON_VERSION = "lexico-2.1.0";
 
 export type LexiconRule = {
   id: string;
@@ -83,15 +83,15 @@ export const SUBCATEGORY_EXAMPLES: Record<string, string> = {
 
 /** Sinais do que o texto informa. Só a presença explícita conta, nunca a suposição. */
 export const SIGNAL_TERMS = {
-  action: ["reduzir", "reduz", "diminuir", "instalar", "trocar", "substituir", "implantar", "implementar", "criar", "melhorar", "automatizar", "reaproveitar", "reutilizar", "filtrar", "separar", "reciclar", "capacitar", "treinar", "desligar", "apagar", "consertar", "adotar", "fazer", "colocar", "usar", "utilizar", "padronizar", "monitorar", "prevenir", "evitar", "sugiro", "proponho", "economizar"],
-  problem: ["problema", "desperdicio", "desperdica", "perda", "perdas", "risco", "riscos", "falta", "faltam", "acidente", "quebra", "reclamacao", "dificuldade", "gasto", "gastamos", "demora", "retrabalho", "vazamento", "nao temos", "nao tem", "fica ligada", "ficam ligadas", "fica acesa", "ficam acesas", "direto"],
-  audience: ["equipe", "equipes", "colaborador", "colaboradores", "funcionario", "funcionarios", "operador", "operadores", "trabalhador", "trabalhadores", "cliente", "clientes", "setor", "setores", "turno", "turnos", "comunidade", "moradores", "fornecedor", "fornecedores", "pessoas", "unidade"],
+  action: ["reduzir", "reduz", "diminuir", "instalar", "trocar", "substituir", "implantar", "implementar", "criar", "melhorar", "automatizar", "reaproveitar", "reutilizar", "filtrar", "separar", "reciclar", "capacitar", "treinar", "desligar", "apagar", "consertar", "adotar", "fazer", "colocar", "usar", "utilizar", "padronizar", "monitorar", "prevenir", "evitar", "sugiro", "proponho", "economizar", "podemos", "precisamos", "da para", "dava para", "daria para", "ampliar", "construir", "rever", "revisar", "doar"],
+  problem: ["problema", "desperdicio", "desperdica", "perda", "perdas", "risco", "riscos", "falta", "faltam", "acidente", "quebra", "reclamacao", "dificuldade", "gasto", "gastamos", "demora", "retrabalho", "vazamento", "nao temos", "nao tem", "fica ligada", "ficam ligadas", "fica acesa", "ficam acesas", "fica aberta", "ficam parados", "sem uso", "direto", "reclama", "reclamam", "relatam", "dor", "fadiga", "estresse", "demora", "quase acidentes", "ninguem sabe"],
+  audience: ["equipe", "equipes", "colaborador", "colaboradores", "funcionario", "funcionarios", "operador", "operadores", "trabalhador", "trabalhadores", "cliente", "clientes", "setor", "setores", "turno", "turnos", "comunidade", "moradores", "fornecedor", "fornecedores", "pessoas", "unidade", "motorista", "motoristas", "paciente", "pacientes", "pessoal", "enfermagem", "recepcao", "vagas"],
   baseline: ["hoje", "atualmente", "atual", "por mes", "por dia", "por ano", "por semana", "no ultimo mes", "no ultimo ano", "em media"],
   target: ["meta", "objetivo de", "reduzir para", "chegar a", "ate o fim", "em ate", "ate dezembro"],
   measurement: ["medir", "medicao", "medido", "indicador", "indicadores", "acompanhar", "monitorar", "monitoramento", "registrar", "registro", "medidor", "comparar", "antes e depois"],
   resources: ["equipamento", "equipamentos", "sensor", "sensores", "filtro", "filtros", "software", "sistema", "ferramenta", "material", "materiais", "maquina", "maquinas", "tanque", "reservatorio", "instalacao", "manutencao"],
   responsibility: ["responsavel", "responsaveis", "fornecedor", "fornecedores", "dependemos", "depende", "manutencao", "time de", "setor de", "aprovacao", "aprovar"],
-  deadline: ["prazo", "semana", "semanas", "mes", "meses", "ate dezembro", "cronograma", "etapa", "etapas"],
+  deadline: ["prazo", "semanas", "meses", "ate dezembro", "cronograma", "etapa", "etapas"],
   cost: ["custo", "custos", "custa", "custaria", "orcamento", "investimento", "preco", "gasto", "gastos"],
   benefit: ["economia", "economizar", "reduzir", "diminuir", "evitar", "melhorar", "beneficio", "beneficios", "ganho", "ganhos", "menos"],
   scale: ["outras unidades", "outra unidade", "outros setores", "outro setor", "toda empresa", "todas unidades", "todos setores", "replicar", "ampliar", "expandir", "demais unidades"],

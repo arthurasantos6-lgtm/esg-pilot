@@ -141,7 +141,7 @@ for (const company of COMPANIES) {
 const sql = `-- População de demonstração: 5 empresas e 25 ideias FICTÍCIAS. Gerado por generate_seed_demo.mjs.
 -- Antes de rodar, troque a senha abaixo: ela vale para os 5 gestores e o repositório é público.
 -- Prévia: rode com "rollback;" no lugar do "commit;" do fim do arquivo.
--- Pode rodar de novo sem duplicar. Para desfazer: supabase/scripts/rollback_seed_demo.sql.
+-- Pode rodar de novo sem duplicar: só atualiza a análise das ideias de demonstração. Para desfazer: supabase/scripts/rollback_seed_demo.sql.
 begin;
 
 create or replace function pg_temp.demo_manager(p_id uuid, p_email text, p_password text) returns void language plpgsql as $$
@@ -185,7 +185,7 @@ on conflict (user_id) do nothing;
 
 insert into public.ideas (id, organization_id, author_id, author_name, author_email, title, original_description, structured_proposal, area, status, analysis, priority, responsible_id, created_at, submitted_at) values
 ${ideaRows.join(",\n")}
-on conflict (id) do nothing;
+on conflict (id) do update set analysis = excluded.analysis;
 
 insert into public.idea_decisions (id, organization_id, idea_id, actor_id, from_status, to_status, justification, responsible_id, priority, created_at) values
 ${decisionRows.join(",\n")}

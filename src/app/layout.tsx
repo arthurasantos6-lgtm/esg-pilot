@@ -12,8 +12,8 @@ const applyTheme = `(function(){var t;try{t=localStorage.getItem("theme")}catch(
 
 export const metadata: Metadata = {
   title: {
-    default: "Copiloto ESG",
-    template: "%s | Copiloto ESG",
+    default: "NUEVO ESG",
+    template: "%s | NUEVO ESG",
   },
   description: "Transforme ideias em iniciativas ESG acompanháveis.",
 };

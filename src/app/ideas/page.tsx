@@ -18,6 +18,8 @@ import { IDEA_STATUS_ORDER, ideaStatusLabel, nextStepForAuthor } from "@/lib/ide
 
 export const metadata: Metadata = { title: "Ideias" };
 
+const recommendationTone = { accept: "high", accept_with_conditions: "medium", not_now: "low" } as const;
+
 const statuses = [
   ["", "Todas as situações"],
   ...IDEA_STATUS_ORDER.map((status) => [status, ideaStatusLabel(status)] as const),
@@ -180,7 +182,7 @@ export default async function IdeasPage({
           <>
             <div className="table-wrap">
               <table>
-                <thead><tr><th scope="col">Ideia</th>{isManager && <th scope="col">Potencial</th>}{isManager && <th scope="col">Dimensões</th>}<th scope="col">Área</th><th scope="col">Situação</th><th scope="col">Data</th><th scope="col"><span className="sr-only">Abrir ideia</span></th></tr></thead>
+                <thead><tr><th scope="col">Ideia</th>{isManager && <th scope="col">Recomendação</th>}{isManager && <th scope="col">Potencial</th>}{isManager && <th scope="col">Dimensões</th>}<th scope="col">Área</th><th scope="col">Situação</th><th scope="col">Data</th><th scope="col"><span className="sr-only">Abrir ideia</span></th></tr></thead>
                 <tbody>
                   {ideas.map((idea) => (
                     <tr key={idea.id}>
@@ -190,6 +192,15 @@ export default async function IdeasPage({
                           {idea.author_id === user.id ? nextStepForAuthor(idea.status) : idea.author_name ? `Enviada por ${idea.author_name}` : "Enviada pela equipe"}
                         </span>
                       </td>
+                      {isManager && (
+                        <td>
+                          {idea.recommendation ? (
+                            <span className={`score-chip score-${recommendationTone[idea.recommendation.key]}`}>{idea.recommendation.label}</span>
+                          ) : (
+                            <span className="muted small-copy">—</span>
+                          )}
+                        </td>
+                      )}
                       {isManager && (
                         <td>
                           {idea.potentialScore === null ? (
