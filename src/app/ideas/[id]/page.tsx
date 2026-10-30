@@ -65,7 +65,7 @@ export default async function IdeaDetailPage({
   const { supabase, user, membership, organization } = await requireCompanyContext();
   const { data: idea, error } = await supabase
     .from("ideas")
-    .select("id, title, problem, solution, original_description, structured_proposal, area, status, author_id, author_name, created_at, submitted_at, analysis, responsible_id, follow_up_date, priority")
+    .select("id, title, problem, solution, original_description, structured_proposal, area, status, author_id, author_name, author_email, created_at, submitted_at, analysis, responsible_id, follow_up_date, priority")
     .eq("id", id)
     .eq("organization_id", membership.organization_id)
     .maybeSingle();
@@ -171,6 +171,7 @@ export default async function IdeaDetailPage({
               : `Criada em ${dateFormat.format(new Date(idea.created_at))}`}
             {idea.area ? ` · ${idea.area}` : ""}
             {idea.author_name ? ` · por ${idea.author_name}` : ""}
+            {isCompanyAdmin && idea.author_email ? ` · ${idea.author_email}` : ""}
           </p>
         </div>
         <span className={`status-badge status-badge-${idea.status}`}>{ideaStatusLabel(idea.status)}</span>

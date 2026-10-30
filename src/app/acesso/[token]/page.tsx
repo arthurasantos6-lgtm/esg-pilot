@@ -102,14 +102,14 @@ export default async function AccessLinkPage({
             <input id="name" name="name" type="text" minLength={2} maxLength={80} required autoFocus autoComplete="name" />
             <label htmlFor="email">E-mail (opcional)</label>
             <input id="email" name="email" type="email" maxLength={254} autoComplete="email" aria-describedby="email-hint" />
-            <p id="email-hint" className="field-hint">Para receber a confirmação e a resposta da empresa.</p>
+            <p id="email-hint" className="field-hint">Para a empresa poder falar com você sobre a ideia.</p>
             <SubmitButton className="button button-primary button-full" pendingLabel="Entrando…">
               Começar <span aria-hidden="true">→</span>
             </SubmitButton>
           </form>
         )}
 
-        <p className="auth-footnote">Sem cadastro. A gestão verá seu nome nas ideias que você enviar.</p>
+        <p className="auth-footnote">Sem cadastro. A gestão verá seu nome e e-mail nas ideias que você enviar.</p>
       </section>
     </main>
   );

@@ -70,3 +70,8 @@ export const AI_AGREEMENT_LABELS: Record<string, string> = {
   partially: "Concorda parcialmente com a IA",
   disagrees: "Discorda da avaliação da IA",
 };
+
+/** Código curto que o colaborador recebe ao enviar a ideia. */
+export function ideaProtocol(ideaId: string) {
+  return ideaId.replaceAll("-", "").slice(0, 8).toUpperCase();
+}
