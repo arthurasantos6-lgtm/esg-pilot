@@ -2,7 +2,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { parseCollaboratorEmail } from "../src/lib/access-links.ts";
-import { ideaProtocol } from "../src/lib/idea-status.ts";
+import { ideaProtocol, isDecisionOffered } from "../src/lib/idea-status.ts";
 import { splitForSpeech } from "../src/lib/speech.ts";
 
 test("speech text is split without losing content or exceeding the limit", () => {
@@ -25,4 +25,10 @@ test("the email is optional, but must be valid when informed", () => {
 
 test("the protocol is short and stable", () => {
   assert.equal(ideaProtocol("3f2a9c1e-0000-4000-8000-000000000000"), "3F2A9C1E");
+});
+
+test("requesting information is no longer offered as a decision", () => {
+  assert.equal(isDecisionOffered("awaiting_info"), false);
+  assert.equal(isDecisionOffered("approved"), true);
+  assert.equal(isDecisionOffered("rejected"), true);
 });

@@ -26,6 +26,7 @@ import {
   toIdeaPromptInput,
 } from "@/lib/idea-ai";
 import { CANNOT_CREATE_IDEAS_MESSAGE, canCreateIdeas } from "@/lib/idea-permissions";
+import { isDecisionOffered } from "@/lib/idea-status";
 import { columnText, parseStoredProposal, PROPOSAL_FIELDS, readProposalForm } from "@/lib/idea-proposal";
 import { createServiceClient } from "@/lib/supabase/admin";
 import { selectRelevantKnowledge } from "@/lib/text-similarity";
@@ -380,7 +381,6 @@ const decisionErrorMessages: Record<string, string> = {
   idea_not_submitted: "Rascunhos não podem receber decisões.",
   invalid_transition: "Esta mudança de situação não é permitida a partir da situação atual.",
   justification_required: "Registre uma justificativa com pelo menos 10 caracteres.",
-  author_message_required: "Ao solicitar complementação, escreva a mensagem que o colaborador verá.",
   invalid_responsible: "O responsável precisa ser um usuário ativo da sua empresa.",
   no_pending_request: "Não há pedido de complementação pendente para esta ideia.",
   content_required: "Escreva sua resposta antes de enviar.",
@@ -398,7 +398,6 @@ const decisionSchema = z.object({
   ideaId: z.string().uuid(),
   toStatus: z.string().min(1),
   justification: z.string().trim().min(10, "Registre uma justificativa com pelo menos 10 caracteres.").max(2000),
-  authorMessage: z.string().trim().max(4000).optional(),
   responsibleId: z.preprocess((value) => (value === "" ? undefined : value), z.string().uuid().optional()),
   followUpDate: z.preprocess(
     (value) => (value === "" ? undefined : value),
@@ -418,7 +417,6 @@ export async function recordIdeaDecision(formData: FormData) {
     ideaId: rawId,
     toStatus: formData.get("toStatus"),
     justification: formData.get("justification"),
-    authorMessage: formData.get("authorMessage") || undefined,
     responsibleId: formData.get("responsibleId") ?? "",
     followUpDate: formData.get("followUpDate") ?? "",
     priority: formData.get("priority") ?? "",
@@ -430,6 +428,10 @@ export async function recordIdeaDecision(formData: FormData) {
     redirect(`${detailUrl}?error=${encodeURIComponent(parsed.error.issues[0].message)}#decision`);
   }
 
+  if (!isDecisionOffered(parsed.data.toStatus)) {
+    redirect(`${detailUrl}?error=${encodeURIComponent("Esta ação não está mais disponível. Fale com o colaborador pelo e-mail informado na ideia.")}#decision`);
+  }
+
   const context = await requireCompanyContext();
   if (context.membership.role !== "company_admin") {
     redirect(`${detailUrl}?error=${encodeURIComponent(decisionErrorMessages.access_denied)}`);
@@ -439,7 +441,7 @@ export async function recordIdeaDecision(formData: FormData) {
     p_idea_id: parsed.data.ideaId,
     p_to_status: parsed.data.toStatus,
     p_justification: parsed.data.justification,
-    p_author_message: parsed.data.authorMessage ?? null,
+    p_author_message: null,
     p_responsible_id: parsed.data.responsibleId ?? null,
     p_follow_up_date: parsed.data.followUpDate ?? null,
     p_priority: parsed.data.priority ?? null,

@@ -75,3 +75,11 @@ export const AI_AGREEMENT_LABELS: Record<string, string> = {
 export function ideaProtocol(ideaId: string) {
   return ideaId.replaceAll("-", "").slice(0, 8).toUpperCase();
 }
+
+/**
+ * O colaborador por link não tem como receber um pedido de informações pela
+ * plataforma: a gestão usa o e-mail informado na ideia, por fora.
+ */
+export function isDecisionOffered(toStatus: string) {
+  return toStatus !== "awaiting_info";
+}

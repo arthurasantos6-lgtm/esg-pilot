@@ -130,7 +130,7 @@ export async function ManagerDashboard({
           <span className="metric-icon metric-icon-blue" aria-hidden="true">◷</span>
           <p className="metric-label">Aguardando a gestão</p>
           <p className="metric-value">{count("submitted", "in_review", "technical_review")}</p>
-          <p className="metric-note">{count("awaiting_info")} aguardando o colaborador</p>
+          {count("awaiting_info") > 0 && <p className="metric-note">{count("awaiting_info")} aguardando o colaborador</p>}
         </article>
         <article className="metric-card">
           <span className="metric-icon metric-icon-yellow" aria-hidden="true">✦</span>

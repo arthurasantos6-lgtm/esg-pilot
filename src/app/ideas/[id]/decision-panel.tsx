@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { recordIdeaDecision } from "@/app/ideas/actions";
 import { SubmitButton } from "@/app/components/submit-button";
-import { AI_AGREEMENT_LABELS, ideaStatusLabel, PRIORITY_LABELS } from "@/lib/idea-status";
+import { AI_AGREEMENT_LABELS, ideaStatusLabel, isDecisionOffered, PRIORITY_LABELS } from "@/lib/idea-status";
 import { memberDisplayName } from "@/lib/members";
 
 type Transition = { to_status: string; action_label: string };
@@ -62,7 +62,7 @@ export function DecisionPanel({
         <label htmlFor="toStatus">Ação</label>
         <select id="toStatus" name="toStatus" defaultValue={status}>
           <option value={status}>Manter situação ({ideaStatusLabel(status)}) e atualizar acompanhamento</option>
-          {transitions.map((transition) => (
+          {transitions.filter((transition) => isDecisionOffered(transition.to_status)).map((transition) => (
             <option key={transition.to_status} value={transition.to_status}>
               {transition.action_label} → {ideaStatusLabel(transition.to_status)}
             </option>
@@ -72,12 +72,6 @@ export function DecisionPanel({
         <label htmlFor="justification">Justificativa interna <span aria-hidden="true">*</span></label>
         <p id="justification-hint" className="field-hint">Visível apenas para a gestão.</p>
         <textarea id="justification" name="justification" rows={3} minLength={10} maxLength={2000} required aria-describedby="justification-hint" />
-
-        <label htmlFor="authorMessage">Mensagem para o colaborador</label>
-        <p id="author-message-hint" className="field-hint">
-          O autor verá este texto. Obrigatória ao solicitar complementação; descreva o que precisa ser informado.
-        </p>
-        <textarea id="authorMessage" name="authorMessage" rows={3} maxLength={4000} aria-describedby="author-message-hint" />
 
         <label htmlFor="responsibleId">Responsável pelo acompanhamento</label>
         <select id="responsibleId" name="responsibleId" defaultValue={responsibleId ?? ""}>
