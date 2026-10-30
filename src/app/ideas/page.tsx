@@ -3,7 +3,16 @@ import Link from "next/link";
 import { connection } from "next/server";
 import { AppShell } from "@/app/components/app-shell";
 import { assertModuleEnabled, requireCompanyContext } from "@/lib/auth";
+import { executabilityLevel } from "@/lib/executability";
+import {
+  compareByScore,
+  countByFolder,
+  IDEA_FOLDERS,
+  isInFolder,
+  parseFolder,
+} from "@/lib/idea-folders";
 import { canCreateIdeas } from "@/lib/idea-permissions";
+import { organizeIdeas } from "@/lib/organize-ideas";
 import { IDEA_STATUS_ORDER, ideaStatusLabel, nextStepForAuthor } from "@/lib/idea-status";
 
 export const metadata: Metadata = { title: "Ideias" };
@@ -16,7 +25,7 @@ const statuses = [
 export default async function IdeasPage({
   searchParams,
 }: {
-  searchParams: Promise<{ q?: string; status?: string; error?: string; page?: string; mine?: string }>;
+  searchParams: Promise<{ q?: string; status?: string; error?: string; page?: string; mine?: string; folder?: string; sort?: string }>;
 }) {
   await connection();
   const { supabase, user, membership, organization } = await requireCompanyContext();
@@ -29,10 +38,13 @@ export default async function IdeasPage({
   const requestedPage = Number(params.page);
   const page = Number.isInteger(requestedPage) && requestedPage > 0 ? requestedPage : 1;
   const pageSize = 15;
+  const isManager = membership.role === "company_admin";
+  const folder = isManager ? parseFolder(params.folder) : null;
+  const sortByScore = isManager && params.sort === "score";
 
   let request = supabase
     .from("ideas")
-    .select("id, title, area, status, created_at, author_id, author_name", { count: "exact" })
+    .select("id, title, area, status, created_at, author_id, author_name, analysis", { count: "exact" })
     .eq("organization_id", membership.organization_id)
     .order("created_at", { ascending: false });
 
@@ -40,8 +52,30 @@ export default async function IdeasPage({
   if (selectedStatus) request = request.eq("status", selectedStatus);
   if (onlyMine) request = request.eq("author_id", user.id);
 
-  const { data: ideas, count, error } = await request.range((page - 1) * pageSize, page * pageSize - 1);
+  // A gestão classifica em pastas pela avaliação de cada ideia, então pagina depois de filtrar.
+  const { data: fetchedIdeas, count: fetchedCount, error } = await (isManager
+    ? request.limit(1000)
+    : request.range((page - 1) * pageSize, page * pageSize - 1));
   if (error) throw new Error(`Não foi possível carregar as ideias: ${error.message}`);
+
+  let evaluations: { idea_id: string; result: unknown; created_at: string }[] = [];
+  if (isManager) {
+    const { data, error: evaluationsError } = await supabase
+      .from("idea_evaluations")
+      .select("idea_id, result, created_at")
+      .eq("organization_id", membership.organization_id)
+      .eq("status", "completed");
+    if (evaluationsError) throw new Error(`Não foi possível carregar as avaliações: ${evaluationsError.message}`);
+    evaluations = data ?? [];
+  }
+
+  const organized = organizeIdeas(fetchedIdeas ?? [], evaluations);
+  const folderCounts = countByFolder(organized);
+  const matching = isManager
+    ? organized.filter((idea) => !folder || isInFolder(idea, folder)).sort(sortByScore ? compareByScore : () => 0)
+    : organized;
+  const ideas = isManager ? matching.slice((page - 1) * pageSize, page * pageSize) : matching;
+  const count = isManager ? matching.length : fetchedCount;
 
   const pageCount = Math.max(1, Math.ceil((count ?? 0) / pageSize));
   const makePageUrl = (targetPage: number) => {
@@ -49,9 +83,20 @@ export default async function IdeasPage({
     if (query) params.set("q", query);
     if (selectedStatus) params.set("status", selectedStatus);
     if (onlyMine) params.set("mine", "1");
+    if (folder) params.set("folder", folder);
+    if (sortByScore) params.set("sort", "score");
     if (targetPage > 1) params.set("page", String(targetPage));
     return `/ideas${params.size ? `?${params.toString()}` : ""}`;
   };
+  const makeFolderUrl = (target: string | null) => {
+    const params = new URLSearchParams();
+    if (query) params.set("q", query);
+    if (selectedStatus) params.set("status", selectedStatus);
+    if (target) params.set("folder", target);
+    if (sortByScore) params.set("sort", "score");
+    return `/ideas${params.size ? `?${params.toString()}` : ""}`;
+  };
+  const filtered = Boolean(query || selectedStatus || onlyMine || folder);
 
   return (
     <AppShell organizationName={organization.name} userEmail={user.email} membership={membership}>
@@ -76,7 +121,18 @@ export default async function IdeasPage({
 
       {params.error && <p className="alert alert-error" role="alert">{params.error}</p>}
       <section className="panel list-panel">
+        {isManager && (
+          <nav className="folder-tabs" aria-label="Pastas ESG">
+            <Link href={makeFolderUrl(null)} aria-current={!folder ? "page" : undefined}>Todas <span>{organized.length}</span></Link>
+            {IDEA_FOLDERS.map(({ key, label }) => (
+              <Link key={key} href={makeFolderUrl(key)} aria-current={folder === key ? "page" : undefined}>
+                {label} <span>{folderCounts[key]}</span>
+              </Link>
+            ))}
+          </nav>
+        )}
         <form className="filter-bar" action="/ideas">
+          {folder && <input type="hidden" name="folder" value={folder} />}
           <label className="search-field">
             <span className="sr-only">Buscar por título</span>
             <span aria-hidden="true">⌕</span>
@@ -88,24 +144,33 @@ export default async function IdeasPage({
               {statuses.map(([value, label]) => <option key={value} value={value}>{label}</option>)}
             </select>
           </label>
+          {isManager && (
+            <label className="filter-select">
+              <span className="sr-only">Ordenar ideias</span>
+              <select name="sort" defaultValue={sortByScore ? "score" : ""}>
+                <option value="">Mais recentes</option>
+                <option value="score">Maior executabilidade</option>
+              </select>
+            </label>
+          )}
           <button className="button button-secondary" type="submit">Filtrar</button>
         </form>
 
-        {!ideas?.length ? (
+        {!ideas.length ? (
           <div className="empty-state list-empty">
             <span className="empty-icon" aria-hidden="true">⌕</span>
-            <h2>{query || selectedStatus || onlyMine ? "Nenhuma ideia encontrada" : "Nenhuma ideia registrada"}</h2>
+            <h2>{filtered ? "Nenhuma ideia encontrada" : "Nenhuma ideia registrada"}</h2>
             <p className="muted">
-              {query || selectedStatus || onlyMine
+              {filtered
                 ? "Altere os filtros ou tente outra busca."
                 : canCreate
                   ? "Registre a primeira oportunidade de melhoria."
                   : "As ideias chegam pelos colaboradores. Compartilhe o link de acesso da empresa para começar."}
             </p>
-            {!query && !selectedStatus && !onlyMine && canCreate && (
+            {!filtered && canCreate && (
               <Link className="button button-secondary" href="/ideas/new">Registrar ideia</Link>
             )}
-            {!query && !selectedStatus && !onlyMine && membership.role === "company_admin" && (
+            {!filtered && isManager && (
               <Link className="button button-secondary" href="/equipe">Gerar link de acesso</Link>
             )}
           </div>
@@ -113,7 +178,7 @@ export default async function IdeasPage({
           <>
             <div className="table-wrap">
               <table>
-                <thead><tr><th scope="col">Ideia</th><th scope="col">Área</th><th scope="col">Situação</th><th scope="col">Data</th><th scope="col"><span className="sr-only">Abrir ideia</span></th></tr></thead>
+                <thead><tr><th scope="col">Ideia</th>{isManager && <th scope="col">Executabilidade</th>}{isManager && <th scope="col">Dimensões</th>}<th scope="col">Área</th><th scope="col">Situação</th><th scope="col">Data</th><th scope="col"><span className="sr-only">Abrir ideia</span></th></tr></thead>
                 <tbody>
                   {ideas.map((idea) => (
                     <tr key={idea.id}>
@@ -123,6 +188,24 @@ export default async function IdeasPage({
                           {idea.author_id === user.id ? nextStepForAuthor(idea.status) : idea.author_name ? `Enviada por ${idea.author_name}` : "Enviada pela equipe"}
                         </span>
                       </td>
+                      {isManager && (
+                        <td>
+                          {idea.score === null ? (
+                            <span className="muted small-copy">Sem nota</span>
+                          ) : (
+                            <span className={`score-chip score-${executabilityLevel(idea.score).key}`}>{idea.score}</span>
+                          )}
+                        </td>
+                      )}
+                      {isManager && (
+                        <td>
+                          <span className="dimension-group">
+                            {idea.dimensions.map((dimension) => (
+                              <span key={dimension} className={`dimension-pill dimension-${dimension.toLowerCase()}`}>{dimension}</span>
+                            ))}
+                          </span>
+                        </td>
+                      )}
                       <td>{idea.area || "Não informada"}</td>
                       <td><span className={`status-badge status-badge-${idea.status}`}>{ideaStatusLabel(idea.status)}</span></td>
                       <td>{new Intl.DateTimeFormat("pt-BR", { dateStyle: "medium" }).format(new Date(idea.created_at))}</td>

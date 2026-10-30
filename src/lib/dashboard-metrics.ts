@@ -60,7 +60,7 @@ function potentialOf(value: unknown): string | null {
 }
 
 /** A avaliação por IA tem precedência; sem ela, usa a triagem por termos. */
-export function classifyIdea(idea: MetricsIdea, evaluation: MetricsEvaluation | undefined) {
+export function classifyIdea(idea: Pick<MetricsIdea, "analysis">, evaluation: MetricsEvaluation | undefined) {
   const aiDimensions = evaluation ? dimensionsOf(evaluation.result) : [];
   const aiPotential = evaluation ? potentialOf(evaluation.result) : null;
   if (evaluation && (aiDimensions.length || aiPotential)) {
@@ -72,6 +72,16 @@ export function classifyIdea(idea: MetricsIdea, evaluation: MetricsEvaluation | 
     return { dimensions: keywordDimensions, potential: keywordPotential, source: "keyword" as DimensionSource };
   }
   return { dimensions: [] as string[], potential: null, source: "none" as DimensionSource };
+}
+
+/** A avaliação concluída mais recente de cada ideia. */
+export function latestEvaluations(evaluations: MetricsEvaluation[]) {
+  const latest = new Map<string, MetricsEvaluation>();
+  for (const evaluation of evaluations) {
+    const current = latest.get(evaluation.idea_id);
+    if (!current || evaluation.created_at > current.created_at) latest.set(evaluation.idea_id, evaluation);
+  }
+  return latest;
 }
 
 export type ManagerFilters = { status?: string; dimension?: string; area?: string };
@@ -116,11 +126,7 @@ export function computeManagerMetrics(input: {
   now?: Date;
 }) {
   const filters = input.filters ?? {};
-  const latestEvaluation = new Map<string, MetricsEvaluation>();
-  for (const evaluation of input.evaluations) {
-    const current = latestEvaluation.get(evaluation.idea_id);
-    if (!current || evaluation.created_at > current.created_at) latestEvaluation.set(evaluation.idea_id, evaluation);
-  }
+  const latestEvaluation = latestEvaluations(input.evaluations);
 
   const rows = input.ideas
     .map((idea) => ({ idea, sentAt: idea.submitted_at ?? idea.created_at, ...classifyIdea(idea, latestEvaluation.get(idea.id)) }))

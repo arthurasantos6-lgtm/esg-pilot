@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Plus_Jakarta_Sans } from "next/font/google";
 import type { ReactNode } from "react";
+import { ReadPageButton } from "@/app/components/read-aloud";
 import { ThemeToggle } from "@/app/components/theme-toggle";
 import "./globals.css";
 
@@ -24,7 +25,10 @@ export default function RootLayout({ children }: { children: ReactNode }) {
         <script dangerouslySetInnerHTML={{ __html: applyTheme }} />
       </head>
       <body>
-        <ThemeToggle />
+        <div className="display-controls">
+          <ReadPageButton />
+          <ThemeToggle />
+        </div>
         {children}
       </body>
     </html>

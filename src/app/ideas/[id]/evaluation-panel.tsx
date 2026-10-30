@@ -3,6 +3,7 @@ import { EvaluationRefresher } from "@/app/ideas/[id]/evaluation-refresher";
 import { SubmitButton } from "@/app/components/submit-button";
 import { parseEvaluationResult, type EvaluationResult } from "@/lib/ai/schemas";
 import { isEvaluationStale } from "@/lib/ai/evaluation-status";
+import { EXECUTABILITY_FACTORS, executabilityLevel, executabilityScore } from "@/lib/executability";
 import type { Json } from "@/lib/supabase/database.types";
 
 export type EvaluationRow = {
@@ -22,6 +23,8 @@ type EvaluationPanelProps = {
   canRetry: boolean;
   /** Gestão pode pedir nova avaliação mesmo após uma concluída (ex.: após complementação). */
   canReevaluate?: boolean;
+  /** A nota de executabilidade apoia a priorização e aparece só para a gestão. */
+  showScore?: boolean;
 };
 
 const dimensionNames: Record<string, string> = { E: "Ambiental", S: "Social", G: "Governança" };
@@ -54,10 +57,49 @@ function RetryForm({ ideaId, label }: { ideaId: string; label: string }) {
   );
 }
 
-function CompletedEvaluation({ result }: { result: EvaluationResult }) {
+function ExecutabilityScore({ result }: { result: EvaluationResult }) {
+  const score = executabilityScore(result);
+  if (score === null || !result.executability) return null;
+  const level = executabilityLevel(score);
+  return (
+    <div className="score-panel">
+      <div className="score-total">
+        <span className="score-number">{score}</span>
+        <span className="small-copy muted">de 100</span>
+        <span className={`score-chip score-${level.key}`}>Executabilidade {level.label.toLowerCase()}</span>
+      </div>
+      <ul className="score-factors">
+        {EXECUTABILITY_FACTORS.map(({ key, label, weight }) => {
+          const factor = result.executability![key];
+          return (
+            <li key={key}>
+              <div className="score-factor-heading">
+                <strong>{label}</strong>
+                <span className="small-copy muted">{Math.round(factor.score)} · peso {weight * 100}%</span>
+              </div>
+              <div className="score-track" aria-hidden="true">
+                <span style={{ width: `${Math.min(100, Math.max(0, factor.score))}%` }} />
+              </div>
+              <p className="small-copy">{factor.rationale}</p>
+            </li>
+          );
+        })}
+      </ul>
+    </div>
+  );
+}
+
+function CompletedEvaluation({ result, showScore }: { result: EvaluationResult; showScore: boolean }) {
   return (
     <>
+      {showScore && <ExecutabilityScore result={result} />}
       <p>{result.summary}</p>
+      {result.technicalSummary && (
+        <>
+          <h3 className="subsection-title">Versão técnica da ideia</h3>
+          <p className="small-copy">{result.technicalSummary}</p>
+        </>
+      )}
       <div className="evaluation-meta">
         <span className={`potential-badge potential-${result.potential}`}>Potencial preliminar {result.potential}</span>
         <span className="subtle-tag">Confiança {levelLabels[result.confidence] ?? result.confidence}</span>
@@ -89,6 +131,19 @@ function CompletedEvaluation({ result }: { result: EvaluationResult }) {
         <p className="empty-inline">A IA não identificou relação justificável com as dimensões ESG a partir do texto.</p>
       )}
 
+      {result.regulatoryNorms && (
+        <>
+          <h3 className="subsection-title">Normas relacionadas</h3>
+          {result.regulatoryNorms.length ? (
+            <ul className="evaluation-list">
+              {result.regulatoryNorms.map((item) => <li key={item.norm}><strong>{item.norm}:</strong> {item.relation}</li>)}
+            </ul>
+          ) : (
+            <p className="empty-inline">Nenhuma norma pertinente encontrada na base de conhecimento.</p>
+          )}
+        </>
+      )}
+
       <ListBlock title="Informações faltantes" items={result.missingInformation} empty="Nenhuma lacuna apontada." />
       <ListBlock title="Sugestões de melhoria" items={result.improvementSuggestions} />
       <ListBlock title="Indicadores sugeridos" items={result.suggestedIndicators} />
@@ -104,7 +159,7 @@ function CompletedEvaluation({ result }: { result: EvaluationResult }) {
 }
 
 /** Avaliação ESG gerada pela IA, sempre identificada como recomendação. */
-export function EvaluationPanel({ ideaId, evaluation, aiAvailable, canRetry, canReevaluate = false }: EvaluationPanelProps) {
+export function EvaluationPanel({ ideaId, evaluation, aiAvailable, canRetry, canReevaluate = false, showScore = false }: EvaluationPanelProps) {
   const stale = evaluation ? isEvaluationStale(evaluation) : false;
   const result = evaluation?.status === "completed" ? parseEvaluationResult(evaluation.result) : null;
 
@@ -149,7 +204,7 @@ export function EvaluationPanel({ ideaId, evaluation, aiAvailable, canRetry, can
       )}
       {result && evaluation && (
         <>
-          <CompletedEvaluation result={result} />
+          <CompletedEvaluation result={result} showScore={showScore} />
           <p className="table-subtitle">
             Gerada em {formatDateTime(evaluation.completed_at ?? evaluation.created_at)}
             {evaluation.model ? ` · modelo ${evaluation.model}` : ""}

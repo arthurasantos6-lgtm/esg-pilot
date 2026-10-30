@@ -236,6 +236,7 @@ export default async function IdeaDetailPage({
               aiAvailable={isAiAvailable()}
               canRetry={isAuthor || isCompanyAdmin}
               canReevaluate={isCompanyAdmin}
+              showScore={isCompanyAdmin}
             />
           )}
 

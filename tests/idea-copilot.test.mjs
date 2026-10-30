@@ -116,6 +116,19 @@ test("AI output schemas convert to structured-output formats and reject malforme
     limitations: ["Sem referência validada na base de conhecimento."],
   };
   assert.deepEqual(parseEvaluationResult(valid), valid);
+
+  const withScore = {
+    ...valid,
+    technicalSummary: "Proposta de reúso de água no processo de lavagem de peças.",
+    executability: {
+      urgency: { score: 50, rationale: "Perda contínua de água." },
+      impact: { score: 80, rationale: "Reduz o consumo." },
+      ease: { score: 60, rationale: "Exige filtragem." },
+    },
+    regulatoryNorms: [],
+  };
+  assert.deepEqual(parseEvaluationResult(withScore), withScore);
+  assert.equal(evaluationResultSchema.safeParse(valid).success, false, "new evaluations must include the new fields");
 });
 
 test("pending evaluations older than ten minutes are treated as interrupted", () => {

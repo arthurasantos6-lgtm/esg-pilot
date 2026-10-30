@@ -7,7 +7,7 @@
         "build": "next build",
         "start": "next start",
         "lint": "eslint",
-        "test": "node --experimental-strip-types --test tests/esg-analysis.test.mjs tests/idea-copilot.test.mjs tests/idea-workflow.test.mjs tests/access-links.test.mjs tests/ai-config.test.mjs tests/dashboard-metrics.test.mjs tests/idea-permissions.test.mjs"
+        "test": "node --experimental-strip-types --test tests/esg-analysis.test.mjs tests/idea-copilot.test.mjs tests/idea-workflow.test.mjs tests/access-links.test.mjs tests/ai-config.test.mjs tests/dashboard-metrics.test.mjs tests/idea-permissions.test.mjs tests/executability.test.mjs tests/idea-folders.test.mjs"
     },
     "dependencies": {
         "@anthropic-ai/sdk": "^0.136.0",

@@ -7,6 +7,7 @@ import { organizeProposal } from "@/app/ideas/actions";
 import { CopilotChatForm } from "@/app/ideas/[id]/copilot/chat-form";
 import { ChatGreeting } from "@/app/ideas/chat-greeting";
 import { AppShell } from "@/app/components/app-shell";
+import { ListenButton } from "@/app/components/read-aloud";
 import { SubmitButton } from "@/app/components/submit-button";
 import { assertModuleEnabled, requireCompanyContext } from "@/lib/auth";
 import { isAiAvailable, MAX_USER_MESSAGES_PER_IDEA, toIdeaPromptInput } from "@/lib/idea-ai";
@@ -75,6 +76,7 @@ export default async function IdeaCopilotPage({
             <li key={message.id} className={`chat-message chat-message-${message.role}`}>
               <span className="chat-author">{message.role === "user" ? "Você" : "Copiloto (IA)"}</span>
               <p className="preserve-lines">{message.content}</p>
+              {message.role === "assistant" && <ListenButton text={message.content} />}
             </li>
           ))}
         </ol>

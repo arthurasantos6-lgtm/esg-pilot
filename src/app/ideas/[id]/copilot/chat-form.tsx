@@ -1,6 +1,7 @@
 "use client";
 
 import { useActionState, useEffect, useRef } from "react";
+import { DictationButton } from "@/app/components/dictation-button";
 import { sendCopilotMessage, type CopilotFormState } from "@/app/ideas/actions";
 
 const initialState: CopilotFormState = { error: null, sentAt: null };
@@ -49,6 +50,7 @@ export function CopilotChatForm({ ideaId, awaitingReply }: { ideaId: string; awa
             }}
           />
           <div className="form-actions">
+            <DictationButton targetId="message" />
             <button className="button button-primary" type="submit" disabled={pending} aria-disabled={pending}>
               {pending ? "Enviando…" : "Enviar"}
             </button>
