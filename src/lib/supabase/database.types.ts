@@ -369,6 +369,20 @@ export type Database = {
         Args: { target_email: string };
         Returns: { id: string; email: string | null }[];
       };
+      platform_list_ideas: {
+        Args: { p_organization_id?: string | null; p_status?: string | null; p_limit?: number };
+        Returns: {
+          id: string;
+          organization_id: string;
+          organization_name: string;
+          title: string;
+          area: string | null;
+          status: string;
+          pillars: string[];
+          created_at: string;
+          submitted_at: string | null;
+        }[];
+      };
       platform_list_organization_members: {
         Args: { target_org_id: string };
         Returns: {

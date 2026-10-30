@@ -11,6 +11,7 @@ import {
   updateOrganization,
 } from "@/app/admin/actions";
 import { AccessLinksPanel } from "@/app/components/access-links-panel";
+import { AdminIdeasTable } from "@/app/admin/components/admin-ideas-table";
 import { AdminShell } from "@/app/admin/components/admin-shell";
 import { requirePlatformAdmin } from "@/lib/auth";
 import { memberDisplayName } from "@/lib/members";
@@ -46,7 +47,7 @@ export default async function CompanyDetailPage({
   if (!z.guid().safeParse(id).success) notFound();
 
   const { supabase, user } = await requirePlatformAdmin();
-  const [{ data: organization, error: orgError }, { data: members, error: membersError }, { data: links }] =
+  const [{ data: organization, error: orgError }, { data: members, error: membersError }, { data: links }, { data: ideas, error: ideasError }] =
     await Promise.all([
       supabase.from("organizations").select("*").eq("id", id).maybeSingle(),
       supabase.rpc("platform_list_organization_members", { target_org_id: id }),
@@ -55,6 +56,7 @@ export default async function CompanyDetailPage({
         .select("id, token, label, status, expires_at, created_at, last_used_at, join_count")
         .eq("organization_id", id)
         .order("created_at", { ascending: false }),
+      supabase.rpc("platform_list_ideas", { p_organization_id: id, p_status: null, p_limit: 500 }),
     ]);
 
   if (orgError) throw new Error(`Não foi possível carregar a empresa: ${orgError.message}`);
@@ -153,6 +155,24 @@ export default async function CompanyDetailPage({
         createAction={createPlatformAccessLink}
         revokeAction={revokePlatformAccessLink}
       />
+
+      <section className="panel list-panel" aria-labelledby="company-ideas-title">
+        <div className="panel-heading">
+          <div>
+            <p className="eyebrow">IDEIAS DA EMPRESA</p>
+            <h2 id="company-ideas-title">Ideias enviadas</h2>
+          </div>
+          {!ideasError && <span className="subtle-tag">{ideas?.length ?? 0}</span>}
+        </div>
+        <p className="muted small-copy">Lista resumida. O texto da ideia, a análise e quem enviou ficam só com a empresa.</p>
+        {ideasError ? (
+          <p className="alert alert-error" role="alert">Não foi possível carregar as ideias. Confira se a migração 20261104_platform_list_ideas foi aplicada.</p>
+        ) : ideas?.length ? (
+          <AdminIdeasTable ideas={ideas} showCompany={false} />
+        ) : (
+          <p className="empty-inline">Esta empresa ainda não recebeu ideias.</p>
+        )}
+      </section>
 
       <section className="panel list-panel" aria-labelledby="members-title">
         <div className="panel-heading">

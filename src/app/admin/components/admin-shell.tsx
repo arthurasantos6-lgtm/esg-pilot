@@ -24,6 +24,7 @@ export function AdminShell({ children, userEmail }: AdminShellProps) {
         <nav className="main-nav">
           <Link href="/admin"><span aria-hidden="true">▦</span> Visão geral</Link>
           <Link href="/admin/companies"><span aria-hidden="true">🏢</span> Empresas clientes</Link>
+          <Link href="/admin/ideas"><span aria-hidden="true">✎</span> Ideias</Link>
           <Link href="/admin/esg-criteria"><span aria-hidden="true">⌁</span> Critérios ESG</Link>
           <Link href="/admin/knowledge"><span aria-hidden="true">◎</span> Base de conhecimento</Link>
           <Link href="/admin/esg-engine"><span aria-hidden="true">⚙</span> Motor ESG local</Link>

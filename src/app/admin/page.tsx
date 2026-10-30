@@ -83,12 +83,12 @@ export default async function AdminDashboardPage({
           <p className="metric-value">{stats.members_total ?? 0}</p>
           <p className="metric-note">{stats.members_by_role?.company_admin ?? 0} na gestão · {sum("collaborators_via_link")} por link{filtered ? " (filtro)" : ""}</p>
         </article>
-        <article className="metric-card">
+        <Link className="metric-card metric-card-link" href="/admin/ideas">
           <span className="metric-icon metric-icon-violet" aria-hidden="true">⌁</span>
           <p className="metric-label">Ideias recebidas (total)</p>
           <p className="metric-value">{stats.ideas_total ?? 0}</p>
-          <p className="metric-note">inclui rascunhos ainda não enviados</p>
-        </article>
+          <p className="metric-note">inclui rascunhos · <span className="text-link">ver lista de enviadas →</span></p>
+        </Link>
         <article className="metric-card">
           <span className="metric-icon metric-icon-blue" aria-hidden="true">↗</span>
           <p className="metric-label">Projetos</p>

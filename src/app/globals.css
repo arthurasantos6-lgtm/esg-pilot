@@ -2633,3 +2633,8 @@ details summary h2 {
   font-weight: 800;
   letter-spacing: -0.02em;
 }
+
+a.metric-card-link {
+  display: block;
+  color: inherit;
+}
