@@ -1,0 +1,25 @@
+# Publica na Vercel a cada push na main, independentemente de quem fez o commit.
+name: Deploy na Vercel
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions: {}
+
+jobs:
+  deploy:
+    # O push vai para os dois repositórios; só o ligado à Vercel tem o hook.
+    if: github.repository == 'arthurasantos6-lgtm/esg-pilot'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Acionar o Deploy Hook
+        env:
+          VERCEL_DEPLOY_HOOK: ${{ secrets.VERCEL_DEPLOY_HOOK }}
+        run: |
+          if [ -z "$VERCEL_DEPLOY_HOOK" ]; then
+            echo "::error::Secret VERCEL_DEPLOY_HOOK não configurado neste repositório."
+            exit 1
+          fi
+          curl --fail --silent --show-error --output /dev/null --retry 3 -X POST "$VERCEL_DEPLOY_HOOK"
