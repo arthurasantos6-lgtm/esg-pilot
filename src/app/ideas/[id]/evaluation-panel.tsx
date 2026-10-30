@@ -3,6 +3,7 @@ import { EvaluationRefresher } from "@/app/ideas/[id]/evaluation-refresher";
 import { SubmitButton } from "@/app/components/submit-button";
 import { parseEvaluationResult, type EvaluationResult } from "@/lib/ai/schemas";
 import { isEvaluationStale } from "@/lib/ai/evaluation-status";
+import { CONFIDENCE_THRESHOLD, ESG_CRITERIA, ESG_SUBCATEGORIES, potentialBand } from "@/lib/esg-engine";
 import { EXECUTABILITY_FACTORS, executabilityLevel, executabilityScore } from "@/lib/executability";
 import type { Json } from "@/lib/supabase/database.types";
 
@@ -23,8 +24,6 @@ type EvaluationPanelProps = {
   canRetry: boolean;
   /** Gestão pode pedir nova avaliação mesmo após uma concluída (ex.: após complementação). */
   canReevaluate?: boolean;
-  /** A nota de executabilidade apoia a priorização e aparece só para a gestão. */
-  showScore?: boolean;
 };
 
 const dimensionNames: Record<string, string> = { E: "Ambiental", S: "Social", G: "Governança" };
@@ -89,11 +88,62 @@ function ExecutabilityScore({ result }: { result: EvaluationResult }) {
   );
 }
 
-function CompletedEvaluation({ result, showScore }: { result: EvaluationResult; showScore: boolean }) {
+const subcategoryLabels = Object.fromEntries(ESG_SUBCATEGORIES.map(({ code, label }) => [code, label]));
+
+/** Pontuação do motor v2: potencial de 0 a 100, com a nota de cada critério. */
+function PotentialScore({ result }: { result: EvaluationResult }) {
+  if (!result.engine) return null;
+  const band = potentialBand(result.engine.score);
+  const scores = new Map((result.criteriaScores ?? []).map((item) => [item.code, item]));
+  return (
+    <div className="score-panel">
+      <div className="score-total">
+        <span className="score-number">{Math.round(result.engine.score)}</span>
+        <span className="small-copy muted">de 100 · potencial</span>
+        <span className="score-chip score-medium">{band.label}</span>
+        <p className="small-copy"><strong>Encaminhamento sugerido:</strong> {band.routing}</p>
+      </div>
+      <ul className="score-factors">
+        {ESG_CRITERIA.map(({ code, label, weight }) => {
+          const item = scores.get(code);
+          if (!item) return null;
+          return (
+            <li key={code}>
+              <div className="score-factor-heading">
+                <strong>{label}</strong>
+                <span className="small-copy muted">{item.score}/5 · peso {weight}%</span>
+              </div>
+              <div className="score-track" aria-hidden="true"><span style={{ width: `${(item.score / 5) * 100}%` }} /></div>
+              <p className="small-copy">
+                {item.justification}
+                {item.insufficientInformation && <strong> Informação insuficiente: nota provisória.</strong>}
+              </p>
+            </li>
+          );
+        })}
+      </ul>
+    </div>
+  );
+}
+
+function CompletedEvaluation({ result }: { result: EvaluationResult }) {
   return (
     <>
-      {showScore && <ExecutabilityScore result={result} />}
+      <PotentialScore result={result} />
+      {result.engine && result.engine.humanReviewReasons.length > 0 && (
+        <p className="alert alert-info"><strong>Revisão humana necessária:</strong> {result.engine.humanReviewReasons.join("; ")}.</p>
+      )}
+      <ExecutabilityScore result={result} />
       <p>{result.summary}</p>
+      {result.primaryPillar && (
+        <p className="small-copy">
+          <strong>Pilar principal:</strong> {dimensionNames[result.primaryPillar]}
+          {result.secondaryPillars?.length ? ` · secundários: ${result.secondaryPillars.map((pillar) => dimensionNames[pillar]).join(", ")}` : ""}
+        </p>
+      )}
+      {result.subcategories && result.subcategories.length > 0 && (
+        <p className="small-copy muted">{result.subcategories.map((code) => `${code} ${subcategoryLabels[code] ?? ""}`).join(" · ")}</p>
+      )}
       {result.technicalSummary && (
         <>
           <h3 className="subsection-title">Versão técnica da ideia</h3>
@@ -103,6 +153,9 @@ function CompletedEvaluation({ result, showScore }: { result: EvaluationResult; 
       <div className="evaluation-meta">
         <span className={`potential-badge potential-${result.potential}`}>Potencial preliminar {result.potential}</span>
         <span className="subtle-tag">Confiança {levelLabels[result.confidence] ?? result.confidence}</span>
+        {result.confidenceEstimate !== undefined && result.confidenceEstimate < CONFIDENCE_THRESHOLD && (
+          <span className="subtle-tag subtle-tag-warning">Confiança estimada abaixo do limiar</span>
+        )}
         {result.needsHumanReview && <span className="subtle-tag subtle-tag-warning">Requer análise humana</span>}
       </div>
       <p className="small-copy muted"><strong>Por que este potencial:</strong> {result.potentialRationale}</p>
@@ -144,6 +197,8 @@ function CompletedEvaluation({ result, showScore }: { result: EvaluationResult; 
         </>
       )}
 
+      <ListBlock title="Perguntas para o colaborador" items={result.complementaryQuestions ?? []} />
+      <ListBlock title="Alegações a verificar" items={result.unverifiedClaims ?? []} />
       <ListBlock title="Informações faltantes" items={result.missingInformation} empty="Nenhuma lacuna apontada." />
       <ListBlock title="Sugestões de melhoria" items={result.improvementSuggestions} />
       <ListBlock title="Indicadores sugeridos" items={result.suggestedIndicators} />
@@ -159,7 +214,7 @@ function CompletedEvaluation({ result, showScore }: { result: EvaluationResult; 
 }
 
 /** Avaliação ESG gerada pela IA, sempre identificada como recomendação. */
-export function EvaluationPanel({ ideaId, evaluation, aiAvailable, canRetry, canReevaluate = false, showScore = false }: EvaluationPanelProps) {
+export function EvaluationPanel({ ideaId, evaluation, aiAvailable, canRetry, canReevaluate = false }: EvaluationPanelProps) {
   const stale = evaluation ? isEvaluationStale(evaluation) : false;
   const result = evaluation?.status === "completed" ? parseEvaluationResult(evaluation.result) : null;
 
@@ -204,11 +259,12 @@ export function EvaluationPanel({ ideaId, evaluation, aiAvailable, canRetry, can
       )}
       {result && evaluation && (
         <>
-          <CompletedEvaluation result={result} showScore={showScore} />
+          <CompletedEvaluation result={result} />
           <p className="table-subtitle">
             Gerada em {formatDateTime(evaluation.completed_at ?? evaluation.created_at)}
             {evaluation.model ? ` · modelo ${evaluation.model}` : ""}
             {evaluation.criteria_version_label ? ` · critérios: ${evaluation.criteria_version_label}` : ""}
+            {result.engine ? ` · motor ${result.engine.version} · prompt ${result.engine.promptVersion}` : ""}
           </p>
           {canReevaluate && aiAvailable && <RetryForm ideaId={ideaId} label="Solicitar nova avaliação" />}
         </>

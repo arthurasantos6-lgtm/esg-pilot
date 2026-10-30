@@ -336,6 +336,10 @@ export type Database = {
       platform_audit_log: Table<PlatformAuditLog, "action" | "target_type">;
       esg_criteria_versions: Table<EsgCriteriaVersion, "label" | "dimensions">;
       esg_knowledge_items: Table<EsgKnowledgeItem, "title" | "description" | "category">;
+      transcription_requests: Table<
+        { id: string; organization_id: string; user_id: string; audio_bytes: number; created_at: string },
+        "organization_id" | "user_id" | "audio_bytes"
+      >;
     };
     Views: { [_ in never]: never };
     Functions: {

@@ -29,6 +29,13 @@ export function countByFolder(ideas: Pick<OrganizedIdea, "dimensions">[]) {
 }
 
 /** Maior nota primeiro; ideias sem nota vão para o fim, das mais recentes às mais antigas. */
+export function compareByPotential(
+  a: Pick<OrganizedIdea, "created_at"> & { potentialScore: number | null },
+  b: Pick<OrganizedIdea, "created_at"> & { potentialScore: number | null },
+) {
+  return (b.potentialScore ?? -1) - (a.potentialScore ?? -1) || b.created_at.localeCompare(a.created_at);
+}
+
 export function compareByScore(a: OrganizedIdea, b: OrganizedIdea) {
   return (b.score ?? -1) - (a.score ?? -1) || b.created_at.localeCompare(a.created_at);
 }

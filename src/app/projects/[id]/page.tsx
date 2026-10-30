@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import { connection } from "next/server";
 import { z } from "zod";
 import { createIndicator, recordIndicatorMeasurement, updateProjectStatus } from "@/app/actions";
@@ -30,6 +30,7 @@ export default async function ProjectDetailPage({
   const [{ id }, query] = await Promise.all([params, searchParams]);
   if (!z.string().uuid().safeParse(id).success) notFound();
   const { supabase, user, membership, organization } = await requireCompanyContext();
+  if (membership.role !== "company_admin") redirect("/ideas");
   const [{ data: project, error: projectError }, { data: indicators, error: indicatorError }] =
     await Promise.all([
       supabase

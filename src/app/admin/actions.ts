@@ -6,6 +6,7 @@ import { z } from "zod";
 import { COMPANY_MODULES, requirePlatformAdmin } from "@/lib/auth";
 import { readCreateLinkForm } from "@/lib/access-links";
 import { testAiConnection, toAdminAiTestError } from "@/lib/ai/service";
+import { testTranscription } from "@/lib/ai/transcription";
 import { logAudit } from "@/lib/platform-audit";
 
 const organizationSchema = z.object({
@@ -250,6 +251,22 @@ export async function revokePlatformAccessLink(formData: FormData) {
 }
 
 /** Testa a integração de IA com uma chamada mínima, sem dados de clientes. */
+export async function testTranscriptionIntegration() {
+  const { supabase, user } = await requirePlatformAdmin();
+  let target: string;
+  try {
+    const { model, latencyMs } = await testTranscription();
+    target = `/admin/ai?tested=1&model=${encodeURIComponent(model)}&latency=${latencyMs}`;
+  } catch (error) {
+    target = `/admin/ai?error=${encodeURIComponent(toAdminAiTestError(error))}`;
+  }
+  await logAudit(supabase, user.id, "ai_integration_tested", "platform_config", null, {
+    success: target.includes("tested=1"),
+    kind: "transcription",
+  });
+  redirect(target);
+}
+
 export async function testAiIntegration() {
   const { supabase, user } = await requirePlatformAdmin();
   let target: string;

@@ -3,8 +3,10 @@ import Link from "next/link";
 import { connection } from "next/server";
 import { AppShell } from "@/app/components/app-shell";
 import { assertModuleEnabled, requireCompanyContext } from "@/lib/auth";
+import { potentialBand } from "@/lib/esg-engine";
 import { executabilityLevel } from "@/lib/executability";
 import {
+  compareByPotential,
   compareByScore,
   countByFolder,
   IDEA_FOLDERS,
@@ -40,7 +42,7 @@ export default async function IdeasPage({
   const pageSize = 15;
   const isManager = membership.role === "company_admin";
   const folder = isManager ? parseFolder(params.folder) : null;
-  const sortByScore = isManager && params.sort === "score";
+  const sort = isManager && (params.sort === "score" || params.sort === "potential") ? params.sort : "";
 
   let request = supabase
     .from("ideas")
@@ -72,7 +74,7 @@ export default async function IdeasPage({
   const organized = organizeIdeas(fetchedIdeas ?? [], evaluations);
   const folderCounts = countByFolder(organized);
   const matching = isManager
-    ? organized.filter((idea) => !folder || isInFolder(idea, folder)).sort(sortByScore ? compareByScore : () => 0)
+    ? organized.filter((idea) => !folder || isInFolder(idea, folder)).sort(sort === "score" ? compareByScore : sort === "potential" ? compareByPotential : () => 0)
     : organized;
   const ideas = isManager ? matching.slice((page - 1) * pageSize, page * pageSize) : matching;
   const count = isManager ? matching.length : fetchedCount;
@@ -84,7 +86,7 @@ export default async function IdeasPage({
     if (selectedStatus) params.set("status", selectedStatus);
     if (onlyMine) params.set("mine", "1");
     if (folder) params.set("folder", folder);
-    if (sortByScore) params.set("sort", "score");
+    if (sort) params.set("sort", sort);
     if (targetPage > 1) params.set("page", String(targetPage));
     return `/ideas${params.size ? `?${params.toString()}` : ""}`;
   };
@@ -93,7 +95,7 @@ export default async function IdeasPage({
     if (query) params.set("q", query);
     if (selectedStatus) params.set("status", selectedStatus);
     if (target) params.set("folder", target);
-    if (sortByScore) params.set("sort", "score");
+    if (sort) params.set("sort", sort);
     return `/ideas${params.size ? `?${params.toString()}` : ""}`;
   };
   const filtered = Boolean(query || selectedStatus || onlyMine || folder);
@@ -147,8 +149,9 @@ export default async function IdeasPage({
           {isManager && (
             <label className="filter-select">
               <span className="sr-only">Ordenar ideias</span>
-              <select name="sort" defaultValue={sortByScore ? "score" : ""}>
+              <select name="sort" defaultValue={sort}>
                 <option value="">Mais recentes</option>
+                <option value="potential">Maior potencial ESG</option>
                 <option value="score">Maior executabilidade</option>
               </select>
             </label>
@@ -178,7 +181,7 @@ export default async function IdeasPage({
           <>
             <div className="table-wrap">
               <table>
-                <thead><tr><th scope="col">Ideia</th>{isManager && <th scope="col">Executabilidade</th>}{isManager && <th scope="col">Dimensões</th>}<th scope="col">Área</th><th scope="col">Situação</th><th scope="col">Data</th><th scope="col"><span className="sr-only">Abrir ideia</span></th></tr></thead>
+                <thead><tr><th scope="col">Ideia</th>{isManager && <th scope="col">Potencial</th>}{isManager && <th scope="col">Executabilidade</th>}{isManager && <th scope="col">Dimensões</th>}<th scope="col">Área</th><th scope="col">Situação</th><th scope="col">Data</th><th scope="col"><span className="sr-only">Abrir ideia</span></th></tr></thead>
                 <tbody>
                   {ideas.map((idea) => (
                     <tr key={idea.id}>
@@ -188,6 +191,15 @@ export default async function IdeasPage({
                           {idea.author_id === user.id ? nextStepForAuthor(idea.status) : idea.author_name ? `Enviada por ${idea.author_name}` : "Enviada pela equipe"}
                         </span>
                       </td>
+                      {isManager && (
+                        <td>
+                          {idea.potentialScore === null ? (
+                            <span className="muted small-copy">Sem nota</span>
+                          ) : (
+                            <span className="small-copy"><strong>{Math.round(idea.potentialScore)}</strong> · {potentialBand(idea.potentialScore).label}</span>
+                          )}
+                        </td>
+                      )}
                       {isManager && (
                         <td>
                           {idea.score === null ? (

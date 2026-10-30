@@ -9,6 +9,7 @@ import { ChatGreeting } from "@/app/ideas/chat-greeting";
 import { AppShell } from "@/app/components/app-shell";
 import { ListenButton } from "@/app/components/read-aloud";
 import { SubmitButton } from "@/app/components/submit-button";
+import { getTranscriptionConfig } from "@/lib/ai/transcription";
 import { assertModuleEnabled, requireCompanyContext } from "@/lib/auth";
 import { isAiAvailable, MAX_USER_MESSAGES_PER_IDEA, toIdeaPromptInput } from "@/lib/idea-ai";
 
@@ -88,7 +89,7 @@ export default async function IdeaCopilotPage({
           </p>
         ) : (
           <>
-            <CopilotChatForm ideaId={idea.id} awaitingReply={awaitingReply} />
+            <CopilotChatForm ideaId={idea.id} awaitingReply={awaitingReply} audioAvailable={Boolean(getTranscriptionConfig())} />
             <form action={organizeProposal} className="chat-organize">
               <input type="hidden" name="ideaId" value={idea.id} />
               <p className="small-copy muted">

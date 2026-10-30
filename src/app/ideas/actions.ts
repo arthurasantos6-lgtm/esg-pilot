@@ -28,6 +28,7 @@ import {
 import { CANNOT_CREATE_IDEAS_MESSAGE, canCreateIdeas } from "@/lib/idea-permissions";
 import { columnText, parseStoredProposal, PROPOSAL_FIELDS, readProposalForm } from "@/lib/idea-proposal";
 import { createServiceClient } from "@/lib/supabase/admin";
+import { selectRelevantKnowledge } from "@/lib/text-similarity";
 import type { Json } from "@/lib/supabase/database.types";
 
 const idSchema = z.string().uuid();
@@ -87,7 +88,10 @@ async function replyAsCopilot(
     loadActiveCriteria(context.supabase),
     loadActiveKnowledge(context.supabase),
   ]);
-  const { text, usage } = await generateCopilotReply(toIdeaPromptInput(idea), criteria, knowledge, history);
+  const prompt = toIdeaPromptInput(idea);
+  const conversation = history.map((turn) => turn.content).join(" ");
+  const relevantKnowledge = selectRelevantKnowledge(knowledge, `${prompt.title} ${prompt.originalDescription} ${conversation}`);
+  const { text, usage } = await generateCopilotReply(prompt, criteria, relevantKnowledge, history);
   const { error } = await service.from("idea_copilot_messages").insert({
     organization_id: context.membership.organization_id,
     idea_id: idea.id,
@@ -325,7 +329,7 @@ export async function saveProposal(formData: FormData) {
   redirect(`/ideas/${idea.id}?submitted=1`);
 }
 
-/** Reprocessa a avaliação da IA (autor após falha; gestão a qualquer momento). */
+/** Reprocessa a avaliação da IA, a pedido da gestão. */
 export async function retryIdeaEvaluation(formData: FormData) {
   const ideaId = idSchema.safeParse(formData.get("ideaId"));
   if (!ideaId.success) redirect("/ideas?error=Ideia%20inv%C3%A1lida.");
@@ -340,8 +344,8 @@ export async function retryIdeaEvaluation(formData: FormData) {
     .maybeSingle();
 
   if (!idea || idea.status === "draft") redirect("/ideas?error=Ideia%20n%C3%A3o%20encontrada.");
-  if (idea.author_id !== context.user.id && context.membership.role !== "company_admin") {
-    redirect(`${detailUrl}?error=${encodeURIComponent("Você não tem permissão para reprocessar esta avaliação.")}`);
+  if (context.membership.role !== "company_admin") {
+    redirect(`${detailUrl}?error=${encodeURIComponent("Apenas a gestão pode solicitar nova avaliação.")}`);
   }
 
   const { data: latest } = await context.supabase
@@ -352,12 +356,9 @@ export async function retryIdeaEvaluation(formData: FormData) {
     .limit(1)
     .maybeSingle();
 
-  // A gestão pode pedir nova avaliação a qualquer momento (ex.: após complementação);
-  // o autor, apenas quando a anterior falhou.
-  const inProgress = latest?.status === "pending" && !isEvaluationStale(latest);
-  const authorBlocked = context.membership.role !== "company_admin" && latest?.status === "completed";
-  if (inProgress || authorBlocked) {
-    redirect(`${detailUrl}?error=${encodeURIComponent("Já existe uma avaliação concluída ou em andamento.")}`);
+  // A gestão pode pedir nova avaliação a qualquer momento (ex.: após complementação).
+  if (latest?.status === "pending" && !isEvaluationStale(latest)) {
+    redirect(`${detailUrl}?error=${encodeURIComponent("Já existe uma avaliação em andamento.")}`);
   }
 
   const scheduled = await scheduleIdeaEvaluation(idea.id, context.membership.organization_id);

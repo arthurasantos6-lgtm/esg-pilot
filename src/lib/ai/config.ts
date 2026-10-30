@@ -70,6 +70,22 @@ export function resolveAiConfig(env: Env): AiConfig | null {
   };
 }
 
+/**
+ * Transcrição de áudio: hoje disponível com o Gemini, cuja API nativa aceita
+ * áudio. AI_TRANSCRIPTION_MODEL é opcional; sem ela, usa AI_MODEL.
+ */
+export function resolveTranscriptionConfig(env: Env): { model: string; apiKey: string } | null {
+  if (clean(env.AI_PROVIDER)?.toLowerCase() !== "gemini") return null;
+  const apiKey = clean(env.AI_API_KEY);
+  const model = (clean(env.AI_TRANSCRIPTION_MODEL) ?? clean(env.AI_MODEL))?.replace(/^models\//, "");
+  return apiKey && model ? { model, apiKey } : null;
+}
+
+/** Modelos de transcrição não conversam nem geram JSON: não servem como AI_MODEL. */
+export function isTranscriptionOnlyModel(model: string | null | undefined) {
+  return Boolean(model && /transcri/i.test(model));
+}
+
 /** Variáveis que impedem a configuração da IA; nunca repete os valores do ambiente. */
 export function diagnoseAiEnv(env: Env): string[] {
   if (resolveAiConfig(env)) return [];

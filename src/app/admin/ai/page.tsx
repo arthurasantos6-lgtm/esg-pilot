@@ -1,9 +1,10 @@
 import type { Metadata } from "next";
 import { connection } from "next/server";
-import { testAiIntegration } from "@/app/admin/actions";
+import { testAiIntegration, testTranscriptionIntegration } from "@/app/admin/actions";
 import { AdminShell } from "@/app/admin/components/admin-shell";
 import { SubmitButton } from "@/app/components/submit-button";
-import { describeAiConfig, diagnoseAiEnv } from "@/lib/ai/config";
+import { describeAiConfig, diagnoseAiEnv, isTranscriptionOnlyModel } from "@/lib/ai/config";
+import { getTranscriptionConfig } from "@/lib/ai/transcription";
 import { getAiConfig } from "@/lib/ai/service";
 import { requirePlatformAdmin } from "@/lib/auth";
 
@@ -21,6 +22,7 @@ export default async function AdminAiPage({
   const serviceRoleConfigured = Boolean(process.env.SUPABASE_SERVICE_ROLE_KEY);
   const aiActive = Boolean(config && serviceRoleConfigured);
   const envProblems = diagnoseAiEnv(process.env);
+  const transcription = getTranscriptionConfig();
 
   return (
     <AdminShell userEmail={user.email ?? "Conta"}>
@@ -55,6 +57,7 @@ export default async function AdminAiPage({
           <div><dt>Modelo</dt><dd>{config?.model ?? "—"}</dd></div>
           <div><dt>Endereço da API</dt><dd>{config?.host ?? (config ? "padrão do provedor" : "—")}</dd></div>
           <div><dt>Chave do provedor</dt><dd>{config ? (config.hasApiKey ? "Configurada" : "Não usada") : "—"}</dd></div>
+          <div><dt>Modelo de transcrição de áudio</dt><dd>{transcription?.model ?? "Não configurado"}</dd></div>
           <div><dt>Chave service role (Supabase)</dt><dd>{serviceRoleConfigured ? "Configurada" : "Ausente"}</dd></div>
         </dl>
         {!aiActive && (
@@ -64,10 +67,22 @@ export default async function AdminAiPage({
             {envProblems.length > 0 && ` Falta ajustar: ${envProblems.join(" ")}`}
           </p>
         )}
+        {isTranscriptionOnlyModel(config?.model) && (
+          <p className="alert alert-error" role="alert">
+            AI_MODEL parece ser um modelo de transcrição, que não atende o copiloto e a avaliação. Use um modelo de conversa em
+            AI_MODEL e coloque o de transcrição em AI_TRANSCRIPTION_MODEL.
+          </p>
+        )}
         {config && (
           <form action={testAiIntegration}>
             <SubmitButton className="button button-secondary" pendingLabel="Testando…">Testar conexão</SubmitButton>
             <p className="field-hint">Envia apenas uma mensagem de teste, sem dados de clientes.</p>
+          </form>
+        )}
+        {transcription && (
+          <form action={testTranscriptionIntegration}>
+            <SubmitButton className="button button-secondary" pendingLabel="Testando…">Testar transcrição</SubmitButton>
+            <p className="field-hint">Envia um segundo de silêncio, sem dados de clientes.</p>
           </form>
         )}
       </section>

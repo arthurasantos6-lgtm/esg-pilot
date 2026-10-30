@@ -4,8 +4,10 @@ import { connection } from "next/server";
 import { startIdea } from "@/app/ideas/actions";
 import { ChatGreeting } from "@/app/ideas/chat-greeting";
 import { AppShell } from "@/app/components/app-shell";
+import { AudioRecorder } from "@/app/components/audio-recorder";
 import { DictationButton } from "@/app/components/dictation-button";
 import { SubmitButton } from "@/app/components/submit-button";
+import { getTranscriptionConfig } from "@/lib/ai/transcription";
 import { assertModuleEnabled, requireCompanyContext } from "@/lib/auth";
 import { readCollaboratorName } from "@/lib/collaborator-name";
 import { isAiAvailable } from "@/lib/idea-ai";
@@ -58,7 +60,7 @@ export default async function NewIdeaPage({
             placeholder="Ex.: Na lavagem de peças usamos muita água limpa que vai direto para o esgoto. Acho que daria para filtrar e reutilizar…"
           />
           <div className="form-actions">
-            <DictationButton targetId="description" />
+            {getTranscriptionConfig() ? <AudioRecorder targetId="description" /> : <DictationButton targetId="description" />}
             {aiAvailable && (
               <SubmitButton name="intent" value="review" className="button button-secondary" pendingLabel="Salvando…">
                 Preencher sem o copiloto

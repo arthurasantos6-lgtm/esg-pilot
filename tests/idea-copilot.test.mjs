@@ -129,6 +129,31 @@ test("AI output schemas convert to structured-output formats and reject malforme
   };
   assert.deepEqual(parseEvaluationResult(withScore), withScore);
   assert.equal(evaluationResultSchema.safeParse(valid).success, false, "new evaluations must include the new fields");
+
+  const criteriaScores = ["C1", "C2", "C3", "C4", "C5", "C6", "C7", "C8"].map((code) => ({
+    code,
+    score: 3,
+    justification: "Plausível, com informações parciais.",
+    evidence: [],
+    insufficientInformation: false,
+  }));
+  const complete = {
+    ...withScore,
+    primaryPillar: "E",
+    secondaryPillars: [],
+    subcategories: ["E2"],
+    criteriaScores,
+    confidenceEstimate: 0.8,
+    criticalRisks: [],
+    unverifiedClaims: [],
+    complementaryQuestions: [],
+  };
+  assert.equal(evaluationResultSchema.safeParse(complete).success, true);
+  const withScores = (scores) => ({ ...complete, criteriaScores: scores });
+  assert.equal(evaluationResultSchema.safeParse(withScores(criteriaScores.slice(0, 7))).success, false, "all eight criteria are required");
+  assert.equal(evaluationResultSchema.safeParse(withScores([{ ...criteriaScores[0], score: 7 }, ...criteriaScores.slice(1)])).success, false, "a note of 7 is rejected");
+  assert.equal(evaluationResultSchema.safeParse({ ...complete, subcategories: ["X9"] }).success, false, "unknown subcategories are rejected");
+  assert.equal(evaluationResultSchema.safeParse({ ...complete, pontuacao_total: 100 }).success, false, "unexpected fields are rejected");
 });
 
 test("pending evaluations older than ten minutes are treated as interrupted", () => {

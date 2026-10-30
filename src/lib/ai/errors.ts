@@ -48,6 +48,12 @@ export function toAdminAiTestError(error: unknown): string {
   return `${message} (HTTP ${error.status}${error.detail ? `: ${error.detail}` : ""})`;
 }
 
+/** Falha na transcrição, sem o áudio nem o texto. */
+export function logTranscriptionFailure(error: unknown) {
+  const detail = error instanceof ProviderHttpError ? `status=${error.status}` : error instanceof Error ? error.name : "unknown";
+  console.error(`[ai] transcrição falhou: ${detail}`);
+}
+
 /** Registra a falha sem o conteúdo da ideia ou da conversa. */
 export function logAiFailure(operation: string, ideaId: string, error: unknown) {
   const detail =

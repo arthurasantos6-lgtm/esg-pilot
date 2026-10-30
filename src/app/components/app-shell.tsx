@@ -37,11 +37,13 @@ export function AppShell({
           <span>{organizationName}</span>
         </div>
         <nav className="main-nav">
-          <Link href="/dashboard"><span aria-hidden="true">▦</span> Visão geral</Link>
+          {role === "company_admin" && (
+            <Link href="/dashboard"><span aria-hidden="true">▦</span> Visão geral</Link>
+          )}
           {isModuleEnabled("ideas") && (
             <Link href="/ideas"><span aria-hidden="true">◎</span> {role === "company_admin" ? "Ideias" : "Minhas ideias"}</Link>
           )}
-          {isModuleEnabled("projects") && (
+          {role === "company_admin" && isModuleEnabled("projects") && (
             <Link href="/projects"><span aria-hidden="true">⌁</span> Projetos</Link>
           )}
           {isModuleEnabled("ideas") && canCreateIdeas(membership) && (

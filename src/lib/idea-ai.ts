@@ -9,9 +9,11 @@ import {
 } from "@/lib/ai/service";
 import type { CriteriaPromptInput, IdeaPromptInput, KnowledgePromptItem } from "@/lib/ai/prompts";
 import { DEFAULT_CRITERIA, parseEsgCriteria } from "@/lib/esg-analysis";
+import { computeEsgScore, ENGINE_VERSION, humanReviewReasons, PROMPT_VERSION } from "@/lib/esg-engine";
 import { PROPOSAL_FIELDS, parseStoredProposal } from "@/lib/idea-proposal";
 import { createServiceClient, type ServiceClient } from "@/lib/supabase/admin";
 import type { Database, Json } from "@/lib/supabase/database.types";
+import { selectRelevantKnowledge } from "@/lib/text-similarity";
 
 type AnyClient = SupabaseClient<Database>;
 
@@ -44,7 +46,7 @@ export async function loadActiveCriteria(supabase: AnyClient): Promise<ActiveCri
 export async function loadActiveKnowledge(supabase: AnyClient): Promise<KnowledgePromptItem[]> {
   const { data } = await supabase
     .from("esg_knowledge_items")
-    .select("title, description, category, source")
+    .select("id, version, title, description, category, source")
     .eq("status", "active")
     .order("category")
     .order("title");
@@ -110,9 +112,14 @@ async function runEvaluation(service: ServiceClient, evaluationId: string, ideaI
         .eq("organization_id", organizationId)
         .order("created_at", { ascending: true }),
     ]);
+    const prompt = toIdeaPromptInput(idea);
+    const relevantKnowledge = selectRelevantKnowledge(
+      knowledge,
+      [prompt.title, prompt.originalDescription, proposalToText(idea.structured_proposal)].filter(Boolean).join(" "),
+    );
     const { result, usage } = await generateEvaluation(
       {
-        idea: toIdeaPromptInput(idea),
+        idea: prompt,
         proposalText: proposalToText(idea.structured_proposal),
         keywordTriage: keywordTriageOf(idea.analysis),
         followUps: (feedback ?? []).map((item) => ({
@@ -121,14 +128,32 @@ async function runEvaluation(service: ServiceClient, evaluationId: string, ideaI
         })),
       },
       criteria,
-      knowledge,
+      relevantKnowledge,
     );
+
+    // A IA não define o total: pontuação e revisão humana saem das regras do sistema.
+    const reviewReasons = humanReviewReasons({
+      criticalRisks: result.criticalRisks,
+      confidenceEstimate: result.confidenceEstimate,
+      criteria: result.criteriaScores,
+    });
+    const stored = {
+      ...result,
+      needsHumanReview: result.needsHumanReview || reviewReasons.length > 0,
+      engine: {
+        version: ENGINE_VERSION,
+        promptVersion: PROMPT_VERSION,
+        score: computeEsgScore(result.criteriaScores),
+        humanReviewReasons: reviewReasons,
+        knowledgeUsed: relevantKnowledge.flatMap((item) => (item.id ? [{ id: item.id, version: item.version ?? 1 }] : [])),
+      },
+    };
 
     await service
       .from("idea_evaluations")
       .update({
         status: "completed",
-        result: result as unknown as Json,
+        result: stored as unknown as Json,
         model: usage.model,
         input_tokens: usage.inputTokens,
         output_tokens: usage.outputTokens,

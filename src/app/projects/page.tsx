@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { redirect } from "next/navigation";
 import { connection } from "next/server";
 import { AppShell } from "@/app/components/app-shell";
 import { assertModuleEnabled, requireCompanyContext } from "@/lib/auth";
@@ -24,6 +25,7 @@ export default async function ProjectsPage({
   await connection();
   const { supabase, user, membership, organization } = await requireCompanyContext();
   assertModuleEnabled(organization.enabled_modules, "projects", "Projetos");
+  if (membership.role !== "company_admin") redirect("/ideas");
   const params = await searchParams;
   const selectedStatus = projectStatuses.find(([status]) => status === params.status)?.[0] ?? "";
 

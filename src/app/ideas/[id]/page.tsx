@@ -13,6 +13,7 @@ import { isAiAvailable } from "@/lib/idea-ai";
 import { parseStoredProposal, PROPOSAL_FIELDS } from "@/lib/idea-proposal";
 import { ideaStatusLabel, nextStepForAuthor } from "@/lib/idea-status";
 import { memberDisplayName } from "@/lib/members";
+import { findSimilarIdeas } from "@/lib/text-similarity";
 
 export const metadata: Metadata = { title: "Detalhe da ideia" };
 
@@ -88,6 +89,7 @@ export default async function IdeaDetailPage({
     { data: decisions },
     { data: transitions },
     { data: members },
+    { data: otherIdeas },
   ] = await Promise.all([
     supabase
       .from("idea_evaluations")
@@ -121,7 +123,21 @@ export default async function IdeaDetailPage({
           .order("sort_order")
       : empty,
     showManagement ? supabase.rpc("org_list_members", { target_org_id: membership.organization_id }) : empty,
+    showManagement
+      ? supabase
+          .from("ideas")
+          .select("id, title, original_description")
+          .eq("organization_id", membership.organization_id)
+          .neq("status", "draft")
+          .neq("id", idea.id)
+          .order("created_at", { ascending: false })
+          .limit(300)
+      : empty,
   ]);
+  const similarIdeas = findSimilarIdeas(
+    { id: idea.id, text: `${idea.title} ${idea.original_description ?? ""}` },
+    (otherIdeas ?? []).map((other) => ({ ...other, text: `${other.title} ${other.original_description ?? ""}` })),
+  ).slice(0, 5);
   const emailById = new Map((members ?? []).map((member) => [member.user_id, memberDisplayName(member)]));
 
   const proposal = parseStoredProposal(idea.structured_proposal);
@@ -229,15 +245,29 @@ export default async function IdeaDetailPage({
             </section>
           )}
 
-          {!isDraft && (
+          {showManagement && (
             <EvaluationPanel
               ideaId={idea.id}
               evaluation={evaluation}
               aiAvailable={isAiAvailable()}
-              canRetry={isAuthor || isCompanyAdmin}
-              canReevaluate={isCompanyAdmin}
-              showScore={isCompanyAdmin}
+              canRetry
+              canReevaluate
             />
+          )}
+
+          {showManagement && similarIdeas.length > 0 && (
+            <section className="panel detail-panel" aria-labelledby="similar-title">
+              <p className="eyebrow">POSSÍVEL DUPLICIDADE</p>
+              <h2 id="similar-title">Ideias semelhantes</h2>
+              <p className="muted small-copy">Sugestão por termos em comum, para você comparar. Nada é excluído ou mesclado automaticamente.</p>
+              <ul className="evaluation-list">
+                {similarIdeas.map(({ idea: other, similarity }) => (
+                  <li key={other.id}>
+                    <Link className="text-link" href={`/ideas/${other.id}`}>{other.title}</Link> · {Math.round(similarity * 100)}% de termos em comum
+                  </li>
+                ))}
+              </ul>
+            </section>
           )}
 
           <FeedbackPanel
