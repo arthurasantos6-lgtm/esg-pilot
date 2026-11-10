@@ -18,7 +18,15 @@ type DecisionPanelProps = {
   projectsEnabled: boolean;
 };
 
-/** Formulário de decisão humana da gestão. Regras de fluxo validadas no banco. */
+/** Ações que encerram ou recusam a ideia aparecem com destaque de atenção. */
+const NEGATIVE = new Set(["rejected", "archived"]);
+const POSITIVE = new Set(["approved", "implemented", "in_progress"]);
+
+/**
+ * Decisão da gestão em três passos: escolher a ação, dizer o porquê e, se
+ * quiser, ajustar prioridade e acompanhamento. Regras de fluxo validadas no banco;
+ * responsável, prazo e prioridade vêm preenchidos para não serem apagados sem querer.
+ */
 export function DecisionPanel({
   ideaId,
   status,
@@ -31,24 +39,21 @@ export function DecisionPanel({
 }: DecisionPanelProps) {
   const activeMembers = members.filter((member) => member.status === "active");
   const responsible = members.find((member) => member.user_id === responsibleId);
+  const actions = transitions.filter((transition) => isDecisionOffered(transition.to_status));
+  const dateFormat = new Intl.DateTimeFormat("pt-BR", { dateStyle: "medium", timeZone: "UTC" });
+  const followUp = [
+    responsible && `Responsável: ${memberDisplayName(responsible)}`,
+    followUpDate && `prazo ${dateFormat.format(new Date(followUpDate))}`,
+  ].filter(Boolean).join(" · ");
 
   return (
     <section className="panel workflow-panel" id="decision" aria-labelledby="decision-title">
-      <p className="eyebrow">DECISÃO DA GESTÃO</p>
-      <h2 id="decision-title">Registrar decisão</h2>
-      <p className="muted small-copy">
-        Decisões são humanas e ficam no histórico com sua identificação. A recomendação da IA não altera a situação.
+      <h2 id="decision-title">Decisão</h2>
+      <p className="decision-current">
+        <span className={`status-badge status-badge-${status}`}>{ideaStatusLabel(status)}</span>
+        {priority && <span className="subtle-tag">Prioridade {PRIORITY_LABELS[priority]?.toLowerCase()}</span>}
       </p>
-
-      <dl className="follow-up-summary">
-        <div><dt>Situação</dt><dd>{ideaStatusLabel(status)}</dd></div>
-        <div><dt>Responsável</dt><dd>{responsible ? memberDisplayName(responsible) : "Não definido"}</dd></div>
-        <div>
-          <dt>Prazo de acompanhamento</dt>
-          <dd>{followUpDate ? new Intl.DateTimeFormat("pt-BR", { dateStyle: "medium", timeZone: "UTC" }).format(new Date(followUpDate)) : "Não definido"}</dd>
-        </div>
-        <div><dt>Prioridade</dt><dd>{priority ? PRIORITY_LABELS[priority] : "Não definida"}</dd></div>
-      </dl>
+      {followUp && <p className="small-copy muted">{followUp}</p>}
 
       {status === "approved" && projectsEnabled && (
         <Link className="button button-secondary button-full" href={`/projects/new?ideaId=${ideaId}`}>
@@ -59,63 +64,90 @@ export function DecisionPanel({
       <form className="status-form decision-form" action={recordIdeaDecision}>
         <input type="hidden" name="ideaId" value={ideaId} />
 
-        <label htmlFor="toStatus">Ação</label>
-        <select id="toStatus" name="toStatus" defaultValue={status}>
-          <option value={status}>Manter situação ({ideaStatusLabel(status)}) e atualizar acompanhamento</option>
-          {transitions.filter((transition) => isDecisionOffered(transition.to_status)).map((transition) => (
-            <option key={transition.to_status} value={transition.to_status}>
-              {transition.action_label} → {ideaStatusLabel(transition.to_status)}
-            </option>
+        <fieldset className="decision-options">
+          <legend className="plan-question-label">O que você decide?</legend>
+          {actions.map((transition) => {
+            const tone = NEGATIVE.has(transition.to_status) ? " decision-option-negative" : POSITIVE.has(transition.to_status) ? " decision-option-positive" : "";
+            return (
+              <label key={transition.to_status} className={`decision-option${tone}`}>
+                <input type="radio" name="toStatus" value={transition.to_status} required />
+                <span>
+                  <strong>{transition.action_label}</strong>
+                  <span className="small-copy muted"> → {ideaStatusLabel(transition.to_status)}</span>
+                </span>
+              </label>
+            );
+          })}
+          <label className="decision-option decision-option-quiet">
+            <input type="radio" name="toStatus" value={status} required />
+            <span>Só atualizar prioridade ou acompanhamento</span>
+          </label>
+        </fieldset>
+
+        <label htmlFor="justification">Por quê? <span aria-hidden="true">*</span></label>
+        <textarea
+          id="justification"
+          name="justification"
+          rows={2}
+          minLength={10}
+          maxLength={2000}
+          required
+          aria-describedby="justification-hint"
+          placeholder="Ex.: retorno em menos de 2 anos e investimento baixo."
+        />
+        <p id="justification-hint" className="field-hint">Só a gestão vê. Mínimo de 10 caracteres.</p>
+
+        <fieldset className="decision-priority">
+          <legend className="plan-question-label">Prioridade</legend>
+          <label className="plan-option">
+            <input type="radio" name="priority" value="" defaultChecked={!priority} /> Sem
+          </label>
+          {Object.entries(PRIORITY_LABELS).map(([value, label]) => (
+            <label key={value} className="plan-option">
+              <input type="radio" name="priority" value={value} defaultChecked={priority === value} /> {label}
+            </label>
           ))}
-        </select>
+        </fieldset>
 
-        <label htmlFor="justification">Justificativa interna <span aria-hidden="true">*</span></label>
-        <p id="justification-hint" className="field-hint">Visível apenas para a gestão.</p>
-        <textarea id="justification" name="justification" rows={3} minLength={10} maxLength={2000} required aria-describedby="justification-hint" />
+        <details className="decision-more">
+          <summary className="small-copy">Responsável e prazo de acompanhamento</summary>
+          <label htmlFor="responsibleId">Responsável</label>
+          <select id="responsibleId" name="responsibleId" defaultValue={responsibleId ?? ""}>
+            <option value="">Sem responsável</option>
+            {activeMembers.map((member) => (
+              <option key={member.user_id} value={member.user_id}>{memberDisplayName(member)}</option>
+            ))}
+          </select>
+          <label htmlFor="followUpDate">Prazo</label>
+          <input id="followUpDate" name="followUpDate" type="date" defaultValue={followUpDate ?? ""} />
+        </details>
 
-        <label htmlFor="responsibleId">Responsável pelo acompanhamento</label>
-        <select id="responsibleId" name="responsibleId" defaultValue={responsibleId ?? ""}>
-          <option value="">Sem responsável</option>
-          {activeMembers.map((member) => (
-            <option key={member.user_id} value={member.user_id}>{memberDisplayName(member)}</option>
-          ))}
-        </select>
-
-        <label htmlFor="followUpDate">Prazo de acompanhamento</label>
-        <input id="followUpDate" name="followUpDate" type="date" defaultValue={followUpDate ?? ""} />
-
-        <label htmlFor="priority">Prioridade</label>
-        <select id="priority" name="priority" defaultValue={priority ?? ""}>
-          <option value="">Não definida</option>
-          {Object.entries(PRIORITY_LABELS).map(([value, label]) => <option key={value} value={value}>{label}</option>)}
-        </select>
-
-        <fieldset className="module-fieldset">
-          <legend>Avaliação humana (opcional)</legend>
-          <p className="field-hint">Registre sua leitura quando discordar ou quiser complementar a IA. A avaliação da IA continua visível.</p>
-          <label htmlFor="aiAgreement">Em relação à avaliação da IA</label>
+        <details className="decision-more">
+          <summary className="small-copy">Sua avaliação em relação à IA (opcional)</summary>
+          <label htmlFor="aiAgreement">Avaliação da IA</label>
           <select id="aiAgreement" name="aiAgreement" defaultValue="">
             <option value="">Não informar</option>
             {Object.entries(AI_AGREEMENT_LABELS).map(([value, label]) => <option key={value} value={value}>{label}</option>)}
           </select>
-          <label htmlFor="humanPotential">Potencial na avaliação da gestão</label>
+          <label htmlFor="humanPotential">Potencial, na sua avaliação</label>
           <select id="humanPotential" name="humanPotential" defaultValue="">
             <option value="">Não informar</option>
             <option value="baixo">Baixo</option>
             <option value="médio">Médio</option>
             <option value="alto">Alto</option>
           </select>
-          <span className="field-label" id="human-dimensions-label">Dimensões ESG na avaliação da gestão</span>
+          <span className="field-label" id="human-dimensions-label">Dimensões ESG</span>
           <div className="checkbox-group" role="group" aria-labelledby="human-dimensions-label">
             {[["E", "Ambiental"], ["S", "Social"], ["G", "Governança"]].map(([value, label]) => (
               <label key={value} className="checkbox-row">
-                <input type="checkbox" name="humanDimensions" value={value} /> {label} ({value})
+                <input type="checkbox" name="humanDimensions" value={value} /> {label}
               </label>
             ))}
           </div>
-        </fieldset>
+        </details>
 
         <SubmitButton className="button button-primary button-full" pendingLabel="Registrando…">Registrar decisão</SubmitButton>
+        <p className="small-copy muted">Fica no histórico com seu nome. A recomendação da IA não muda a situação sozinha.</p>
       </form>
     </section>
   );

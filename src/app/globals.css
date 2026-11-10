@@ -2932,3 +2932,83 @@ a.metric-card-link {
   flex-direction: row-reverse;
   justify-content: flex-start;
 }
+
+/* Painel de decisão da gestão ---------------------------------------------- */
+
+.decision-current {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  margin: 6px 0 4px;
+}
+
+.decision-options,
+.decision-priority {
+  display: grid;
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.decision-priority {
+  display: flex;
+  flex-wrap: wrap;
+  margin-top: 12px;
+}
+
+.decision-option {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 0 !important;
+  padding: 10px 12px;
+  border: 1px solid light-dark(#d9d6e7, #322c4c);
+  border-radius: 9px;
+  color: var(--ink) !important;
+  font-size: 13px !important;
+  font-weight: 400 !important;
+  cursor: pointer;
+}
+
+.decision-option input,
+.decision-priority input {
+  width: auto;
+  min-height: 0;
+  margin: 0;
+}
+
+.decision-option:has(input:checked) {
+  border-color: var(--brand);
+  background: var(--brand-pale);
+}
+
+.decision-option-positive:has(input:checked) {
+  border-color: #1baf7a;
+  background: light-dark(#e3f4ec, #163b2c);
+}
+
+.decision-option-negative:has(input:checked) {
+  border-color: var(--danger);
+  background: light-dark(#fbeceb, #3b1d1c);
+}
+
+.decision-option-quiet {
+  border-style: dashed;
+  color: var(--muted) !important;
+}
+
+.decision-more {
+  margin: 12px 0 0;
+  padding: 8px 0 0;
+  border-top: 1px solid var(--line);
+}
+
+.decision-more summary {
+  cursor: pointer;
+}
+
+.decision-form .button-full {
+  margin-top: 14px;
+}
