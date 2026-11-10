@@ -34,6 +34,8 @@ export const storedProposalSchema = z.object({
   resourcesAndRisks: z.string().nullable(),
   nextSteps: z.string().nullable(),
   source: z.enum(["copilot", "manual"]),
+  /** Planejamento da execução (ver idea-planning.ts); validado à parte para não invalidar a proposta. */
+  plan: z.unknown().optional(),
   updatedAt: z.string(),
 });
 

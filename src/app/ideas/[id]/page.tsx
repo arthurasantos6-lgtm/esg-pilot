@@ -14,6 +14,8 @@ import { parseEnabledModules, requireCompanyContext } from "@/lib/auth";
 import { buildProjectProposal } from "@/lib/esg-project-proposal";
 import { loadLearningBase } from "@/lib/learning-base";
 import { isAiAvailable } from "@/lib/idea-ai";
+import { analyzeFinance } from "@/lib/idea-finance";
+import { INITIATIVE_TYPES, parsePlan, planProgress } from "@/lib/idea-planning";
 import { parseStoredProposal, PROPOSAL_FIELDS } from "@/lib/idea-proposal";
 import { ideaStatusLabel, nextStepForAuthor } from "@/lib/idea-status";
 import { readLocalAnalysis } from "@/lib/local-analysis";
@@ -147,6 +149,8 @@ export default async function IdeaDetailPage({
   const emailById = new Map((members ?? []).map((member) => [member.user_id, memberDisplayName(member)]));
 
   const proposal = parseStoredProposal(idea.structured_proposal);
+  const plan = parsePlan(proposal?.plan);
+  const planFinance = plan ? analyzeFinance(plan.finance) : null;
   const localAnalysis = readLocalAnalysis(idea.analysis);
   const dimensions = getDimensions(idea.analysis);
   const analysisObject = isRecord(idea.analysis) ? idea.analysis : null;
@@ -190,7 +194,8 @@ export default async function IdeaDetailPage({
       {isDraft && isAuthor && (
         <div className="alert alert-info" role="status">
           Esta ideia ainda é um rascunho, visível só para você.{" "}
-          <Link className="text-link" href={`/ideas/${idea.id}/copilot`}>Continuar com o copiloto</Link> ou{" "}
+          <Link className="text-link" href={`/ideas/${idea.id}/copilot`}>Continuar com o copiloto</Link>,{" "}
+          <Link className="text-link" href={`/ideas/${idea.id}/planejamento`}>detalhar o plano</Link> ou{" "}
           <Link className="text-link" href={`/ideas/${idea.id}/review`}>revisar e enviar</Link>.
         </div>
       )}
@@ -257,6 +262,27 @@ export default async function IdeaDetailPage({
                 learningBase,
               })}
             />
+          )}
+
+          {showManagement && (
+            <section className="panel detail-panel" aria-labelledby="feasibility-title">
+              <div className="panel-heading">
+                <div>
+                  <p className="eyebrow">PLANO DE EXECUÇÃO E VIABILIDADE</p>
+                  <h2 id="feasibility-title">Transformar a ideia em projeto</h2>
+                </div>
+                {plan && <span className="subtle-tag">{INITIATIVE_TYPES[plan.initiativeType].label}</span>}
+              </div>
+              <p className="small-copy">
+                {plan
+                  ? `${planProgress(plan).percent}% das perguntas de planejamento tratadas. ${planFinance?.calculable ? "ROI calculado." : "ROI ainda não calculado."} ${plan.research?.references.length ? `${plan.research.references.length} fontes de pesquisa registradas.` : "Nenhuma fonte de pesquisa registrada."}`
+                  : "Esta ideia foi enviada sem as perguntas de planejamento. A gestão pode responder o que souber e completar a análise."}
+              </p>
+              <div className="form-actions">
+                <Link className="button button-secondary" href={`/ideas/${idea.id}/relatorio`}>Relatório consolidado</Link>
+                <Link className="button button-primary" href={`/ideas/${idea.id}/viabilidade`}>Plano, pesquisa e ROI</Link>
+              </div>
+            </section>
           )}
 
           {showManagement && localAnalysis && <LocalAnalysisPanel analysis={localAnalysis} notice={notice} />}

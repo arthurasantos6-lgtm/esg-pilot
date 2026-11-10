@@ -1,6 +1,6 @@
 import "server-only";
 import type { z } from "zod";
-import { anthropicChat, anthropicJson } from "@/lib/ai/anthropic";
+import { anthropicChat, anthropicJson, anthropicWebResearch } from "@/lib/ai/anthropic";
 import { resolveAiConfig, type AiConfig } from "@/lib/ai/config";
 import { AiUnavailableError } from "@/lib/ai/errors";
 import { openAiCompatibleChat, openAiCompatibleJson } from "@/lib/ai/openai-compatible";
@@ -17,6 +17,14 @@ import {
   type IdeaPromptInput,
   type KnowledgePromptItem,
 } from "@/lib/ai/prompts";
+import {
+  buildResearchRequest,
+  buildStructureRequest,
+  RESEARCH_STRUCTURE_PROMPT,
+  RESEARCH_SYSTEM_PROMPT,
+  researchOutputSchema,
+  type ResearchInput,
+} from "@/lib/ai/market-research";
 import { evaluationResultSchema, proposalDraftSchema } from "@/lib/ai/schemas";
 import type { ChatRequest, Effort } from "@/lib/ai/types";
 
@@ -85,4 +93,38 @@ export async function generateEvaluation(
     "high",
   );
   return { result: data, usage };
+}
+
+/** A pesquisa na internet usa a ferramenta de busca da Anthropic; outros provedores não a oferecem. */
+export function isWebResearchConfigured() {
+  return getAiConfig()?.kind === "anthropic";
+}
+
+const MAX_SEARCHES_PER_RESEARCH = 8;
+
+/**
+ * Pesquisa de mercado em duas etapas: busca na internet (fontes reais) e
+ * organização do resultado em referências estruturadas, sem acesso à internet.
+ */
+export async function generateMarketResearch(input: ResearchInput) {
+  const config = requireConfig();
+  if (config.kind !== "anthropic") {
+    throw new AiUnavailableError("A pesquisa na internet exige o provedor Anthropic configurado no servidor.");
+  }
+  const research = await anthropicWebResearch(
+    config,
+    { system: RESEARCH_SYSTEM_PROMPT, messages: [{ role: "user", content: buildResearchRequest(input) }] },
+    "medium",
+    MAX_SEARCHES_PER_RESEARCH,
+  );
+  if (!research.sources.length) {
+    return { output: { references: [], gaps: ["A busca não retornou páginas para esta iniciativa."], notes: null }, sources: [], usage: research.usage };
+  }
+  const { data } = await anthropicJson(
+    config,
+    { system: RESEARCH_STRUCTURE_PROMPT, messages: [{ role: "user", content: buildStructureRequest(research.text, research.sources) }] },
+    researchOutputSchema,
+    "low",
+  );
+  return { output: data, sources: research.sources, usage: research.usage };
 }

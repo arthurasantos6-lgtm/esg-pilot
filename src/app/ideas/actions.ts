@@ -35,6 +35,7 @@ import {
   readProposalForm,
   type StoredProposal,
 } from "@/lib/idea-proposal";
+import { parsePlan, planAnswersText } from "@/lib/idea-planning";
 import { buildLocalAnalysis } from "@/lib/local-analysis";
 import { createServiceClient } from "@/lib/supabase/admin";
 import { selectRelevantKnowledge } from "@/lib/text-similarity";
@@ -170,7 +171,7 @@ export async function startIdea(formData: FormData) {
 
   revalidatePath("/ideas");
 
-  if (!isAiAvailable()) redirect(`/ideas/${idea.id}/perguntas`);
+  if (!isAiAvailable()) redirect(`/ideas/${idea.id}/planejamento`);
   if (parsed.data.intent === "review") redirect(`/ideas/${idea.id}/review`);
 
   let copilotError: string | null = null;
@@ -295,7 +296,8 @@ export async function organizeProposal(formData: FormData) {
   try {
     const history = await loadHistory(context, idea.id);
     const { draft } = await generateProposalDraft(toIdeaPromptInput(idea), history);
-    proposal = { ...draft, title: draft.title.trim().slice(0, 120) || idea.title, source: "copilot" as const, updatedAt: new Date().toISOString() };
+    const plan = parseStoredProposal(idea.structured_proposal)?.plan;
+    proposal = { ...draft, title: draft.title.trim().slice(0, 120) || idea.title, source: "copilot" as const, updatedAt: new Date().toISOString(), ...(plan ? { plan } : {}) };
   } catch (aiError) {
     logAiFailure("organização da proposta", idea.id, aiError);
     redirect(`${copilotUrl}?error=${encodeURIComponent(toUserFacingAiError(aiError))}`);
@@ -324,7 +326,8 @@ export async function saveProposal(formData: FormData) {
   if (!idea) redirect("/ideas?error=Rascunho%20n%C3%A3o%20encontrado%20ou%20j%C3%A1%20enviado.");
 
   const previous = parseStoredProposal(idea.structured_proposal);
-  const proposal = readProposalForm(formData, previous?.source ?? "manual");
+  // O planejamento não faz parte do formulário de revisão: é preservado como estava.
+  const proposal = { ...readProposalForm(formData, previous?.source ?? "manual"), ...(previous?.plan ? { plan: previous.plan } : {}) };
   if (proposal.title.length < 3) {
     redirect(`${reviewUrl}?error=${encodeURIComponent("Dê um título com pelo menos 3 caracteres.")}`);
   }
@@ -350,6 +353,7 @@ export async function saveProposal(formData: FormData) {
   const triageText = [
     idea.original_description ?? "",
     ...PROPOSAL_FIELDS.map(({ key }) => proposal[key] ?? ""),
+    planAnswersText(parsePlan(proposal.plan)),
   ].join(" ");
   const analysis = buildLocalAnalysis(triageText, criteria.criteria, {
     criteriaVersionId: criteria.id,

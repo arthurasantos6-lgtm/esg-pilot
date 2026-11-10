@@ -51,7 +51,7 @@ export default async function IdeaCopilotPage({
   const userMessageCount = conversation.filter((message) => message.role === "user").length;
   const awaitingReply = !conversation.length || conversation.at(-1)?.role === "user";
   const aiAvailable = isAiAvailable();
-  if (!aiAvailable) redirect(`/ideas/${idea.id}/perguntas`);
+  if (!aiAvailable) redirect(`/ideas/${idea.id}/planejamento`);
   const original = toIdeaPromptInput(idea).originalDescription;
 
   return (

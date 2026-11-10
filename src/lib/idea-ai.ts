@@ -12,6 +12,7 @@ import type { CriteriaPromptInput, IdeaPromptInput, KnowledgePromptItem } from "
 import { DEFAULT_CRITERIA, parseEsgCriteria } from "@/lib/esg-analysis";
 import { computeEsgScore, ENGINE_VERSION, humanReviewReasons, PROMPT_VERSION } from "@/lib/esg-engine";
 import { PROPOSAL_FIELDS, parseStoredProposal } from "@/lib/idea-proposal";
+import { parsePlan, planAnswersText } from "@/lib/idea-planning";
 import { createServiceClient, type ServiceClient } from "@/lib/supabase/admin";
 import type { Database, Json } from "@/lib/supabase/database.types";
 import { selectRelevantKnowledge } from "@/lib/text-similarity";
@@ -79,7 +80,8 @@ function proposalToText(value: Json | null): string | null {
   return [
     `Título: ${proposal.title}`,
     ...PROPOSAL_FIELDS.map(({ key, label }) => `${label}: ${proposal[key] ?? "não informado"}`),
-  ].join("\n");
+    planAnswersText(parsePlan(proposal.plan)),
+  ].filter(Boolean).join("\n");
 }
 
 function keywordTriageOf(analysis: Json | null) {

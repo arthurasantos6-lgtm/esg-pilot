@@ -8,6 +8,7 @@ import { AppShell } from "@/app/components/app-shell";
 import { SubmitButton } from "@/app/components/submit-button";
 import { assertModuleEnabled, requireCompanyContext } from "@/lib/auth";
 import { isAiAvailable, toIdeaPromptInput } from "@/lib/idea-ai";
+import { parsePlan, planProgress } from "@/lib/idea-planning";
 import { parseStoredProposal, PROPOSAL_FIELD_MAX_LENGTH, PROPOSAL_FIELDS } from "@/lib/idea-proposal";
 
 export const metadata: Metadata = { title: "Revisar proposta" };
@@ -40,6 +41,8 @@ export default async function ReviewProposalPage({
   if (idea.author_id !== user.id || idea.status !== "draft") redirect(`/ideas/${idea.id}`);
 
   const proposal = parseStoredProposal(idea.structured_proposal);
+  const plan = parsePlan(proposal?.plan);
+  const planPercent = plan ? planProgress(plan).percent : 0;
   const original = toIdeaPromptInput(idea).originalDescription;
   const aiAvailable = isAiAvailable();
   const filledFields = PROPOSAL_FIELDS.filter(({ key }) => proposal?.[key]);
@@ -84,6 +87,15 @@ export default async function ReviewProposalPage({
           O copiloto organizou a proposta a partir da conversa. Confira cada campo: o texto foi gerado por IA e pode conter imprecisões.
         </p>
       )}
+
+      <div className="alert alert-info" role="status">
+        {plan
+          ? `Plano de execução: ${planPercent}% das perguntas tratadas. `
+          : "Ainda não respondeu às perguntas de planejamento? Elas ajudam a gestão a avaliar custos, etapas e retorno. "}
+        <Link className="text-link" href={`/ideas/${idea.id}/planejamento${plan ? "?etapa=plano" : ""}`}>
+          {plan ? "Ver ou editar o plano" : "Detalhar o plano agora"}
+        </Link>
+      </div>
 
       <div className="form-layout">
         <section className="panel idea-form-panel" aria-labelledby="proposal-title">
