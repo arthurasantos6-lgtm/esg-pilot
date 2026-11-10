@@ -106,7 +106,8 @@ export default async function FeasibilityPage({
           </p>
         </div>
         <div className="header-actions">
-          <Link className="button button-primary" href={`/ideas/${idea.id}/relatorio`}>Relatório</Link>
+          <a className="button button-primary" href={`/ideas/${idea.id}/relatorio/pdf`}>Relatório executivo (PDF)</a>
+          <Link className="button button-secondary" href={`/ideas/${idea.id}/relatorio`}>Relatório completo</Link>
         </div>
       </header>
 

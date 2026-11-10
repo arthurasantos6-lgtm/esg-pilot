@@ -3228,3 +3228,16 @@ a.metric-card-link {
     grid-template-columns: 1fr;
   }
 }
+
+.hypothesis-box {
+  margin: 4px 0 12px;
+  padding: 12px 14px;
+  border: 1px dashed light-dark(#d9b24c, #8a6d1f);
+  border-radius: 12px;
+  background: var(--yellow-pale);
+}
+
+.hypothesis-box p {
+  margin: 0 0 6px;
+  font-size: 13px;
+}

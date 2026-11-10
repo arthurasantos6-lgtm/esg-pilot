@@ -21,6 +21,7 @@ type HeroProps = {
     recommendation: Recommendation | null;
     score: { value: number; partial: boolean } | null;
     likely: FeasibilityScenario | null;
+    hypothetical: boolean;
   } | null;
 };
 
@@ -77,12 +78,20 @@ export function IdeaHero({ idea, date, pillars, initiativeType, showEmail, backL
               hint={management.score?.partial ? "parcial" : undefined}
             />
             <Kpi label="Investimento" value={likely?.investment != null ? formatBRL(likely.investment) : "—"} />
-            <Kpi label="Payback" value={likely?.paybackYears != null ? `${formatNumber(likely.paybackYears)} anos` : "—"} />
-            <Kpi label="ROI" value={likely?.roiPercent != null ? `${formatNumber(likely.roiPercent)}%` : "—"} hint={likely?.roiPercent != null ? "cenário provável" : undefined} />
+            <Kpi
+              label="Payback"
+              value={likely?.paybackYears != null ? `${formatNumber(likely.paybackYears)} anos` : "—"}
+              hint={management.hypothetical ? "cenário hipotético" : undefined}
+            />
+            <Kpi
+              label="ROI"
+              value={likely?.roiPercent != null ? `${formatNumber(likely.roiPercent)}%` : "—"}
+              hint={likely?.roiPercent != null ? (management.hypothetical ? "cenário hipotético" : "cenário provável") : undefined}
+            />
           </div>
           <div className="idea-hero-actions">
             <Link className="button button-primary" href={`/ideas/${idea.id}/viabilidade`}>Ver viabilidade</Link>
-            <Link className="button button-secondary" href={`/ideas/${idea.id}/relatorio`}>Relatório</Link>
+            <a className="button button-secondary" href={`/ideas/${idea.id}/relatorio/pdf`}>Relatório executivo (PDF)</a>
             <a className="button button-secondary" href="#decision">Decidir</a>
           </div>
         </>

@@ -111,21 +111,46 @@ test("the collaborator's tariff wins over the researched one", () => {
   assert.equal(result.scenarios[1].annualBenefit, 700);
 });
 
-test("without enough data, nothing is invented and the gaps are listed", () => {
+test("without data, every idea still gets ROI and payback from a labeled hypothetical scenario", () => {
+  // Sem respostas nem pesquisa: investimento de referência (10 sensores × R$ 150) e meta de payback.
   const empty = computeFeasibility(emptyPlan("iluminacao", NOW), []);
-  assert.equal(empty.calculable, false);
-  assert.equal(empty.scenarios[1].investment, null);
-  assert.ok(empty.missing.some((item) => /Preço dos itens/.test(item)));
-  assert.ok(empty.missing.some((item) => /il-luminarias/.test(item)));
+  assert.equal(empty.investmentSource, "hipotetico");
+  assert.equal(empty.benefitSource, "meta");
+  assert.ok(empty.hypothetical && empty.hypotheses.length >= 2);
+  assert.equal(empty.scenarios[1].investment, 1500);
+  assert.equal(empty.scenarios[0].investment, 1950, "conservador +30%");
+  assert.equal(empty.scenarios[1].paybackYears, 3, "meta do cenário provável");
+  assert.ok(empty.calculable);
+  assert.ok(empty.missing.some((item) => /Preços reais/.test(item)));
 
+  // Todos os tipos de iniciativa têm ROI e payback.
+  for (const type of ["solar", "energia", "agua_reuso", "agua_consumo", "residuos", "emissoes", "seguranca", "capacitacao", "social", "governanca", "geral"]) {
+    const result = computeFeasibility(emptyPlan(type, NOW), []);
+    assert.ok(result.scenarios.every((scenario) => scenario.roiPercent !== null && scenario.paybackYears !== null), type);
+    assert.ok(result.hypothetical, type);
+  }
+
+  // A estimativa do colaborador vale mais que a referência hipotética.
   const informed = computeFeasibility(answer(emptyPlan("capacitacao", NOW), { "g-custo-inicial": "3000" }), []);
-  assert.equal(informed.scenarios[1].investment, 3000, "usa a estimativa do colaborador se não há preço pesquisado");
-  assert.equal(informed.scenarios[1].roiPercent, null, "sem economia, sem ROI");
-  assert.ok(informed.missing.some((item) => /não tem cálculo automático/.test(item)));
+  assert.equal(informed.investmentSource, "colaborador");
+  assert.equal(informed.scenarios[1].investment, 3000);
+  assert.equal(informed.benefitSource, "meta");
 
+  // Com as respostas da economia física, falta só a tarifa: ela vira hipotética e é sinalizada.
   const noTariff = computeFeasibility(lightingPlan(), REFERENCES.filter((item) => item.id !== "f"));
-  assert.equal(noTariff.scenarios[1].annualBenefit, null);
-  assert.ok(noTariff.missing.some((item) => /tarifa/.test(item)));
+  assert.equal(noTariff.tariff.source, "hipotetico");
+  assert.equal(noTariff.benefitSource, "hipotetico");
+  assert.equal(noTariff.scenarios[1].annualBenefit, 900, "1000 kWh × R$ 0,90");
+  assert.ok(noTariff.missing.some((item) => /Tarifa real/.test(item)));
+
+  // Regra hipotética por tipo: resíduos economizam metade do custo de descarte informado.
+  const waste = computeFeasibility(answer(emptyPlan("residuos", NOW), { "re-custo-atual": "1000" }), []);
+  assert.equal(waste.benefitSource, "hipotetico");
+  assert.equal(waste.scenarios[1].annualBenefit, 6000);
+  assert.ok(waste.hypotheses.some((item) => /Metade do custo atual de descarte/.test(item)));
+
+  // Com dados reais, nada é hipotético.
+  assert.equal(computeFeasibility(lightingPlan(), REFERENCES).hypothetical, false);
 
   const losing = computeFeasibility(lightingPlan(), [...REFERENCES, ref("h", "manutencao", "Manutenção anual R$ 1.000,00.")], {
     selected: priceCandidates([...REFERENCES, ref("h", "manutencao", "Manutenção anual R$ 1.000,00.")], "iluminacao").filter((item) => item.amount !== 300 && !item.installment && item.amount < 10000).map((item) => item.id),

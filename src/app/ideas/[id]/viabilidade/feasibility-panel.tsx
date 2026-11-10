@@ -4,7 +4,6 @@ import { COST_GROUPS, type CostGroup, type Feasibility } from "@/lib/feasibility
 import { formatBRL, formatNumber } from "@/lib/idea-finance";
 import type { StoredSelection } from "@/lib/idea-planning";
 
-const money = (value: number | null) => (value === null ? "—" : formatBRL(value));
 const years = (value: number | null) => (value === null ? "—" : `${formatNumber(value)} ${value === 1 ? "ano" : "anos"}`);
 
 function Range({ low, high }: { low: number | null; high: number | null }) {
@@ -15,12 +14,19 @@ function Range({ low, high }: { low: number | null; high: number | null }) {
 /** Resumo do retorno (cenário provável em destaque, faixa pelos preços encontrados). */
 export function FeasibilitySummary({ feasibility }: { feasibility: Feasibility }) {
   const [conservative, likely, optimistic] = feasibility.scenarios;
+  const meta = feasibility.benefitSource === "meta";
   return (
     <>
+      {feasibility.hypothetical && (
+        <div className="hypothesis-box">
+          <p><span className="source-chip source-chip-cotacao">Cenário hipotético</span> Parte dos números abaixo é suposição do sistema, não dado real:</p>
+          <ul className="evaluation-list small-copy">{feasibility.hypotheses.map((item) => <li key={item}>{item}</li>)}</ul>
+        </div>
+      )}
       <div className="finance-results">
         <div className="finance-card">
           <span className="small-copy muted">Investimento</span>
-          <strong>{money(likely.investment)}</strong>
+          <strong>{formatBRL(likely.investment)}</strong>
           <Range low={optimistic.investment} high={conservative.investment} />
         </div>
         <div className="finance-card">
@@ -29,8 +35,8 @@ export function FeasibilitySummary({ feasibility }: { feasibility: Feasibility }
           <Range low={optimistic.recurring} high={conservative.recurring} />
         </div>
         <div className="finance-card">
-          <span className="small-copy muted">Economia por ano</span>
-          <strong>{money(likely.annualBenefit)}</strong>
+          <span className="small-copy muted">{meta ? "Economia necessária por ano (meta)" : "Economia por ano"}</span>
+          <strong>{formatBRL(likely.annualBenefit)}</strong>
           <Range low={conservative.annualBenefit} high={optimistic.annualBenefit} />
         </div>
         <div className="finance-card">
@@ -49,7 +55,10 @@ export function FeasibilitySummary({ feasibility }: { feasibility: Feasibility }
         </div>
       </div>
       {feasibility.missing.length > 0 && (
-        <ul className="evaluation-list small-copy">{feasibility.missing.map((item) => <li key={item}>{item}</li>)}</ul>
+        <>
+          <p className="small-copy"><strong>Para trocar as hipóteses por dados reais:</strong></p>
+          <ul className="evaluation-list small-copy">{feasibility.missing.map((item) => <li key={item}>{item}</li>)}</ul>
+        </>
       )}
       {[...new Set(feasibility.scenarios.flatMap((scenario) => scenario.notes))].map((note) => (
         <p key={note} className="small-copy muted">{note}</p>

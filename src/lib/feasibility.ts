@@ -174,14 +174,54 @@ export type GroupSummary = {
 export type FeasibilityScenario = {
   key: ScenarioKey;
   label: string;
-  investment: number | null;
+  investment: number;
   recurring: number;
-  annualBenefit: number | null;
-  netAnnual: number | null;
+  annualBenefit: number;
+  netAnnual: number;
   paybackYears: number | null;
   roiPercent: number | null;
   notes: string[];
 };
+
+/**
+ * Valores de referência para o cenário hipotético, usados só quando a pesquisa e
+ * as respostas não trazem o dado. São premissas do sistema, sempre exibidas como
+ * hipotéticas, para serem substituídas por cotação ou medição.
+ */
+type HypotheticalInvestment =
+  | { unitPrice: number; unit: string; question?: string; defaultQuantity: number; toQuantity?: (value: number) => number; quantityNote?: string }
+  | { total: number; label: string };
+
+const HYPOTHETICAL_INVESTMENT: Record<InitiativeType, HypotheticalInvestment> = {
+  iluminacao: { unitPrice: 150, unit: "sensor instalado", question: "il-pontos", defaultQuantity: 10 },
+  solar: {
+    unitPrice: 4000,
+    unit: "kWp instalado",
+    question: "so-consumo",
+    defaultQuantity: 10,
+    toQuantity: (kwhPerMonth) => Math.max(1, Math.round((kwhPerMonth / 120) * 10) / 10),
+    quantityNote: "1 kWp gera cerca de 120 kWh por mês",
+  },
+  energia: { unitPrice: 800, unit: "equipamento (automação ou ajuste)", question: "en-quantidade", defaultQuantity: 5 },
+  agua_reuso: { total: 15000, label: "sistema de captação, reservatório e bomba" },
+  agua_consumo: { unitPrice: 120, unit: "ponto de uso ajustado", question: "ac-pontos", defaultQuantity: 10 },
+  residuos: { unitPrice: 400, unit: "coletor ou baia", question: "re-coletores-qtd", defaultQuantity: 6 },
+  emissoes: { total: 10000, label: "ajustes, filtros ou manutenção" },
+  seguranca: { unitPrice: 250, unit: "pessoa exposta (proteção e orientação)", question: "se-expostos", defaultQuantity: 20 },
+  capacitacao: { unitPrice: 200, unit: "participante", question: "ca-participantes", defaultQuantity: 20 },
+  social: { total: 5000, label: "ação social de pequeno porte" },
+  governanca: { total: 8000, label: "procedimento, controle ou ferramenta" },
+  geral: { total: 10000, label: "iniciativa de pequeno porte" },
+};
+
+export const HYPOTHETICAL_TARIFF = { kWh: 0.9, "m³": 15 } as const;
+const INVESTMENT_SPREAD = 0.3;
+const BENEFIT_SPREAD = 0.2;
+/** Meta de retorno quando não há base para estimar a economia: payback em 5, 3 e 2 anos. */
+export const TARGET_PAYBACK: Record<ScenarioKey, number> = { conservative: 5, likely: 3, optimistic: 2 };
+
+const spread = (value: number, ratio: number): Range => ({ min: value * (1 - ratio), median: value, max: value * (1 + ratio) });
+const fixed = (value: number): Range => ({ min: value, median: value, max: value });
 
 export type Feasibility = {
   candidates: PriceCandidate[];
@@ -190,11 +230,18 @@ export type Feasibility = {
   groups: GroupSummary[];
   informedInvestment: number | null;
   informedRecurring: number | null;
-  tariff: { range: Range; source: "colaborador" | "pesquisa" } | null;
+  tariff: { range: Range; source: "colaborador" | "pesquisa" | "hipotetico" } | null;
   savings: SavingsEstimate | null;
-  benefitSource: "estimativa" | "gestao" | null;
+  investmentSource: "pesquisa" | "colaborador" | "hipotetico";
+  /** meta = economia necessária para atingir o payback-alvo, não uma estimativa. */
+  benefitSource: "gestao" | "estimativa" | "hipotetico" | "meta";
+  /** Há pelo menos um valor hipotético no cálculo. */
+  hypothetical: boolean;
+  /** Premissas hipotéticas usadas, em linguagem clara. */
+  hypotheses: string[];
   periodYears: number;
   scenarios: FeasibilityScenario[];
+  /** Dados reais que substituiriam as hipóteses. */
   missing: string[];
   memory: string[];
   calculable: boolean;
@@ -207,6 +254,42 @@ const SAVINGS_INPUTS: Partial<Record<InitiativeType, string[]>> = {
   agua_consumo: ["ac-reducao"],
 };
 
+/** Economia anual hipotética por regra do tipo, quando há algum número nas respostas. */
+function hypotheticalBenefit(plan: IdeaPlan): { value: number; premise: string } | null {
+  const n = (id: string) => numberAnswer(plan, id);
+  switch (plan.initiativeType) {
+    case "solar": {
+      const bill = n("so-conta");
+      if (bill) return { value: bill * 12 * 0.8, premise: `80% da conta de luz informada (${formatBRL(bill)}/mês) passaria a ser compensada pela geração.` };
+      const kwh = n("so-consumo");
+      if (kwh) return { value: kwh * 12 * HYPOTHETICAL_TARIFF.kWh * 0.8, premise: `80% do consumo informado (${formatNumber(kwh)} kWh/mês) compensado, a ${formatBRL(HYPOTHETICAL_TARIFF.kWh)}/kWh.` };
+      return null;
+    }
+    case "residuos": {
+      const cost = n("re-custo-atual");
+      return cost ? { value: cost * 12 * 0.5, premise: `Metade do custo atual de descarte (${formatBRL(cost)}/mês) deixaria de ser pago.` } : null;
+    }
+    case "emissoes": {
+      const liters = n("em-consumo");
+      return liters ? { value: liters * 12 * 6.2 * 0.1, premise: `Redução de 10% no consumo de combustível informado (${formatNumber(liters)} L/mês), a R$ 6,20 por litro.` } : null;
+    }
+    case "seguranca": {
+      const events = n("se-ocorrencias");
+      return events
+        ? { value: events * 0.5 * 4000, premise: `Metade das ${formatNumber(events)} ocorrências anuais evitadas, a um custo médio de R$ 4.000 cada (afastamento, atendimento, reposição).` }
+        : null;
+    }
+    default:
+      return null;
+  }
+}
+
+const sumRange = (ranges: Range[]): Range => ({
+  min: ranges.reduce((total, range) => total + range.min, 0),
+  median: ranges.reduce((total, range) => total + range.median, 0),
+  max: ranges.reduce((total, range) => total + range.max, 0),
+});
+
 export function computeFeasibility(plan: IdeaPlan, references: PlanReference[], selection: Partial<Selection> = {}): Feasibility {
   const candidates = priceCandidates(references, plan.initiativeType);
   const selectedIds = selection.selected ?? defaultSelection(candidates);
@@ -218,6 +301,7 @@ export function computeFeasibility(plan: IdeaPlan, references: PlanReference[], 
   const periodYears = selection.periodYears && selection.periodYears > 0 ? selection.periodYears : DEFAULT_PERIOD_YEARS;
   const memory: string[] = [];
   const missing: string[] = [];
+  const hypotheses: string[] = [];
 
   const groups: GroupSummary[] = (Object.keys(COST_GROUPS) as CostGroup[]).flatMap((group) => {
     const unit = rangeOf(chosen.filter((item) => item.group === group).map((item) => item.amount));
@@ -234,52 +318,108 @@ export function computeFeasibility(plan: IdeaPlan, references: PlanReference[], 
   const monthly = numberAnswer(plan, "g-custo-recorrente");
   const informedRecurring = monthly !== null ? monthly * 12 : null;
 
-  // Tarifa: a resposta do colaborador vale mais que a pesquisa.
+  // 1. Investimento: pesquisa > colaborador > referência hipotética do tipo.
+  let investmentSource: Feasibility["investmentSource"];
+  let investmentRange: Range;
+  if (investmentGroups.length) {
+    investmentSource = "pesquisa";
+    investmentRange = sumRange(investmentGroups.map((group) => group.total));
+    for (const group of investmentGroups) {
+      memory.push(
+        `${group.label}: ${group.count} ${group.count === 1 ? "preço" : "preços"} de ${formatBRL(group.unitPrice.min)} a ${formatBRL(group.unitPrice.max)} (mediana ${formatBRL(group.unitPrice.median)})${group.quantity > 1 ? ` × ${formatNumber(group.quantity)}` : ""}.`,
+      );
+    }
+  } else if (informedInvestment !== null && informedInvestment > 0) {
+    investmentSource = "colaborador";
+    investmentRange = fixed(informedInvestment);
+    memory.push(`Investimento estimado pelo colaborador: ${formatBRL(informedInvestment)}.`);
+    missing.push("Preço dos itens na pesquisa ou em cotação, para confirmar a estimativa do colaborador.");
+  } else {
+    investmentSource = "hipotetico";
+    const reference = HYPOTHETICAL_INVESTMENT[plan.initiativeType];
+    let base: number;
+    if ("total" in reference) {
+      base = reference.total;
+      hypotheses.push(`Investimento de referência de ${formatBRL(base)} para ${reference.label}, com variação de ±30% entre os cenários.`);
+    } else {
+      const answered = reference.question ? numberAnswer(plan, reference.question) : null;
+      const units = answered && answered > 0 ? (reference.toQuantity ? reference.toQuantity(answered) : answered) : reference.defaultQuantity;
+      base = reference.unitPrice * units;
+      const origin = answered ? `quantidade pelas respostas${reference.quantityNote ? `; ${reference.quantityNote}` : ""}` : "quantidade suposta";
+      hypotheses.push(`Investimento de referência de ${formatBRL(reference.unitPrice)} por ${reference.unit} × ${formatNumber(units)} (${origin}) = ${formatBRL(base)}, com variação de ±30%.`);
+    }
+    investmentRange = spread(base, INVESTMENT_SPREAD);
+    missing.push("Preços reais (cotação ou pesquisa) para substituir o investimento hipotético.");
+  }
+
+  // 2. Custos anuais: pesquisa + colaborador (sem hipótese: zero se ninguém informou).
+  const informedRecurringRange = informedRecurring !== null ? [fixed(informedRecurring)] : [];
+  const recurringRange = sumRange([...recurringGroups.map((group) => group.total), ...informedRecurringRange]);
+  for (const group of recurringGroups) memory.push(`${group.label}: ${formatBRL(group.total.min)} a ${formatBRL(group.total.max)} por ano (valor da fonte tratado como anual: confira).`);
+  if (informedRecurring !== null) memory.push(`Custo mensal informado pelo colaborador: ${formatBRL(monthly ?? 0)} × 12 = ${formatBRL(informedRecurring)} por ano.`);
+  if (!recurringGroups.length && informedRecurring === null) memory.push("Custos anuais: nenhum encontrado ou informado (considerado zero).");
+
+  // 3. Tarifa: colaborador > pesquisa > referência hipotética.
   const tariffInfo = TARIFF_UNIT[plan.initiativeType];
   const answeredTariff = tariffInfo ? numberAnswer(plan, tariffInfo.question) : null;
   const tariffGroup = groups.find((group) => group.group === "tarifa");
-  const tariff = answeredTariff
-    ? { range: { min: answeredTariff, median: answeredTariff, max: answeredTariff }, source: "colaborador" as const }
+  const physical = estimateSavings(plan, 1);
+  let tariff: Feasibility["tariff"] = answeredTariff
+    ? { range: fixed(answeredTariff), source: "colaborador" }
     : tariffGroup
-      ? { range: tariffGroup.unitPrice, source: "pesquisa" as const }
+      ? { range: tariffGroup.unitPrice, source: "pesquisa" }
       : null;
-
-  const savings = estimateSavings(plan, tariff?.range.median ?? null);
-  const benefitOverride = selection.benefitOverride && selection.benefitOverride > 0 ? selection.benefitOverride : null;
-  const benefitSource = benefitOverride ? "gestao" : savings && tariff ? "estimativa" : null;
-
-  for (const group of investmentGroups) {
-    memory.push(
-      `${group.label}: ${group.count} ${group.count === 1 ? "preço" : "preços"} de ${formatBRL(group.unitPrice.min)} a ${formatBRL(group.unitPrice.max)} (mediana ${formatBRL(group.unitPrice.median)})${group.quantity > 1 ? ` × ${formatNumber(group.quantity)}` : ""}.`,
-    );
+  if (!tariff && tariffInfo && physical) {
+    const value = HYPOTHETICAL_TARIFF[tariffInfo.unit];
+    tariff = { range: spread(value, BENEFIT_SPREAD), source: "hipotetico" };
+    hypotheses.push(`Tarifa de referência de ${formatBRL(value)} por ${tariffInfo.unit} (±20%), por não ter sido informada nem encontrada na pesquisa.`);
   }
-  for (const group of recurringGroups) memory.push(`${group.label}: ${formatBRL(group.total.min)} a ${formatBRL(group.total.max)} por ano (valor da fonte tratado como anual: confira).`);
-  if (informedRecurring !== null) memory.push(`Custo mensal informado pelo colaborador: ${formatBRL(monthly ?? 0)} × 12 = ${formatBRL(informedRecurring)} por ano.`);
-  if (tariff) memory.push(`Tarifa: ${tariff.source === "colaborador" ? "informada pelo colaborador" : "pesquisada"}, ${formatBRL(tariff.range.min)} a ${formatBRL(tariff.range.max)} por ${tariffInfo?.unit}.`);
-  if (savings) memory.push(`Economia física estimada: ${formatNumber(savings.quantity)} ${savings.unit} (${savings.formula.replace(/ × R\$.*$/, "")}).`);
-  if (benefitOverride) memory.push(`Economia anual informada pela gestão: ${formatBRL(benefitOverride)}.`);
+  const savings = estimateSavings(plan, tariff?.range.median ?? null);
+  if (tariff && tariff.source !== "hipotetico") {
+    memory.push(`Tarifa ${tariff.source === "colaborador" ? "informada pelo colaborador" : "pesquisada"}: ${formatBRL(tariff.range.min)} a ${formatBRL(tariff.range.max)} por ${tariffInfo?.unit}.`);
+  }
+  if (savings) memory.push(`Economia física estimada pelas respostas: ${formatNumber(savings.quantity)} ${savings.unit} (${savings.formula.replace(/ × R\$.*$/, "")}).`);
 
-  if (!investmentGroups.length && informedInvestment === null) missing.push("Preço dos itens: nenhum valor da pesquisa foi selecionado e o colaborador não estimou o investimento.");
-  if (!benefitOverride) {
-    if (!SAVINGS_INPUTS[plan.initiativeType]) missing.push("Economia anual: este tipo de iniciativa não tem cálculo automático. Informe a economia esperada, se houver.");
-    else if (!savings) {
-      const unanswered = (SAVINGS_INPUTS[plan.initiativeType] ?? []).filter((id) => numberAnswer(plan, id) === null);
-      missing.push(`Economia anual: faltam respostas numéricas do colaborador (${unanswered.join(", ")}).`);
-    } else if (!tariff) missing.push(`Economia anual: falta a tarifa por ${tariffInfo?.unit} (não informada e não encontrada na pesquisa).`);
+  // 4. Economia anual: gestão > estimativa pelas respostas > regra hipotética > meta de payback.
+  const benefitOverride = selection.benefitOverride && selection.benefitOverride > 0 ? selection.benefitOverride : null;
+  const ruleBenefit = hypotheticalBenefit(plan);
+  let benefitSource: Feasibility["benefitSource"];
+  let benefitRange: Range | null = null;
+  if (benefitOverride) {
+    benefitSource = "gestao";
+    benefitRange = fixed(benefitOverride);
+    memory.push(`Economia anual informada pela gestão: ${formatBRL(benefitOverride)}.`);
+  } else if (savings && tariff) {
+    benefitSource = tariff.source === "hipotetico" ? "hipotetico" : "estimativa";
+    benefitRange = { min: savings.quantity * tariff.range.min, median: savings.quantity * tariff.range.median, max: savings.quantity * tariff.range.max };
+    if (tariff.source === "hipotetico") missing.push(`Tarifa real por ${tariffInfo?.unit} (aparece na conta de ${tariffInfo?.unit === "kWh" ? "energia" : "água"}).`);
+  } else if (ruleBenefit) {
+    benefitSource = "hipotetico";
+    benefitRange = spread(ruleBenefit.value, BENEFIT_SPREAD);
+    hypotheses.push(`Economia anual hipotética de ${formatBRL(ruleBenefit.value)} (±20%): ${ruleBenefit.premise}`);
+    missing.push("Medição real da economia, para substituir a hipótese.");
+  } else {
+    benefitSource = "meta";
+    hypotheses.push(
+      `Sem base para estimar a economia, o cálculo mostra uma meta: quanto a iniciativa precisaria gerar por ano para se pagar em ${TARGET_PAYBACK.conservative} anos (conservador), ${TARGET_PAYBACK.likely} anos (provável) ou ${TARGET_PAYBACK.optimistic} anos (otimista).`,
+    );
+    const inputs = SAVINGS_INPUTS[plan.initiativeType];
+    missing.push(
+      inputs
+        ? `Respostas numéricas para estimar a economia (${inputs.filter((id) => numberAnswer(plan, id) === null).join(", ")}).`
+        : "Economia ou receita anual esperada (pode ser informada pela gestão no cálculo).",
+    );
   }
 
   const scenarios = SCENARIOS.map(({ key, label }): FeasibilityScenario => {
     const notes: string[] = [];
-    const investment = investmentGroups.length
-      ? investmentGroups.reduce((total, group) => total + pick(group.total, key), 0)
-      : informedInvestment;
-    if (!investmentGroups.length && informedInvestment !== null && key === "likely") notes.push("Investimento estimado pelo colaborador (sem preço da pesquisa).");
-    const recurring = recurringGroups.reduce((total, group) => total + pick(group.total, key), 0) + (informedRecurring ?? 0);
-    const annualBenefit = benefitOverride ?? (savings && tariff ? savings.quantity * pick(tariff.range, key, false) : null);
-    const netAnnual = annualBenefit === null ? null : annualBenefit - recurring;
+    const investment = pick(investmentRange, key);
+    const recurring = pick(recurringRange, key);
+    const annualBenefit = benefitRange ? pick(benefitRange, key, false) : investment / TARGET_PAYBACK[key] + recurring;
+    const netAnnual = annualBenefit - recurring;
     let paybackYears: number | null = null;
     let roiPercent: number | null = null;
-    if (investment !== null && investment > 0 && netAnnual !== null) {
+    if (investment > 0) {
       roiPercent = ((netAnnual * periodYears - investment) / investment) * 100;
       if (netAnnual > 0) paybackYears = investment / netAnnual;
       else notes.push("A economia não cobre os custos anuais: não há retorno financeiro.");
@@ -287,6 +427,8 @@ export function computeFeasibility(plan: IdeaPlan, references: PlanReference[], 
       memory.push(
         `[${label}] ROI = (${formatBRL(netAnnual)} × ${formatNumber(periodYears)} − ${formatBRL(investment)}) / ${formatBRL(investment)} = ${formatNumber(roiPercent)}%${paybackYears !== null ? `; payback = ${formatBRL(investment)} / ${formatBRL(netAnnual)} = ${formatNumber(paybackYears)} anos` : ""}.`,
       );
+    } else {
+      notes.push("Sem investimento inicial: o ROI não se aplica.");
     }
     return { key, label, investment, recurring, annualBenefit, netAnnual, paybackYears, roiPercent, notes };
   });
@@ -300,7 +442,10 @@ export function computeFeasibility(plan: IdeaPlan, references: PlanReference[], 
     informedRecurring,
     tariff,
     savings,
+    investmentSource,
     benefitSource,
+    hypothetical: hypotheses.length > 0,
+    hypotheses,
     periodYears,
     scenarios,
     missing,

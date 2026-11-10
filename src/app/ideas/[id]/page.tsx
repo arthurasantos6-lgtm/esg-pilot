@@ -16,7 +16,7 @@ import { buildProjectProposal } from "@/lib/esg-project-proposal";
 import { loadLearningBase } from "@/lib/learning-base";
 import { isAiAvailable } from "@/lib/idea-ai";
 import { computeFeasibility } from "@/lib/feasibility";
-import { INITIATIVE_TYPES, parsePlan } from "@/lib/idea-planning";
+import { detectInitiativeType, emptyPlan, INITIATIVE_TYPES, parsePlan } from "@/lib/idea-planning";
 import { parseStoredProposal } from "@/lib/idea-proposal";
 import { ideaStatusLabel, nextStepForAuthor } from "@/lib/idea-status";
 import { readLocalAnalysis } from "@/lib/local-analysis";
@@ -151,7 +151,13 @@ export default async function IdeaDetailPage({
 
   const proposal = parseStoredProposal(idea.structured_proposal);
   const plan = parsePlan(proposal?.plan);
-  const likely = plan ? computeFeasibility(plan, plan.research?.references ?? [], plan.selection ?? {}).scenarios[1] : null;
+  // Toda ideia tem ROI e payback: sem plano, o cálculo parte de um plano vazio (cenário hipotético).
+  const feasibility = computeFeasibility(
+    plan ?? emptyPlan(detectInitiativeType(`${idea.title} ${idea.original_description ?? ""}`)),
+    plan?.research?.references ?? [],
+    plan?.selection ?? {},
+  );
+  const likely = feasibility.scenarios[1];
   const localAnalysis = readLocalAnalysis(idea.analysis);
   const dimensions = getDimensions(idea.analysis);
   const analysisObject = isRecord(idea.analysis) ? idea.analysis : null;
@@ -200,7 +206,7 @@ export default async function IdeaDetailPage({
         initiativeType={plan ? INITIATIVE_TYPES[plan.initiativeType].label : null}
         showEmail={isCompanyAdmin}
         backLink={isCompanyAdmin}
-        management={showManagement ? { recommendation: projectProposal?.recommendation ?? null, score: esgScore, likely } : null}
+        management={showManagement ? { recommendation: projectProposal?.recommendation ?? null, score: esgScore, likely, hypothetical: feasibility.hypothetical } : null}
       />
 
       {query.responded && (

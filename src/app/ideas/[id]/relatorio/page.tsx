@@ -101,7 +101,10 @@ export default async function InitiativeReportPage({ params }: { params: Promise
             {idea.area ? ` · ${idea.area}` : ""}
           </p>
         </div>
-        <div className="header-actions"><PrintButton /></div>
+        <div className="header-actions">
+          <a className="button button-primary no-print" href={`/ideas/${idea.id}/relatorio/pdf`}>Relatório executivo (PDF)</a>
+          <PrintButton label="Imprimir esta página" />
+        </div>
       </header>
 
       <p className="alert alert-info">
@@ -281,7 +284,13 @@ export default async function InitiativeReportPage({ params }: { params: Promise
           ) : (
             <p className="empty-inline">Não calculado: {feasibility.missing.join("; ") || "dados insuficientes"}.</p>
           )}
-          <p className="small-copy muted">Cenários pela faixa de preços encontrada: conservador usa o preço mais alto e a menor tarifa; otimista, o contrário.</p>
+          {feasibility.hypothetical && (
+            <div className="hypothesis-box">
+              <p><span className="source-chip source-chip-cotacao">Cenário hipotético</span> Este cálculo usa suposições do sistema onde faltaram dados reais:</p>
+              <ul className="evaluation-list small-copy">{feasibility.hypotheses.map((item) => <li key={item}>{item}</li>)}</ul>
+            </div>
+          )}
+          <p className="small-copy muted">Cenários pela faixa de valores: conservador usa o investimento mais alto e a menor economia; otimista, o contrário.</p>
           {feasibility.memory.length > 0 && (
             <>
               <h3 className="subsection-title">Premissas e memória de cálculo</h3>
