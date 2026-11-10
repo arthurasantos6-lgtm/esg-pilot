@@ -340,7 +340,8 @@ const referenceSchema = z.object({
   value: z.string().nullable(),
   publishedAt: z.string().nullable(),
   consultedAt: z.string(),
-  origin: z.enum(["web_search", "management"]),
+  /** web_search: pesquisa com IA (Anthropic); search_api: busca gratuita sem IA (Tavily); management: registrada pela gestão. */
+  origin: z.enum(["web_search", "search_api", "management"]),
 });
 export type PlanReference = z.infer<typeof referenceSchema>;
 

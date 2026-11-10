@@ -1,5 +1,6 @@
 import { addReference, removeReference, runMarketResearch } from "@/app/ideas/planning-actions";
 import { SubmitButton } from "@/app/components/submit-button";
+import type { ResearchProvider } from "@/lib/research-provider";
 import { MAX_RESEARCH_RUNS, REFERENCE_CATEGORIES, type PlanReference, type ResearchData } from "@/lib/idea-planning";
 
 // O servidor roda em UTC: as datas são mostradas no horário de Brasília.
@@ -32,8 +33,10 @@ export function ReferencesTable({ references, ideaId, editable }: { references: 
               <td>{showDate(reference.publishedAt)}</td>
               <td>{showDate(reference.consultedAt)}</td>
               <td>
-                {reference.origin === "web_search" ? (
-                  <span className="source-chip source-chip-ia" title="Encontrada por pesquisa automática; valor extraído por IA">Pesquisa automática</span>
+                {reference.origin === "search_api" ? (
+                  <span className="source-chip source-chip-pesquisa" title="Resultado de busca; valor e resumo são o trecho da própria página">Busca automática</span>
+                ) : reference.origin === "web_search" ? (
+                  <span className="source-chip source-chip-ia" title="Encontrada por pesquisa automática; valor extraído por IA">Pesquisa com IA</span>
                 ) : (
                   <span className="source-chip source-chip-gestao">Gestão</span>
                 )}
@@ -59,19 +62,19 @@ export function ReferencesTable({ references, ideaId, editable }: { references: 
 export function ResearchPanel({
   ideaId,
   research,
-  available,
+  provider,
   unavailableReason,
 }: {
   ideaId: string;
   research: ResearchData | null;
-  available: boolean;
+  provider: ResearchProvider | null;
   unavailableReason: string;
 }) {
   const runs = research?.runs ?? 0;
   const today = new Intl.DateTimeFormat("en-CA", { timeZone: "America/Sao_Paulo" }).format(new Date());
   return (
     <>
-      {available ? (
+      {provider ? (
         <form action={runMarketResearch} className="inline-form">
           <input type="hidden" name="ideaId" value={ideaId} />
           <SubmitButton className="button button-primary" pendingLabel="Pesquisando… pode levar alguns minutos">
@@ -83,8 +86,9 @@ export function ResearchPanel({
         <p className="alert alert-info">{unavailableReason}</p>
       )}
       <p className="small-copy muted">
-        A pesquisa usa a descrição, as respostas e os recursos do plano. Só são guardadas fontes que a busca realmente retornou, com
-        link e data de consulta. Valores e resumos são extraídos por IA: confira na fonte antes de usar na análise financeira.
+        {provider === "anthropic"
+          ? "A pesquisa usa a descrição, as respostas e os recursos do plano. Só são guardadas fontes que a busca realmente retornou, com link e data de consulta. Valores e resumos são extraídos por IA: confira na fonte antes de usar na análise financeira."
+          : "Busca gratuita, sem IA: o sistema monta consultas pelo tipo de iniciativa (preço, instalação, estudos de caso, fornecedores e retorno) e guarda link, data de consulta, data de publicação quando a busca informa e o trecho da página. Valores em reais são copiados do trecho: confira no link (quantidade, região, impostos, data) antes de usar na análise financeira."}
       </p>
       {research?.lastRunAt && (
         <p className="small-copy">Última pesquisa automática: {dateTimeFormat.format(new Date(research.lastRunAt))}.</p>
@@ -94,11 +98,11 @@ export function ResearchPanel({
 
       {research && research.gaps.length > 0 && (
         <>
-          <h4 className="subsection-title">Informações que faltaram na pesquisa <span className="source-chip source-chip-ia">Texto de IA</span></h4>
+          <h4 className="subsection-title">Informações que faltaram na pesquisa</h4>
           <ul className="evaluation-list">{research.gaps.map((gap) => <li key={gap}>{gap}</li>)}</ul>
         </>
       )}
-      {research?.notes && <p className="small-copy muted">Ressalvas da pesquisa (IA): {research.notes}</p>}
+      {research?.notes && <p className="small-copy muted">Observações da pesquisa{research.model ? ` (${research.model})` : ""}: {research.notes}</p>}
 
       <details className="proposal-more">
         <summary className="small-copy">Registrar uma fonte manualmente</summary>

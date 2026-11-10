@@ -10,11 +10,9 @@ import { ResearchPanel } from "@/app/ideas/[id]/viabilidade/research-panel";
 import { saveManagerAnswers } from "@/app/ideas/planning-actions";
 import { AppShell } from "@/app/components/app-shell";
 import { SubmitButton } from "@/app/components/submit-button";
-import { isWebResearchConfigured } from "@/lib/ai/service";
 import { requireCompanyContext } from "@/lib/auth";
 import { buildExecutionPlan } from "@/lib/idea-execution-plan";
 import { initialFinance } from "@/lib/idea-finance";
-import { isAiAvailable } from "@/lib/idea-ai";
 import {
   detectInitiativeType,
   emptyPlan,
@@ -26,6 +24,7 @@ import {
   visibleQuestions,
 } from "@/lib/idea-planning";
 import { parseStoredProposal } from "@/lib/idea-proposal";
+import { researchProvider } from "@/lib/research-provider";
 
 export const metadata: Metadata = { title: "Viabilidade da ideia" };
 
@@ -67,9 +66,9 @@ export default async function FeasibilityPage({
   const executionPlan = buildExecutionPlan({ title: idea.title, originalText: idea.original_description ?? "", plan });
   const progress = planProgress(plan);
   const questions = visibleQuestions(plan);
-  const researchAvailable = isAiAvailable() && isWebResearchConfigured();
+  const provider = researchProvider();
   const unavailableReason =
-    "A pesquisa automática na internet não está ativa nesta plataforma (requer ESG_EXTERNAL_AI=true, provedor Anthropic e a chave service role no servidor). Registre as fontes manualmente abaixo.";
+    "A pesquisa automática na internet não está ativa nesta plataforma: falta a variável TAVILY_API_KEY (busca gratuita) no servidor. Registre as fontes manualmente abaixo.";
 
   let saved = query.salvo ? SAVED_MESSAGES[query.salvo] : null;
   if (query.salvo === "pesquisa" && query.novas_refs !== undefined) {
@@ -145,7 +144,7 @@ export default async function FeasibilityPage({
         <section className="panel detail-panel" id="pesquisa" aria-labelledby="pesquisa-title">
           <p className="eyebrow">ETAPA 3</p>
           <h2 id="pesquisa-title">Pesquisa de mercado: investimento, custos e retorno</h2>
-          <ResearchPanel ideaId={idea.id} research={plan.research} available={researchAvailable} unavailableReason={unavailableReason} />
+          <ResearchPanel ideaId={idea.id} research={plan.research} provider={provider} unavailableReason={unavailableReason} />
         </section>
 
         <section className="panel detail-panel" id="financeiro" aria-labelledby="financeiro-title">

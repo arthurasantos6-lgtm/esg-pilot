@@ -85,7 +85,7 @@ export default async function InitiativeReportPage({ params }: { params: Promise
     ...execution.pending,
     ...analysis.missing.map((item) => `Análise financeira: ${item}`),
     ...analysis.pending,
-    ...(plan.research?.gaps ?? []).map((gap) => `Pesquisa (IA): ${gap}`),
+    ...(plan.research?.gaps ?? []).map((gap) => `Pesquisa: ${gap}`),
   ];
   const questions = visibleQuestions(plan);
 
@@ -280,8 +280,8 @@ export default async function InitiativeReportPage({ params }: { params: Promise
           <ReferencesTable references={references} editable={false} />
           {references.length > 0 && (
             <p className="small-copy muted">
-              Tipos: {[...new Set(references.map((reference) => REFERENCE_CATEGORIES[reference.category]))].join(", ")}. Valores de pesquisa
-              automática foram extraídos por IA e precisam de conferência na fonte.
+              Tipos: {[...new Set(references.map((reference) => REFERENCE_CATEGORIES[reference.category]))].join(", ")}. Valores de busca
+              automática são trechos das páginas (ou extraídos por IA, quando indicado) e precisam de conferência na fonte.
             </p>
           )}
         </section>

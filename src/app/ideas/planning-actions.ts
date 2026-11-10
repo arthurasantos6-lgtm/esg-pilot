@@ -5,10 +5,9 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { z } from "zod";
 import { acceptReferences } from "@/lib/ai/market-research";
-import { generateMarketResearch, isWebResearchConfigured, logAiFailure, toUserFacingAiError } from "@/lib/ai/service";
+import { generateMarketResearch, logAiFailure, toUserFacingAiError } from "@/lib/ai/service";
 import { requireCompanyContext } from "@/lib/auth";
 import { buildExecutionPlan } from "@/lib/idea-execution-plan";
-import { isAiAvailable } from "@/lib/idea-ai";
 import {
   applyAnswerForm,
   detectInitiativeType,
@@ -17,6 +16,7 @@ import {
   INITIATIVE_TYPE_KEYS,
   MAX_RESEARCH_RUNS,
   parseNumber,
+  answerText,
   parsePlan,
   planAnswersText,
   PLAN_STEPS,
@@ -29,11 +29,14 @@ import {
   type IdeaPlan,
   type InitiativeType,
   type MoneyLine,
+  type PlanReference,
   type PlanStepKey,
   type ReferenceCategory,
   type ValueOrigin,
 } from "@/lib/idea-planning";
 import { parseStoredProposal, type StoredProposal } from "@/lib/idea-proposal";
+import { researchProvider } from "@/lib/research-provider";
+import { buildSearchQueries, resultsToReferences, runWebSearch, searchGaps, SearchUnavailableError } from "@/lib/web-search";
 import type { Json } from "@/lib/supabase/database.types";
 
 const idSchema = z.guid();
@@ -232,48 +235,68 @@ export async function saveFinance(formData: FormData) {
   redirect(`${url}?salvo=financeiro#financeiro`);
 }
 
+type SearchOutcome = { references: PlanReference[]; gaps: string[]; notes: string | null; model: string };
+
+/** Busca gratuita (Tavily, sem IA): consultas por regras e trechos das próprias páginas. */
+async function searchWithTavily(idea: LoadedIdea, plan: IdeaPlan): Promise<SearchOutcome> {
+  const materials = answerText(plan, "g-materiais");
+  const queries = buildSearchQueries(plan.initiativeType, idea.title, materials ? [materials.slice(0, 80)] : []);
+  const { batches, failed } = await runWebSearch(process.env.TAVILY_API_KEY?.trim() ?? "", queries);
+  const references = resultsToReferences(batches, new Date(), randomUUID);
+  const notes = [
+    `Consultas feitas: ${queries.map((item) => `"${item.query}"`).join(", ")}.`,
+    failed ? `${failed} de ${queries.length} consultas falharam.` : null,
+  ].filter(Boolean).join(" ");
+  return { references, gaps: searchGaps(references), notes, model: "Tavily (busca, sem IA)" };
+}
+
+/** Pesquisa com IA (Anthropic), usada só sem chave da Tavily e com a IA externa ativa. */
+async function searchWithAi(idea: LoadedIdea, plan: IdeaPlan): Promise<SearchOutcome> {
+  const executionPlan = buildExecutionPlan({ title: idea.title, originalText: idea.original_description ?? "", plan });
+  const result = await generateMarketResearch({
+    title: idea.title,
+    description: idea.original_description ?? "",
+    initiativeType: INITIATIVE_TYPES[plan.initiativeType].label,
+    details: planAnswersText(plan),
+    resources: executionPlan.resources.flatMap(({ label, items }) => items.map((item) => `${label}: ${item.text}`)).slice(0, 25),
+  });
+  const { references } = acceptReferences(result.output, result.sources, new Date(), randomUUID);
+  return { references, gaps: result.output.gaps, notes: result.output.notes, model: result.usage.model };
+}
+
 export async function runMarketResearch(formData: FormData) {
   const { context, idea, url, fail, proposal, plan } = await requireManagedIdea(formData, "pesquisa");
-  if (!isAiAvailable() || !isWebResearchConfigured()) {
-    fail("A pesquisa automática não está disponível nesta plataforma. Registre as referências manualmente.");
-  }
+  const provider = researchProvider();
+  if (!provider) fail("A pesquisa automática não está disponível nesta plataforma. Registre as referências manualmente.");
   const research = plan.research ?? { runs: 0, lastRunAt: null, model: null, references: [], gaps: [], notes: null };
   if (research.runs >= MAX_RESEARCH_RUNS) fail(`Esta ideia atingiu o limite de ${MAX_RESEARCH_RUNS} pesquisas automáticas.`);
 
-  const executionPlan = buildExecutionPlan({ title: idea.title, originalText: idea.original_description ?? "", plan });
-  let result: Awaited<ReturnType<typeof generateMarketResearch>>;
+  let result: SearchOutcome;
   try {
-    result = await generateMarketResearch({
-      title: idea.title,
-      description: idea.original_description ?? "",
-      initiativeType: INITIATIVE_TYPES[plan.initiativeType].label,
-      details: planAnswersText(plan),
-      resources: executionPlan.resources.flatMap(({ label, items }) => items.map((item) => `${label}: ${item.text}`)).slice(0, 25),
-    });
+    result = provider === "tavily" ? await searchWithTavily(idea, plan) : await searchWithAi(idea, plan);
   } catch (error) {
     logAiFailure("pesquisa de mercado", idea.id, error);
-    return fail(toUserFacingAiError(error));
+    return fail(error instanceof SearchUnavailableError ? error.message : toUserFacingAiError(error));
   }
   const now = new Date();
-  const { references } = acceptReferences(result.output, result.sources, now, randomUUID);
   // Referências anteriores são mantidas; só entram as novas que ainda não existem.
-  const known = new Set(research.references.map((item) => `${item.url}|${item.category}|${item.value ?? ""}`));
-  const merged = [...research.references, ...references.filter((item) => !known.has(`${item.url}|${item.category}|${item.value ?? ""}`))];
+  const known = new Set(research.references.map((item) => item.url.replace(/\/+$/, "").toLowerCase()));
+  const fresh = result.references.filter((item) => !known.has(item.url.replace(/\/+$/, "").toLowerCase()));
   const updated: IdeaPlan = {
     ...plan,
     research: {
       runs: research.runs + 1,
       lastRunAt: now.toISOString(),
-      model: result.usage.model,
-      references: merged.slice(0, 80),
-      gaps: result.output.gaps.slice(0, 15).map((gap) => gap.slice(0, 500)),
-      notes: result.output.notes?.slice(0, 2000) ?? null,
+      model: result.model,
+      references: [...research.references, ...fresh].slice(0, 80),
+      gaps: result.gaps.slice(0, 15).map((gap) => gap.slice(0, 500)),
+      notes: result.notes?.slice(0, 2000) ?? null,
     },
     updatedAt: now.toISOString(),
   };
   if (!(await savePlan(context, idea, proposal, updated, false))) fail("A pesquisa foi feita, mas não foi possível salvá-la.");
   revalidatePath(url);
-  redirect(`${url}?salvo=pesquisa&novas_refs=${references.length}#pesquisa`);
+  redirect(`${url}?salvo=pesquisa&novas_refs=${fresh.length}#pesquisa`);
 }
 
 const referenceSchema = z.object({
