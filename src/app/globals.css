@@ -3682,3 +3682,146 @@ a.kpi-card:focus-visible {
     align-items: flex-start;
   }
 }
+
+/* Janela de decisão da gestão ---------------------------------------------- */
+
+.detail-grid-single {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.decision-dialog {
+  /* O reset do Tailwind zera a margem que centraliza o <dialog>. */
+  margin: auto;
+  width: min(640px, calc(100vw - 32px));
+  max-height: calc(100vh - 48px);
+  padding: 26px 26px 22px;
+  overflow-y: auto;
+  border: 1px solid var(--line);
+  border-radius: 20px;
+  background: var(--surface);
+  box-shadow: 0 30px 80px rgb(0 0 0 / 35%);
+  color: var(--ink);
+}
+
+.decision-dialog::backdrop {
+  background: rgb(17 11 43 / 55%);
+  backdrop-filter: blur(3px);
+}
+
+.decision-dialog[open] {
+  animation: dialog-in 160ms ease-out;
+}
+
+@keyframes dialog-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px) scale(0.98);
+  }
+}
+
+.dialog-close {
+  position: sticky;
+  top: 0;
+  float: right;
+  width: 34px;
+  height: 34px;
+  margin: -6px -6px 0 0;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--surface);
+  color: var(--muted);
+  font-size: 20px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.dialog-close:hover {
+  color: var(--ink);
+}
+
+.decision-sheet h2 {
+  margin: 6px 0 12px;
+  font-size: 20px;
+  line-height: 1.25;
+}
+
+.decision-brief {
+  display: grid;
+  gap: 8px;
+  margin-bottom: 14px;
+  padding: 14px;
+  border-radius: 14px;
+  background: var(--brand-pale);
+}
+
+.decision-brief-recommendation {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+}
+
+.decision-brief-recommendation span {
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.decision-brief-figures {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.decision-brief-figures div {
+  display: grid;
+  align-content: start;
+  gap: 4px;
+}
+
+.decision-brief-figures span {
+  color: var(--muted);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.4px;
+  text-transform: uppercase;
+}
+
+.decision-brief-figures strong {
+  font-size: 14px;
+}
+
+.decision-brief-figures .score-chip {
+  justify-self: start;
+  font-size: 11px;
+}
+
+.decision-brief .evaluation-list {
+  margin: 0;
+}
+
+.decision-fab {
+  position: fixed;
+  right: 28px;
+  bottom: 26px;
+  z-index: 20;
+  padding-inline: 22px;
+  box-shadow: 0 12px 30px rgb(76 45 170 / 35%);
+}
+
+@media (max-width: 620px) {
+  .decision-brief-figures {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .decision-fab {
+    right: 16px;
+    bottom: 16px;
+  }
+}
+
+@media print {
+  .decision-fab {
+    display: none;
+  }
+}

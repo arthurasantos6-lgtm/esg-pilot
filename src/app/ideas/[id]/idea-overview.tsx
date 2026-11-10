@@ -1,6 +1,7 @@
 import { displayTitle } from "@/lib/idea-title";
 import Link from "next/link";
 import type { ReactNode } from "react";
+import { OpenDecisionButton } from "@/app/ideas/[id]/decision-dialog";
 import type { FeasibilityScenario } from "@/lib/feasibility";
 import type { Recommendation } from "@/lib/esg-project-proposal";
 import { formatBRL, formatNumber } from "@/lib/idea-finance";
@@ -91,9 +92,9 @@ export function IdeaHero({ idea, date, pillars, initiativeType, showEmail, backL
             />
           </div>
           <div className="idea-hero-actions">
-            <Link className="button button-primary" href={`/ideas/${idea.id}/viabilidade`}>Ver viabilidade</Link>
+            <OpenDecisionButton className="button button-primary">Decidir</OpenDecisionButton>
+            <Link className="button button-secondary" href={`/ideas/${idea.id}/viabilidade`}>Ver viabilidade</Link>
             <a className="button button-secondary" href={`/ideas/${idea.id}/relatorio/pdf`}>Relatório executivo (PDF)</a>
-            <a className="button button-secondary" href="#decision">Decidir</a>
           </div>
         </>
       )}

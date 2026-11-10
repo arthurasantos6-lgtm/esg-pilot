@@ -5,6 +5,7 @@ import { notFound } from "next/navigation";
 import { connection } from "next/server";
 import { z } from "zod";
 import { DecisionHistory } from "@/app/ideas/[id]/decision-history";
+import { DecisionDialog, OpenDecisionButton } from "@/app/ideas/[id]/decision-dialog";
 import { DecisionPanel } from "@/app/ideas/[id]/decision-panel";
 import { EvaluationPanel } from "@/app/ideas/[id]/evaluation-panel";
 import { FeedbackPanel } from "@/app/ideas/[id]/feedback-panel";
@@ -213,6 +214,8 @@ export default async function IdeaDetailPage({
         management={showManagement ? { recommendation: projectProposal?.recommendation ?? null, score: esgScore, likely, hypothetical: feasibility.hypothetical } : null}
       />
 
+      {query.error && <p className="alert alert-error" role="alert">{query.error}</p>}
+      {query.decided && <p className="alert alert-success" role="status">Decisão registrada.</p>}
       {query.responded && (
         <p className="alert alert-success" role="status">Resposta enviada. A ideia voltou para avaliação da gestão.</p>
       )}
@@ -225,7 +228,7 @@ export default async function IdeaDetailPage({
         </div>
       )}
 
-      <div className="detail-grid">
+      <div className={showManagement ? "detail-grid detail-grid-single" : "detail-grid"}>
         <div className="detail-main">
           <IdeaContent
             original={idea.original_description}
@@ -335,19 +338,8 @@ export default async function IdeaDetailPage({
           )}
         </div>
 
-        <aside className="detail-aside">
-          {showManagement ? (
-            <DecisionPanel
-              ideaId={idea.id}
-              status={idea.status}
-              transitions={transitions ?? []}
-              members={members ?? []}
-              responsibleId={idea.responsible_id}
-              followUpDate={idea.follow_up_date}
-              priority={idea.priority}
-              projectsEnabled={parseEnabledModules(organization.enabled_modules).includes("projects")}
-            />
-          ) : (
+        {!showManagement && (
+          <aside className="detail-aside">
             <section className="panel workflow-panel" aria-labelledby="workflow-title">
               <p className="eyebrow">ACOMPANHAMENTO</p>
               <h2 id="workflow-title">Próximos passos</h2>
@@ -364,13 +356,38 @@ export default async function IdeaDetailPage({
                 <a className="button button-primary button-full" href="#feedback">Responder à gestão</a>
               )}
             </section>
-          )}
-          <div className="privacy-note">
-            <span aria-hidden="true">⌑</span>
-            <p><strong>Dados protegidos por organização</strong><br />Esta ideia só pode ser acessada por pessoas autorizadas do ambiente da sua empresa.</p>
-          </div>
-        </aside>
+            <div className="privacy-note">
+              <span aria-hidden="true">⌑</span>
+              <p><strong>Dados protegidos por organização</strong><br />Esta ideia só pode ser acessada por pessoas autorizadas do ambiente da sua empresa.</p>
+            </div>
+          </aside>
+        )}
       </div>
+
+      {showManagement && (
+        <>
+          <DecisionDialog>
+            <DecisionPanel
+              ideaId={idea.id}
+              status={idea.status}
+              transitions={transitions ?? []}
+              members={members ?? []}
+              responsibleId={idea.responsible_id}
+              followUpDate={idea.follow_up_date}
+              priority={idea.priority}
+              projectsEnabled={parseEnabledModules(organization.enabled_modules).includes("projects")}
+              brief={{
+                title: displayTitle(idea.title, idea.original_description),
+                recommendation: projectProposal?.recommendation ?? null,
+                score: esgScore,
+                likely,
+                hypothetical: feasibility.hypothetical,
+              }}
+            />
+          </DecisionDialog>
+          <OpenDecisionButton className="button button-primary decision-fab">Decidir</OpenDecisionButton>
+        </>
+      )}
     </AppShell>
   );
 }
