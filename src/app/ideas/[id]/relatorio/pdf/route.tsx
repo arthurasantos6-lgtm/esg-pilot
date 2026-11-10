@@ -3,6 +3,7 @@ import { z } from "zod";
 import { ExecutiveReport, registerFonts } from "@/app/ideas/[id]/relatorio/pdf/executive-report";
 import { requireCompanyContext } from "@/lib/auth";
 import { buildProjectProposal } from "@/lib/esg-project-proposal";
+import { loadCompanyProfile } from "@/lib/company-profile";
 import { computeFeasibility } from "@/lib/feasibility";
 import { buildExecutionPlan } from "@/lib/idea-execution-plan";
 import { detectInitiativeType, emptyPlan, INITIATIVE_TYPES, parsePlan } from "@/lib/idea-planning";
@@ -29,7 +30,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
     .maybeSingle();
   if (!idea || idea.status === "draft") return new Response("Ideia não encontrada.", { status: 404 });
 
-  const [{ data: decision }, learningBase] = await Promise.all([
+  const [{ data: decision }, learningBase, companyProfile] = await Promise.all([
     supabase
       .from("idea_decisions")
       .select("to_status, justification, created_at")
@@ -38,6 +39,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
       .limit(1)
       .maybeSingle(),
     loadLearningBase(supabase, membership.organization_id),
+    loadCompanyProfile(supabase, membership.organization_id),
   ]);
 
   const proposal = parseStoredProposal(idea.structured_proposal);
@@ -56,6 +58,13 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
       data={{
         origin,
         organization: organization.name,
+        companyLine:
+          [
+            companyProfile?.employees ? `${companyProfile.employees.toLocaleString("pt-BR")} funcionários` : null,
+            [companyProfile?.city, companyProfile?.state].filter(Boolean).join("/") || null,
+          ]
+            .filter(Boolean)
+            .join(" · ") || null,
         generatedAt: new Date(),
         generatedBy: user.email ?? null,
         protocol: ideaProtocol(idea.id),
@@ -76,7 +85,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
               ? { value: assessment.partial_score, partial: true }
               : null,
         recommendation,
-        feasibility: computeFeasibility(plan, references, plan.selection ?? {}),
+        feasibility: computeFeasibility(plan, references, plan.selection ?? {}, companyProfile),
         plan: buildExecutionPlan({ title: idea.title, originalText: idea.original_description ?? "", plan }),
         references,
         lastDecision: decision ? { status: ideaStatusLabel(decision.to_status), justification: decision.justification, at: decision.created_at } : null,

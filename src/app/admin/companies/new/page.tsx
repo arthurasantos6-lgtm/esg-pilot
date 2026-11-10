@@ -3,6 +3,7 @@ import Link from "next/link";
 import { connection } from "next/server";
 import { createOrganization } from "@/app/admin/actions";
 import { AdminShell } from "@/app/admin/components/admin-shell";
+import { CompanyProfileFields } from "@/app/admin/components/company-profile-fields";
 import { requirePlatformAdmin } from "@/lib/auth";
 
 export const metadata: Metadata = { title: "Nova empresa cliente" };
@@ -61,6 +62,8 @@ export default async function NewCompanyPage({
               <span>Projetos ESG (planejamento e indicadores)</span>
             </label>
           </fieldset>
+
+          <CompanyProfileFields profile={null} />
 
           <div className="form-actions">
             <Link className="button button-secondary" href="/admin/companies">Cancelar</Link>

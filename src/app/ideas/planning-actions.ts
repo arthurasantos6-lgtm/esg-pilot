@@ -18,12 +18,14 @@ import {
   PLAN_STEPS,
   REFERENCE_CATEGORIES,
   syncProposalFromPlan,
+  withCompany,
   visibleQuestions,
   type IdeaPlan,
   type InitiativeType,
   type PlanStepKey,
   type ReferenceCategory,
 } from "@/lib/idea-planning";
+import { loadCompanyProfile, planCompanyContext } from "@/lib/company-profile";
 import { blankProposal, parseStoredProposal, type StoredProposal } from "@/lib/idea-proposal";
 import { researchIdea, researchProvider } from "@/lib/research-provider";
 import { SearchUnavailableError } from "@/lib/web-search";
@@ -48,10 +50,12 @@ async function loadIdea(context: CompanyContext, ideaId: string) {
 
 type LoadedIdea = NonNullable<Awaited<ReturnType<typeof loadIdea>>>;
 
-function currentPlan(idea: LoadedIdea) {
+/** Planejamento salvo (ou novo), com as áreas e unidades atuais do perfil da empresa. */
+async function currentPlan(context: CompanyContext, idea: LoadedIdea) {
   const proposal = parseStoredProposal(idea.structured_proposal) ?? blankProposal(idea.title);
-  const plan = parsePlan(proposal.plan) ?? emptyPlan(detectInitiativeType(idea.original_description ?? idea.title));
-  return { proposal, plan };
+  const saved = parsePlan(proposal.plan) ?? emptyPlan(detectInitiativeType(idea.original_description ?? idea.title));
+  const profile = await loadCompanyProfile(context.supabase, context.membership.organization_id);
+  return { proposal, plan: withCompany(saved, planCompanyContext(profile)) };
 }
 
 async function savePlan(context: CompanyContext, idea: LoadedIdea, proposal: StoredProposal, plan: IdeaPlan, requireDraft: boolean) {
@@ -89,7 +93,7 @@ export async function savePlanStep(formData: FormData) {
   if (!idea || idea.author_id !== context.user.id) redirect("/ideas/new?error=Rascunho%20n%C3%A3o%20encontrado.");
   if (idea.status !== "draft") redirect(`/ideas/${idea.id}`);
 
-  const current = currentPlan(idea);
+  const current = await currentPlan(context, idea);
   let plan = current.plan;
   const chosenType = readType(formData.get("initiativeType"));
   const typeChanged = Boolean(chosenType && chosenType !== plan.initiativeType);
@@ -122,7 +126,7 @@ async function requireManagedIdea(formData: FormData, anchor: string) {
   const idea = await loadIdea(context, ideaId.data);
   if (!idea || idea.status === "draft") redirect("/ideas?error=Ideia%20n%C3%A3o%20encontrada.");
   const fail = (message: string): never => redirect(`${url}?error=${enc(message)}#${anchor}`);
-  return { context, idea, url, fail, ...currentPlan(idea) };
+  return { context, idea, url, fail, ...(await currentPlan(context, idea)) };
 }
 
 export async function saveManagerAnswers(formData: FormData) {

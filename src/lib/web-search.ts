@@ -38,7 +38,7 @@ const TARIFF_QUERIES: Partial<Record<InitiativeType, string>> = {
 };
 
 /** Até 8 consultas por pesquisa (1 crédito cada no plano gratuito), a partir da ideia e do tipo. */
-export function buildSearchQueries(type: InitiativeType, title: string, extraTerms: string[] = []): SearchQuery[] {
+export function buildSearchQueries(type: InitiativeType, title: string, extraTerms: string[] = [], state: string | null = null): SearchQuery[] {
   const term = SEARCH_TERMS[type] ?? title.trim().slice(0, 100);
   const pillar = INITIATIVE_TYPES[type].pillar;
   const queries: SearchQuery[] = [
@@ -51,7 +51,8 @@ export function buildSearchQueries(type: InitiativeType, title: string, extraTer
   // Retorno financeiro só faz sentido quando há economia mensurável (pilar ambiental).
   if (pillar === "E") queries.push({ query: `${term} payback retorno do investimento`, category: "roi" });
   const tariff = TARIFF_QUERIES[type];
-  if (tariff) queries.push({ query: tariff, category: "economia" });
+  // Tarifas variam por distribuidora: com o estado do cadastro, a busca fica regional.
+  if (tariff) queries.push({ query: state ? `${tariff} ${state}` : tariff, category: "economia" });
   // A própria ideia, nas palavras de quem enviou (quando o tipo é genérico, já é o termo principal).
   if (SEARCH_TERMS[type]) queries.push({ query: `${title.trim().slice(0, 90)} custo`, category: "preco_equipamento" });
   // Itens que a pessoa disse que seriam comprados (ex.: "reservatório de 5 m³").

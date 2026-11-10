@@ -25,7 +25,7 @@ type Outcome = { references: PlanReference[]; gaps: string[]; notes: string | nu
 /** Busca gratuita (Tavily, sem IA): consultas por regras a partir da ideia e trechos das próprias páginas. */
 async function searchWithTavily(idea: IdeaInput, plan: IdeaPlan): Promise<Outcome> {
   const materials = answerText(plan, "g-materiais");
-  const queries = buildSearchQueries(plan.initiativeType, idea.title, materials ? [materials.slice(0, 80)] : []);
+  const queries = buildSearchQueries(plan.initiativeType, idea.title, materials ? [materials.slice(0, 80)] : [], plan.company?.state ?? null);
   const { batches, failed } = await runWebSearch(process.env.TAVILY_API_KEY?.trim() ?? "", queries);
   const references = resultsToReferences(batches, new Date(), randomUUID);
   const notes = [`Consultas: ${queries.map((item) => `"${item.query}"`).join(", ")}.`, failed ? `${failed} de ${queries.length} consultas falharam.` : null]

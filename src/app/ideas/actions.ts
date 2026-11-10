@@ -35,7 +35,8 @@ import {
   readProposalForm,
   type StoredProposal,
 } from "@/lib/idea-proposal";
-import { detectInitiativeType, emptyPlan, parsePlan, planAnswersText } from "@/lib/idea-planning";
+import { loadCompanyProfile, planCompanyContext } from "@/lib/company-profile";
+import { detectInitiativeType, emptyPlan, parsePlan, planAnswersText, withCompany } from "@/lib/idea-planning";
 import { researchAutomatically } from "@/lib/research-provider";
 import { buildLocalAnalysis } from "@/lib/local-analysis";
 import { createServiceClient } from "@/lib/supabase/admin";
@@ -363,7 +364,11 @@ export async function saveProposal(formData: FormData) {
 
   // Pesquisa de mercado automática (busca gratuita), feita antes do envio porque
   // depois dele o colaborador não pode mais gravar na ideia. Falha não impede o envio.
-  const plannedFor = parsePlan(proposal.plan) ?? emptyPlan(detectInitiativeType(`${idea.title} ${idea.original_description ?? ""}`));
+  const profile = await loadCompanyProfile(context.supabase, context.membership.organization_id);
+  const plannedFor = withCompany(
+    parsePlan(proposal.plan) ?? emptyPlan(detectInitiativeType(`${idea.title} ${idea.original_description ?? ""}`)),
+    planCompanyContext(profile),
+  );
   const researched = await researchAutomatically(idea, plannedFor);
   if (researched.research) proposal.plan = researched;
 

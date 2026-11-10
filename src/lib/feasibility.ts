@@ -1,4 +1,5 @@
 import { estimateSavings, formatBRL, formatNumber, SCENARIOS, type SavingsEstimate, type ScenarioKey } from "./idea-finance.ts";
+import type { CompanyProfile } from "./company-profile.ts";
 import { numberAnswer, type IdeaPlan, type InitiativeType, type PlanReference, type ReferenceCategory } from "./idea-planning.ts";
 
 /**
@@ -230,7 +231,7 @@ export type Feasibility = {
   groups: GroupSummary[];
   informedInvestment: number | null;
   informedRecurring: number | null;
-  tariff: { range: Range; source: "colaborador" | "pesquisa" | "hipotetico" } | null;
+  tariff: { range: Range; source: "colaborador" | "empresa" | "pesquisa" | "hipotetico" } | null;
   savings: SavingsEstimate | null;
   investmentSource: "pesquisa" | "colaborador" | "hipotetico";
   /** meta = economia necessária para atingir o payback-alvo, não uma estimativa. */
@@ -255,12 +256,13 @@ const SAVINGS_INPUTS: Partial<Record<InitiativeType, string[]>> = {
 };
 
 /** Economia anual hipotética por regra do tipo, quando há algum número nas respostas. */
-function hypotheticalBenefit(plan: IdeaPlan): { value: number; premise: string } | null {
+function hypotheticalBenefit(plan: IdeaPlan, company: CompanyProfile | null): { value: number; premise: string } | null {
   const n = (id: string) => numberAnswer(plan, id);
   switch (plan.initiativeType) {
     case "solar": {
-      const bill = n("so-conta");
-      if (bill) return { value: bill * 12 * 0.8, premise: `80% da conta de luz informada (${formatBRL(bill)}/mês) passaria a ser compensada pela geração.` };
+      const bill = n("so-conta") ?? company?.energyBill ?? null;
+      const whose = n("so-conta") ? "informada" : "do cadastro da empresa";
+      if (bill) return { value: bill * 12 * 0.8, premise: `80% da conta de luz ${whose} (${formatBRL(bill)}/mês) passaria a ser compensada pela geração.` };
       const kwh = n("so-consumo");
       if (kwh) return { value: kwh * 12 * HYPOTHETICAL_TARIFF.kWh * 0.8, premise: `80% do consumo informado (${formatNumber(kwh)} kWh/mês) compensado, a ${formatBRL(HYPOTHETICAL_TARIFF.kWh)}/kWh.` };
       return null;
@@ -290,7 +292,12 @@ const sumRange = (ranges: Range[]): Range => ({
   max: ranges.reduce((total, range) => total + range.max, 0),
 });
 
-export function computeFeasibility(plan: IdeaPlan, references: PlanReference[], selection: Partial<Selection> = {}): Feasibility {
+export function computeFeasibility(
+  plan: IdeaPlan,
+  references: PlanReference[],
+  selection: Partial<Selection> = {},
+  company: CompanyProfile | null = null,
+): Feasibility {
   const candidates = priceCandidates(references, plan.initiativeType);
   const selectedIds = selection.selected ?? defaultSelection(candidates);
   const chosen = candidates.filter((candidate) => selectedIds.includes(candidate.id));
@@ -363,26 +370,31 @@ export function computeFeasibility(plan: IdeaPlan, references: PlanReference[], 
   const tariffInfo = TARIFF_UNIT[plan.initiativeType];
   const answeredTariff = tariffInfo ? numberAnswer(plan, tariffInfo.question) : null;
   const tariffGroup = groups.find((group) => group.group === "tarifa");
-  const physical = estimateSavings(plan, 1);
+  const operatingDays = company?.operatingDays ?? null;
+  const physical = estimateSavings(plan, 1, operatingDays);
+  const companyTariff = tariffInfo ? (tariffInfo.unit === "kWh" ? company?.energyTariff : company?.waterTariff) ?? null : null;
   let tariff: Feasibility["tariff"] = answeredTariff
     ? { range: fixed(answeredTariff), source: "colaborador" }
-    : tariffGroup
-      ? { range: tariffGroup.unitPrice, source: "pesquisa" }
-      : null;
+    : companyTariff
+      ? { range: fixed(companyTariff), source: "empresa" }
+      : tariffGroup
+        ? { range: tariffGroup.unitPrice, source: "pesquisa" }
+        : null;
   if (!tariff && tariffInfo && physical) {
     const value = HYPOTHETICAL_TARIFF[tariffInfo.unit];
     tariff = { range: spread(value, BENEFIT_SPREAD), source: "hipotetico" };
     hypotheses.push(`Tarifa de referência de ${formatBRL(value)} por ${tariffInfo.unit} (±20%), por não ter sido informada nem encontrada na pesquisa.`);
   }
-  const savings = estimateSavings(plan, tariff?.range.median ?? null);
+  const savings = estimateSavings(plan, tariff?.range.median ?? null, operatingDays);
   if (tariff && tariff.source !== "hipotetico") {
-    memory.push(`Tarifa ${tariff.source === "colaborador" ? "informada pelo colaborador" : "pesquisada"}: ${formatBRL(tariff.range.min)} a ${formatBRL(tariff.range.max)} por ${tariffInfo?.unit}.`);
+    const origin = { colaborador: "informada pelo colaborador", empresa: "do cadastro da empresa", pesquisa: "pesquisada" }[tariff.source];
+    memory.push(`Tarifa ${origin}: ${formatBRL(tariff.range.min)} a ${formatBRL(tariff.range.max)} por ${tariffInfo?.unit}.`);
   }
   if (savings) memory.push(`Economia física estimada pelas respostas: ${formatNumber(savings.quantity)} ${savings.unit} (${savings.formula.replace(/ × R\$.*$/, "")}).`);
 
   // 4. Economia anual: gestão > estimativa pelas respostas > regra hipotética > meta de payback.
   const benefitOverride = selection.benefitOverride && selection.benefitOverride > 0 ? selection.benefitOverride : null;
-  const ruleBenefit = hypotheticalBenefit(plan);
+  const ruleBenefit = hypotheticalBenefit(plan, company);
   let benefitSource: Feasibility["benefitSource"];
   let benefitRange: Range | null = null;
   if (benefitOverride) {

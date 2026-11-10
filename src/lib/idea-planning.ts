@@ -281,7 +281,28 @@ const REPLACEABLE_GENERAL: MinimumItem[] = ["local", "escopo"];
 /** Perguntas de "quem executa": com elas, a pergunta geral de terceiros vira detalhe condicional. */
 const WHO_EXECUTES_QUESTIONS = ["il-instalacao", "so-instalacao", "ca-instrutor"];
 
-export function questionsFor(type: InitiativeType): PlanQuestion[] {
+/** Áreas, unidades e estado da empresa (do perfil), guardados no planejamento. */
+export type CompanyContext = { areas: string[]; units: string[]; state: string | null };
+
+/** Com o perfil da empresa, local, setor e áreas envolvidas viram opções da própria empresa. */
+function withCompanyOptions(question: PlanQuestion, company: CompanyContext | undefined): PlanQuestion {
+  if (!company) return question;
+  const places = [...new Set([...company.units, ...company.areas])].slice(0, 24);
+  if (question.id === "g-local" && places.length) {
+    return { ...question, kind: "multi", options: places, text: "Em quais unidades ou áreas isso seria feito?", hint: "Marque todas que se aplicam." };
+  }
+  if (question.id === "g-pessoas" && company.areas.length) return { ...question, options: company.areas };
+  if (question.id === "se-setor" && company.areas.length) {
+    return { ...question, kind: "choice", options: company.areas, text: "Em qual área ou setor?", hint: undefined };
+  }
+  return question;
+}
+
+export function questionsFor(type: InitiativeType, company?: CompanyContext): PlanQuestion[] {
+  return baseQuestionsFor(type).map((question) => withCompanyOptions(question, company));
+}
+
+function baseQuestionsFor(type: InitiativeType): PlanQuestion[] {
   const covered = itemsCoveredBy(type);
   const general = GENERAL.filter((question) => !(REPLACEABLE_GENERAL.includes(question.item) && covered.has(question.item)));
   // Quando o tipo pergunta quem instala, a pergunta geral de fornecedores vira condicional a ela.
@@ -413,6 +434,8 @@ export const planSchema = z.object({
   research: researchSchema.nullable(),
   /** Itens da pesquisa escolhidos pela gestão para o cálculo (ausente = pré-seleção automática). */
   selection: selectionSchema.nullable().optional(),
+  /** Áreas, unidades e estado da empresa no momento do preenchimento. */
+  company: z.object({ areas: z.array(z.string()), units: z.array(z.string()), state: z.string().nullable() }).optional(),
   updatedAt: z.string(),
 });
 export type IdeaPlan = z.infer<typeof planSchema>;
@@ -420,6 +443,11 @@ export type IdeaPlan = z.infer<typeof planSchema>;
 export function parsePlan(value: unknown): IdeaPlan | null {
   const parsed = planSchema.safeParse(value);
   return parsed.success ? parsed.data : null;
+}
+
+/** Atualiza no planejamento as áreas, unidades e estado do perfil da empresa. */
+export function withCompany(plan: IdeaPlan, company: CompanyContext | undefined): IdeaPlan {
+  return company ? { ...plan, company } : plan;
 }
 
 export function emptyPlan(type: InitiativeType, now = new Date()): IdeaPlan {
@@ -470,7 +498,7 @@ export function isVisible(question: PlanQuestion, answers: Record<string, PlanAn
 }
 
 export function visibleQuestions(plan: IdeaPlan, step?: PlanStepKey) {
-  return questionsFor(plan.initiativeType).filter(
+  return questionsFor(plan.initiativeType, plan.company).filter(
     (question) => (!step || question.step === step) && isVisible(question, plan.answers),
   );
 }
@@ -488,8 +516,9 @@ export function applyAnswerForm(
   const answers = { ...plan.answers };
   const errors: string[] = [];
   const shown = String(formData.get("shown") ?? "").split(",").filter(Boolean);
+  const current = questionsFor(plan.initiativeType, plan.company);
   for (const id of shown) {
-    const question = findPlanQuestion(id);
+    const question = current.find((item) => item.id === id) ?? findPlanQuestion(id);
     if (!question) continue;
     // Várias escolhas: só opções válidas, na ordem da pergunta.
     const picked = formData.getAll(`answer:${id}`).map(String);

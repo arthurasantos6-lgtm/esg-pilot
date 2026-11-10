@@ -15,6 +15,7 @@ import { parseEnabledModules, requireCompanyContext } from "@/lib/auth";
 import { buildProjectProposal } from "@/lib/esg-project-proposal";
 import { loadLearningBase } from "@/lib/learning-base";
 import { isAiAvailable } from "@/lib/idea-ai";
+import { loadCompanyProfile } from "@/lib/company-profile";
 import { computeFeasibility } from "@/lib/feasibility";
 import { detectInitiativeType, emptyPlan, INITIATIVE_TYPES, parsePlan } from "@/lib/idea-planning";
 import { parseStoredProposal } from "@/lib/idea-proposal";
@@ -152,10 +153,12 @@ export default async function IdeaDetailPage({
   const proposal = parseStoredProposal(idea.structured_proposal);
   const plan = parsePlan(proposal?.plan);
   // Toda ideia tem ROI e payback: sem plano, o cálculo parte de um plano vazio (cenário hipotético).
+  const companyProfile = showManagement ? await loadCompanyProfile(supabase, membership.organization_id) : null;
   const feasibility = computeFeasibility(
     plan ?? emptyPlan(detectInitiativeType(`${idea.title} ${idea.original_description ?? ""}`)),
     plan?.research?.references ?? [],
     plan?.selection ?? {},
+    companyProfile,
   );
   const likely = feasibility.scenarios[1];
   const localAnalysis = readLocalAnalysis(idea.analysis);

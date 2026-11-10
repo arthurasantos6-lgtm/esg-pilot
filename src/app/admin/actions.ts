@@ -5,7 +5,23 @@ import { redirect } from "next/navigation";
 import { z } from "zod";
 import { COMPANY_MODULES, requirePlatformAdmin } from "@/lib/auth";
 import { readCreateLinkForm } from "@/lib/access-links";
+import { readProfileForm } from "@/lib/company-profile";
 import { logAudit } from "@/lib/platform-audit";
+import type { Json } from "@/lib/supabase/database.types";
+
+type AdminSupabase = Awaited<ReturnType<typeof requirePlatformAdmin>>["supabase"];
+
+/**
+ * Grava o perfil à parte: se a migração 20261105 ainda não foi aplicada, o
+ * cadastro da empresa funciona e só o perfil fica de fora (avisado na tela).
+ */
+async function saveProfile(supabase: AdminSupabase, organizationId: string, formData: FormData) {
+  const { error } = await supabase
+    .from("organizations")
+    .update({ profile: readProfileForm(formData) as unknown as Json })
+    .eq("id", organizationId);
+  return !error;
+}
 
 const organizationSchema = z.object({
   name: z.string().trim().min(2, "Informe o nome da empresa.").max(160),
@@ -52,9 +68,10 @@ export async function createOrganization(formData: FormData) {
     name: parsed.data.name,
     status: parsed.data.status,
   });
+  const profileSaved = await saveProfile(supabase, data.id, formData);
 
   revalidatePath("/admin/companies");
-  redirect(`/admin/companies/${data.id}`);
+  redirect(`/admin/companies/${data.id}${profileSaved ? "" : "?profile=pending"}`);
 }
 
 const updateOrganizationSchema = organizationSchema.extend({
@@ -99,9 +116,11 @@ export async function updateOrganization(formData: FormData) {
     modules: parsed.data.modules ?? [],
   });
 
+  const profileSaved = await saveProfile(supabase, parsed.data.organizationId, formData);
+
   revalidatePath("/admin/companies");
   revalidatePath(`/admin/companies/${parsed.data.organizationId}`);
-  redirect(`/admin/companies/${parsed.data.organizationId}?updated=1`);
+  redirect(`/admin/companies/${parsed.data.organizationId}?updated=1${profileSaved ? "" : "&profile=pending"}`);
 }
 
 const addMembershipSchema = z.object({

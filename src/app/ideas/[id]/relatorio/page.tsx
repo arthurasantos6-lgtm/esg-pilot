@@ -9,6 +9,7 @@ import { AppShell } from "@/app/components/app-shell";
 import { PrintButton } from "@/app/components/print-button";
 import { requireCompanyContext } from "@/lib/auth";
 import { buildExecutionPlan } from "@/lib/idea-execution-plan";
+import { loadCompanyProfile } from "@/lib/company-profile";
 import { computeFeasibility, type Feasibility } from "@/lib/feasibility";
 import { formatBRL, formatNumber } from "@/lib/idea-finance";
 import {
@@ -77,7 +78,8 @@ export default async function InitiativeReportPage({ params }: { params: Promise
   const proposal = parseStoredProposal(idea.structured_proposal);
   const plan = parsePlan(proposal?.plan) ?? emptyPlan(detectInitiativeType(idea.original_description ?? idea.title));
   const execution = buildExecutionPlan({ title: idea.title, originalText: idea.original_description ?? "", plan });
-  const feasibility = computeFeasibility(plan, plan.research?.references ?? [], plan.selection ?? {});
+  const companyProfile = await loadCompanyProfile(supabase, membership.organization_id);
+  const feasibility = computeFeasibility(plan, plan.research?.references ?? [], plan.selection ?? {}, companyProfile);
   const references = plan.research?.references ?? [];
   const likely = feasibility.scenarios[1];
   const pending = [

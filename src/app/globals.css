@@ -3241,3 +3241,48 @@ a.metric-card-link {
   margin: 0 0 6px;
   font-size: 13px;
 }
+
+/* Perfil da empresa no cadastro -------------------------------------------- */
+
+.profile-fieldset label {
+  display: grid;
+  gap: 4px;
+}
+
+.profile-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px;
+  margin: 8px 0;
+}
+
+.profile-grid-2 {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.profile-grid input,
+.profile-grid select,
+.profile-grid textarea,
+.profile-fieldset > label textarea {
+  width: 100%;
+}
+
+.profile-priorities {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 14px;
+}
+
+@media (max-width: 760px) {
+  .profile-grid,
+  .profile-grid-2 {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
+@media (max-width: 480px) {
+  .profile-grid,
+  .profile-grid-2 {
+    grid-template-columns: 1fr;
+  }
+}

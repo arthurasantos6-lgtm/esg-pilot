@@ -22,7 +22,9 @@ import {
   planProgress,
   PLAN_STEPS,
   visibleQuestions,
+  withCompany,
 } from "@/lib/idea-planning";
+import { loadCompanyProfile, planCompanyContext } from "@/lib/company-profile";
 import { blankProposal, parseStoredProposal } from "@/lib/idea-proposal";
 import { researchAutomatically, researchProvider } from "@/lib/research-provider";
 import type { Json } from "@/lib/supabase/database.types";
@@ -66,7 +68,11 @@ export default async function FeasibilityPage({
   if (!idea || idea.status === "draft") notFound();
 
   const proposal = parseStoredProposal(idea.structured_proposal);
-  let plan = parsePlan(proposal?.plan) ?? emptyPlan(detectInitiativeType(idea.original_description ?? idea.title));
+  const profile = await loadCompanyProfile(supabase, membership.organization_id);
+  let plan = withCompany(
+    parsePlan(proposal?.plan) ?? emptyPlan(detectInitiativeType(idea.original_description ?? idea.title)),
+    planCompanyContext(profile),
+  );
 
   // Ideias enviadas antes da pesquisa automática (ou se ela falhou no envio): pesquisa agora, uma vez.
   if (!plan.research) {
@@ -82,7 +88,7 @@ export default async function FeasibilityPage({
   }
 
   const references = plan.research?.references ?? [];
-  const feasibility = computeFeasibility(plan, references, plan.selection ?? {});
+  const feasibility = computeFeasibility(plan, references, plan.selection ?? {}, profile);
   const executionPlan = buildExecutionPlan({ title: idea.title, originalText: idea.original_description ?? "", plan });
   const progress = planProgress(plan);
   const questions = visibleQuestions(plan);

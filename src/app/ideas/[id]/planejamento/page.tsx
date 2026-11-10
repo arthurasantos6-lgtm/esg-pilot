@@ -19,8 +19,10 @@ import {
   planProgress,
   PLAN_STEPS,
   visibleQuestions,
+  withCompany,
   type PlanStepKey,
 } from "@/lib/idea-planning";
+import { loadCompanyProfile, planCompanyContext } from "@/lib/company-profile";
 import { parseStoredProposal } from "@/lib/idea-proposal";
 
 export const metadata: Metadata = { title: "Planejamento da ideia" };
@@ -53,7 +55,11 @@ export default async function PlanningPage({
   if (idea.author_id !== user.id || idea.status !== "draft") redirect(`/ideas/${idea.id}`);
 
   const proposal = parseStoredProposal(idea.structured_proposal);
-  const plan = parsePlan(proposal?.plan) ?? emptyPlan(detectInitiativeType(idea.original_description ?? idea.title));
+  const profile = await loadCompanyProfile(supabase, membership.organization_id);
+  const plan = withCompany(
+    parsePlan(proposal?.plan) ?? emptyPlan(detectInitiativeType(idea.original_description ?? idea.title)),
+    planCompanyContext(profile),
+  );
   const isPlanView = query.etapa === "plano";
   const step: PlanStepKey = PLAN_STEPS.find(({ key }) => key === query.etapa)?.key ?? "ideia";
   const stepIndex = PLAN_STEPS.findIndex(({ key }) => key === step);

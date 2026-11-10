@@ -133,6 +133,8 @@ function Table({ columns, rows }: { columns: { label: string; width: string; ali
 export type ExecutiveReportData = {
   origin: string;
   organization: string;
+  /** Ex.: "250 funcionários · Serra/ES" (do perfil da empresa). */
+  companyLine: string | null;
   generatedAt: Date;
   generatedBy: string | null;
   protocol: string;
@@ -186,6 +188,7 @@ export function ExecutiveReport({ data }: { data: ExecutiveReportData }) {
           <View>
             <Text style={s.docType}>RELATÓRIO EXECUTIVO</Text>
             <Text style={[s.small, { textAlign: "right" }]}>{data.organization}</Text>
+            {data.companyLine && <Text style={[s.small, { textAlign: "right" }]}>{data.companyLine}</Text>}
           </View>
         </View>
         <View style={s.stripe}>

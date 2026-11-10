@@ -13,6 +13,8 @@ import {
 import { AccessLinksPanel } from "@/app/components/access-links-panel";
 import { AdminIdeasTable } from "@/app/admin/components/admin-ideas-table";
 import { AdminShell } from "@/app/admin/components/admin-shell";
+import { CompanyProfileFields } from "@/app/admin/components/company-profile-fields";
+import { parseCompanyProfile } from "@/lib/company-profile";
 import { requirePlatformAdmin } from "@/lib/auth";
 import { memberDisplayName } from "@/lib/members";
 
@@ -40,6 +42,7 @@ export default async function CompanyDetailPage({
     memberUpdated?: string;
     linkCreated?: string;
     linkRevoked?: string;
+    profile?: string;
   }>;
 }) {
   await connection();
@@ -63,6 +66,9 @@ export default async function CompanyDetailPage({
   if (!organization) notFound();
   if (membersError) throw new Error(`Não foi possível carregar os usuários: ${membersError.message}`);
 
+  // Sem a migração 20261105, a coluna não existe e o perfil fica vazio.
+  const profileColumn = "profile" in organization;
+  const profile = profileColumn ? parseCompanyProfile(organization.profile) : null;
   const enabledModules = Array.isArray(organization.enabled_modules)
     ? organization.enabled_modules.filter((item): item is string => typeof item === "string")
     : [];
@@ -80,6 +86,9 @@ export default async function CompanyDetailPage({
 
       {query.error && <p className="alert alert-error" role="alert">{query.error}</p>}
       {query.updated && <p className="alert alert-success" role="status">Empresa atualizada com sucesso.</p>}
+      {query.profile === "pending" && (
+        <p className="alert alert-error" role="alert">A empresa foi salva, mas o perfil não: aplique a migração 20261105_organization_profile.sql no Supabase.</p>
+      )}
       {query.memberAdded && <p className="alert alert-success" role="status">Usuário vinculado com sucesso.</p>}
       {query.memberUpdated && <p className="alert alert-success" role="status">Vínculo atualizado com sucesso.</p>}
       {query.linkCreated && <p className="alert alert-success" role="status">Link de acesso gerado.</p>}
@@ -121,6 +130,11 @@ export default async function CompanyDetailPage({
                 <span>Projetos ESG (planejamento e indicadores)</span>
               </label>
             </fieldset>
+
+            {!profileColumn && (
+              <p className="alert alert-info">O perfil da empresa só é salvo depois de aplicar a migração 20261105_organization_profile.sql no Supabase.</p>
+            )}
+            <CompanyProfileFields profile={profile} />
 
             <div className="form-actions">
               <button className="button button-primary" type="submit">Salvar alterações</button>

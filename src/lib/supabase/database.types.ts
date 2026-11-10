@@ -31,6 +31,8 @@ type Organization = {
   company_size: string | null;
   status: "trial" | "active" | "suspended" | "inactive";
   enabled_modules: Json;
+  /** Migração 20261105; pode não existir em bancos antigos (ler com loadCompanyProfile). */
+  profile?: Json;
   created_at: string;
   updated_at: string;
 };
