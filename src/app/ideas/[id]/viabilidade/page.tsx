@@ -1,3 +1,4 @@
+import { displayTitle } from "@/lib/idea-title";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
@@ -106,7 +107,7 @@ export default async function FeasibilityPage({
         <div>
           <Link className="back-link" href={`/ideas/${idea.id}`}>← Voltar para a ideia</Link>
           <p className="eyebrow">VIABILIDADE</p>
-          <h1>{idea.title}</h1>
+          <h1>{displayTitle(idea.title, idea.original_description)}</h1>
           <p className="muted">
             {INITIATIVE_TYPES[plan.initiativeType].label} · {references.length} fontes pesquisadas · {progress.percent}% das perguntas respondidas
           </p>

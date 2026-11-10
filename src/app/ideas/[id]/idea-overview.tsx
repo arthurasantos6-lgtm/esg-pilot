@@ -1,3 +1,4 @@
+import { displayTitle } from "@/lib/idea-title";
 import Link from "next/link";
 import type { ReactNode } from "react";
 import type { FeasibilityScenario } from "@/lib/feasibility";
@@ -44,7 +45,7 @@ export function IdeaHero({ idea, date, pillars, initiativeType, showEmail, backL
       <div className="idea-hero-top">
         <div>
           <p className="eyebrow">IDEIA ESG · PROTOCOLO {ideaProtocol(idea.id)}</p>
-          <h1>{idea.title}</h1>
+          <h1>{displayTitle(idea.title)}</h1>
           <p className="idea-hero-meta">
             {idea.author_name && <span>Por <strong>{idea.author_name}</strong>{showEmail && idea.author_email ? ` (${idea.author_email})` : ""}</span>}
             <span>{date}</span>

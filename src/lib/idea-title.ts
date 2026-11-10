@@ -67,3 +67,18 @@ export function shortTitle(description: string): string {
   if (title.length < 3) return FALLBACK_TITLE;
   return title.charAt(0).toLocaleUpperCase("pt-BR") + title.slice(1);
 }
+
+const MAX_DISPLAY_WORDS = 8;
+
+/**
+ * Título para exibir em listas, painéis e relatórios: o título salvo, se já for
+ * curto; senão, a versão curta dele (ou do texto original). Não altera o dado salvo.
+ */
+export function displayTitle(title: string, original?: string | null): string {
+  const clean = title.trim();
+  const short = clean.length <= MAX_LENGTH && clean.split(/\s+/).length <= MAX_DISPLAY_WORDS && !clean.endsWith("…");
+  if (clean.length >= 3 && short) return clean;
+  const fromTitle = shortTitle(clean.replace(/…$/, ""));
+  if (fromTitle !== FALLBACK_TITLE) return fromTitle;
+  return shortTitle(original ?? "");
+}

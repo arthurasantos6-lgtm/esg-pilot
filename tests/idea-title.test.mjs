@@ -1,7 +1,7 @@
 // Textos fictícios. Verificam o título curto gerado a partir da ideia.
 import assert from "node:assert/strict";
 import test from "node:test";
-import { FALLBACK_TITLE, shortTitle } from "../src/lib/idea-title.ts";
+import { displayTitle, FALLBACK_TITLE, shortTitle } from "../src/lib/idea-title.ts";
 
 test("the title is short and comes from what the person proposes", () => {
   const cases = [
@@ -21,4 +21,14 @@ test("titles never exceed the limit and never end on a connector", () => {
   assert.equal(shortTitle(""), FALLBACK_TITLE);
   assert.equal(shortTitle("ok"), FALLBACK_TITLE);
   assert.equal(shortTitle("Sugiro"), FALLBACK_TITLE);
+});
+
+test("long saved titles are shown short, short ones are kept", () => {
+  assert.equal(
+    displayTitle("Acho que a empresa poderia colocar sensores de presença nas áreas onde as luzes…"),
+    "Colocar sensores de presença nas áreas",
+  );
+  assert.equal(displayTitle("Troca de lâmpadas"), "Troca de lâmpadas");
+  assert.equal(displayTitle("Uso exagerado de copos de plásticos"), "Uso exagerado de copos de plásticos");
+  assert.equal(displayTitle("…", "Sugiro trocar os copos de plástico por canecas."), "Trocar os copos de plástico por canecas");
 });

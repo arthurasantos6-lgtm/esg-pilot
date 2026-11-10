@@ -1,3 +1,4 @@
+import { displayTitle } from "@/lib/idea-title";
 import { renderToBuffer } from "@react-pdf/renderer";
 import { z } from "zod";
 import { ExecutiveReport, registerFonts } from "@/app/ideas/[id]/relatorio/pdf/executive-report";
@@ -69,7 +70,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
         generatedBy: user.email ?? null,
         protocol: ideaProtocol(idea.id),
         idea: {
-          title: idea.title,
+          title: displayTitle(idea.title, idea.original_description),
           status: ideaStatusLabel(idea.status),
           author: idea.author_name,
           submittedAt: idea.submitted_at,

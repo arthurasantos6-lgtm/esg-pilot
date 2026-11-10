@@ -1,3 +1,4 @@
+import { displayTitle } from "@/lib/idea-title";
 import Link from "next/link";
 import { ideaStatusLabel } from "@/lib/idea-status";
 
@@ -33,7 +34,7 @@ export function AdminIdeasTable({ ideas, showCompany }: { ideas: AdminIdeaRow[];
         <tbody>
           {ideas.map((idea) => (
             <tr key={idea.id}>
-              <td><strong>{idea.title}</strong></td>
+              <td><strong>{displayTitle(idea.title)}</strong></td>
               {showCompany && (
                 <td><Link className="text-link" href={`/admin/companies/${idea.organization_id}`}>{idea.organization_name}</Link></td>
               )}

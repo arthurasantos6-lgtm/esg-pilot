@@ -1,3 +1,4 @@
+import { displayTitle } from "@/lib/idea-title";
 import Link from "next/link";
 import { BarList, MonthlyColumns } from "@/app/dashboard/charts";
 import type { requireCompanyContext } from "@/lib/auth";
@@ -240,7 +241,7 @@ export async function ManagerDashboard({
                 <li key={idea.id}>
                   <Link className="attention-item" href={`/ideas/${idea.id}`}>
                     <span className="attention-main">
-                      <strong>{idea.title}</strong>
+                      <strong>{displayTitle(idea.title, idea.original_description)}</strong>
                       <span className="small-copy muted">
                         {idea.author_name ?? "Colaborador"}{idea.area ? ` · ${idea.area}` : ""} · {ideaStatusLabel(idea.status)}
                       </span>
@@ -310,7 +311,7 @@ export async function ManagerDashboard({
                 {topReturns.map(({ idea, likely, hypothetical }) => (
                   <li key={idea.id}>
                     <Link href={`/ideas/${idea.id}/viabilidade`}>
-                      <span>{idea.title}</span>
+                      <span>{displayTitle(idea.title, idea.original_description)}</span>
                       <strong>
                         ROI {formatNumber(likely.roiPercent ?? 0)}%
                         {likely.paybackYears !== null && <span className="small-copy muted"> · {formatNumber(likely.paybackYears)} anos</span>}

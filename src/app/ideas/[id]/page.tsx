@@ -1,3 +1,4 @@
+import { displayTitle } from "@/lib/idea-title";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
@@ -261,7 +262,7 @@ export default async function IdeaDetailPage({
               <ul className="evaluation-list">
                 {similarIdeas.map(({ idea: other, similarity }) => (
                   <li key={other.id}>
-                    <Link className="text-link" href={`/ideas/${other.id}`}>{other.title}</Link> · {Math.round(similarity * 100)}% de termos em comum
+                    <Link className="text-link" href={`/ideas/${other.id}`}>{displayTitle(other.title, other.original_description)}</Link> · {Math.round(similarity * 100)}% de termos em comum
                   </li>
                 ))}
               </ul>

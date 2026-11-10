@@ -1,3 +1,4 @@
+import { displayTitle } from "@/lib/idea-title";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { redirect } from "next/navigation";
@@ -192,7 +193,7 @@ export default async function IdeasPage({
                   {ideas.map((idea) => (
                     <tr key={idea.id}>
                       <td>
-                        <Link className="idea-title-link" href={idea.status === "draft" ? `/ideas/${idea.id}/review` : `/ideas/${idea.id}`}>{idea.title}</Link>
+                        <Link className="idea-title-link" href={idea.status === "draft" ? `/ideas/${idea.id}/review` : `/ideas/${idea.id}`}>{displayTitle(idea.title, idea.original_description)}</Link>
                         <span className="table-subtitle">
                           {idea.author_id === user.id ? nextStepForAuthor(idea.status) : idea.author_name ? `Enviada por ${idea.author_name}` : "Enviada pela equipe"}
                         </span>
@@ -229,7 +230,7 @@ export default async function IdeasPage({
                       <td>{idea.area || "Não informada"}</td>
                       <td><span className={`status-badge status-badge-${idea.status}`}>{ideaStatusLabel(idea.status)}</span></td>
                       <td>{new Intl.DateTimeFormat("pt-BR", { dateStyle: "medium" }).format(new Date(idea.created_at))}</td>
-                      <td><Link className="row-link" href={`/ideas/${idea.id}`} aria-label={`Abrir ${idea.title}`}>→</Link></td>
+                      <td><Link className="row-link" href={`/ideas/${idea.id}`} aria-label={`Abrir ${displayTitle(idea.title, idea.original_description)}`}>→</Link></td>
                     </tr>
                   ))}
                 </tbody>

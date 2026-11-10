@@ -1,3 +1,4 @@
+import { displayTitle } from "@/lib/idea-title";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
@@ -95,7 +96,7 @@ export default async function InitiativeReportPage({ params }: { params: Promise
         <div>
           <Link className="back-link no-print" href={`/ideas/${idea.id}/viabilidade`}>← Voltar para a viabilidade</Link>
           <p className="eyebrow">RELATÓRIO DA INICIATIVA · {ideaProtocol(idea.id)}</p>
-          <h1>{idea.title}</h1>
+          <h1>{displayTitle(idea.title, idea.original_description)}</h1>
           <p className="muted">
             {execution.identification.pillar} · {execution.identification.initiativeType} · {ideaStatusLabel(idea.status)}
             {idea.submitted_at ? ` · enviada em ${dateFormat.format(new Date(idea.submitted_at))}` : ""}
