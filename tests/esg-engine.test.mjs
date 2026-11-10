@@ -4,7 +4,7 @@ import { readFileSync } from "node:fs";
 import test from "node:test";
 import { encodeWav, isWav, MAX_WAV_BYTES, MIN_AUDIBLE_PEAK, normalizeVolume, peakLevel } from "../src/lib/audio-wav.ts";
 import { NO_SPEECH_MARKER, readTranscription } from "../src/lib/ai/transcription-response.ts";
-import { resolveTranscriptionConfig } from "../src/lib/ai/config.ts";
+import { resolveDedicatedTranscription, resolveTranscriptionConfig } from "../src/lib/ai/config.ts";
 import {
   computeEsgScore,
   ESG_CRITERIA,
@@ -127,6 +127,12 @@ test("transcription has its own model and falls back to the main one", () => {
   assert.equal(resolveTranscriptionConfig({ AI_PROVIDER: "groq", AI_MODEL: "m" }), null);
   assert.equal(resolveTranscriptionConfig({ AI_PROVIDER: "ollama", AI_API_KEY: "k", AI_MODEL: "m" }), null);
   assert.equal(resolveTranscriptionConfig({ AI_PROVIDER: "gemini", AI_MODEL: "m" }), null);
+});
+
+test("audio can use Groq on its own key, without turning on the external AI", () => {
+  assert.equal(resolveDedicatedTranscription({}), null);
+  assert.deepEqual(resolveDedicatedTranscription({ GROQ_API_KEY: " gsk_x " }), { provider: "groq", models: ["whisper-large-v3-turbo"], apiKey: "gsk_x" });
+  assert.deepEqual(resolveDedicatedTranscription({ GROQ_API_KEY: "k", GROQ_TRANSCRIPTION_MODEL: "whisper-large-v3" })?.models, ["whisper-large-v3"]);
 });
 
 test("the knowledge import has 40 unique records, allowed categories and is safe to rerun", () => {

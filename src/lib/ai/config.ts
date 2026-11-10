@@ -80,6 +80,16 @@ export type TranscriptionProvider = "gemini" | "groq";
 const DEFAULT_GROQ_TRANSCRIPTION_MODEL = "whisper-large-v3-turbo";
 
 /**
+ * Transcrição de áudio só pela Groq (Whisper), independente da IA externa: basta
+ * GROQ_API_KEY. Assim o áudio usa a Groq sem ligar o copiloto nem a avaliação por IA.
+ */
+export function resolveDedicatedTranscription(env: Env): { provider: TranscriptionProvider; models: string[]; apiKey: string } | null {
+  const apiKey = clean(env.GROQ_API_KEY);
+  if (!apiKey) return null;
+  return { provider: "groq", models: [clean(env.GROQ_TRANSCRIPTION_MODEL) ?? DEFAULT_GROQ_TRANSCRIPTION_MODEL], apiKey };
+}
+
+/**
  * Transcrição de áudio, disponível com Gemini e Groq. No Gemini, usa
  * AI_TRANSCRIPTION_MODEL e, se ela falhar ou não existir, AI_MODEL. Na Groq, os
  * modelos de conversa não recebem áudio, então não há essa alternativa.

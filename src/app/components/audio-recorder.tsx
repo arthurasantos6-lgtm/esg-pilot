@@ -173,11 +173,17 @@ export function AudioRecorder({ targetId, serverTranscription = false }: { targe
       body: new Blob([wav.slice().buffer], { type: "audio/wav" }),
     });
     const body = (await response.json().catch(() => null)) as { text?: string; error?: string } | null;
-    if (!response.ok || !body?.text) {
+    if (response.ok && body?.text) {
+      deliver(body.text);
+      return;
+    }
+    // Áudio sem fala, longo demais ou limite diário: a mensagem do servidor vale. Nos demais
+    // casos (serviço fora do ar, cota esgotada), transcreve no próprio aparelho.
+    if (response.ok || [413, 415, 422, 429].includes(response.status)) {
       fail(body?.error ?? "Não foi possível transcrever o áudio. Você pode digitar a ideia.");
       return;
     }
-    deliver(body.text);
+    transcribeOnDevice(samples);
   }
 
   function transcribeOnDevice(samples: Float32Array) {
