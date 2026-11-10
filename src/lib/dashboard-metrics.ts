@@ -25,6 +25,11 @@ export function periodStart(preset: PeriodPreset, now = new Date()): Date | null
   return start;
 }
 
+/** Dias inteiros desde uma data (para a fila de decisão). */
+export function daysSince(iso: string, now = new Date()): number {
+  return Math.max(0, Math.floor((now.getTime() - Date.parse(iso)) / 86_400_000));
+}
+
 export type MetricsIdea = {
   id: string;
   status: string;

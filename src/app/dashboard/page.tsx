@@ -41,13 +41,16 @@ export default async function DashboardPage({
 
       {isManager ? (
         <>
-          <header className="page-header">
+          <header className="page-header dash-header">
             <div>
-              <p className="eyebrow">PAINEL ESG DA EMPRESA</p>
+              <p className="eyebrow">PAINEL ESG · {organization.name.toUpperCase()}</p>
               <h1>Visão geral</h1>
-              <p className="muted">Ideias recebidas, avaliação, decisões e resultados registrados pela sua empresa.</p>
+              <p className="muted">O que chegou, o que espera sua decisão e quanto as ideias podem render.</p>
             </div>
-            <Link className="button button-primary" href="/ideas">Analisar ideias</Link>
+            <div className="header-actions">
+              {enabledModules.includes("projects") && <Link className="button button-secondary" href="/projects">Projetos</Link>}
+              <Link className="button button-primary" href="/ideas">Analisar ideias</Link>
+            </div>
           </header>
           <ManagerDashboard
             supabase={supabase}
