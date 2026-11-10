@@ -3286,3 +3286,15 @@ a.metric-card-link {
     grid-template-columns: 1fr;
   }
 }
+
+/* Selo de pilar ESG com o nome por extenso (o .dimension-pill é só para a letra). */
+.pillar-tag {
+  display: inline-flex;
+  align-items: center;
+  min-height: 24px;
+  padding: 3px 10px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 700;
+  white-space: nowrap;
+}

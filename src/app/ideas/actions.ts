@@ -40,6 +40,7 @@ import { detectInitiativeType, emptyPlan, parsePlan, planAnswersText, withCompan
 import { researchAutomatically } from "@/lib/research-provider";
 import { buildLocalAnalysis } from "@/lib/local-analysis";
 import { createServiceClient } from "@/lib/supabase/admin";
+import { shortTitle } from "@/lib/idea-title";
 import { selectRelevantKnowledge } from "@/lib/text-similarity";
 import type { Json } from "@/lib/supabase/database.types";
 
@@ -55,13 +56,10 @@ const startIdeaSchema = z.object({
 });
 
 /**
- * Título provisório a partir da primeira frase da ideia; o copiloto propõe um
- * título definitivo ao organizar a proposta, e o colaborador pode editá-lo na revisão.
+ * Título curto para identificar a ideia, a partir do texto inicial (ver
+ * idea-title.ts). O colaborador pode editá-lo na revisão.
  */
-function provisionalTitle(description: string) {
-  const sentence = description.split(/[\n.!?]/).map((part) => part.trim()).find((part) => part.length >= 3) ?? description;
-  return sentence.length > 80 ? `${sentence.slice(0, 79).trimEnd()}…` : sentence;
-}
+const provisionalTitle = shortTitle;
 
 type CompanyContext = Awaited<ReturnType<typeof requireCompanyContext>>;
 

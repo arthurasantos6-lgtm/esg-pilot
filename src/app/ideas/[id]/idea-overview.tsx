@@ -53,7 +53,7 @@ export function IdeaHero({ idea, date, pillars, initiativeType, showEmail, backL
           {(pillars.length > 0 || initiativeType) && (
             <p className="idea-hero-tags">
               {pillars.map((pillar) => (
-                <span key={pillar} className={`dimension-pill dimension-${pillar.toLowerCase()}`}>{PILLARS[pillar] ?? pillar}</span>
+                <span key={pillar} className={`pillar-tag dimension-${pillar.toLowerCase()}`}>{PILLARS[pillar] ?? pillar}</span>
               ))}
               {initiativeType && <span className="subtle-tag">{initiativeType}</span>}
             </p>

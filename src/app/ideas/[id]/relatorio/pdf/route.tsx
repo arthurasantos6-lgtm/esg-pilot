@@ -87,7 +87,6 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
         recommendation,
         feasibility: computeFeasibility(plan, references, plan.selection ?? {}, companyProfile),
         plan: buildExecutionPlan({ title: idea.title, originalText: idea.original_description ?? "", plan }),
-        references,
         lastDecision: decision ? { status: ideaStatusLabel(decision.to_status), justification: decision.justification, at: decision.created_at } : null,
       }}
     />,

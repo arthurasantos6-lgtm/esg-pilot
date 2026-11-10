@@ -248,6 +248,18 @@ export type Feasibility = {
   calculable: boolean;
 };
 
+/** Nome legível de cada resposta usada na estimativa de economia. */
+const INPUT_LABELS: Record<string, string> = {
+  "il-luminarias": "quantidade de lâmpadas",
+  "il-potencia": "potência das lâmpadas",
+  "il-horas-ociosas": "horas acesas sem ninguém",
+  "en-quantidade": "quantidade de equipamentos",
+  "en-potencia": "potência dos equipamentos",
+  "en-ocioso": "horas ligados sem uso",
+  "ar-reducao": "água da rede que deixaria de ser comprada",
+  "ac-reducao": "água que daria para economizar",
+};
+
 const SAVINGS_INPUTS: Partial<Record<InitiativeType, string[]>> = {
   iluminacao: ["il-luminarias", "il-potencia", "il-horas-ociosas"],
   energia: ["en-quantidade", "en-potencia", "en-ocioso"],
@@ -418,7 +430,7 @@ export function computeFeasibility(
     const inputs = SAVINGS_INPUTS[plan.initiativeType];
     missing.push(
       inputs
-        ? `Respostas numéricas para estimar a economia (${inputs.filter((id) => numberAnswer(plan, id) === null).join(", ")}).`
+        ? `Respostas para estimar a economia: ${inputs.filter((id) => numberAnswer(plan, id) === null).map((id) => INPUT_LABELS[id] ?? id).join(", ")}.`
         : "Economia ou receita anual esperada (pode ser informada pela gestão no cálculo).",
     );
   }

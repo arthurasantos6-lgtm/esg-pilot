@@ -3,7 +3,6 @@ import type { ExecutionPlan } from "@/lib/idea-execution-plan";
 import type { Recommendation } from "@/lib/esg-project-proposal";
 import type { Feasibility } from "@/lib/feasibility";
 import { formatBRL, formatNumber } from "@/lib/idea-finance";
-import { REFERENCE_CATEGORIES, type PlanReference } from "@/lib/idea-planning";
 
 /** Cores da marca NUEVO (as mesmas do site, em versão clara para impressão). */
 const C = {
@@ -88,13 +87,6 @@ const compactBRL = (value: number) => brlCompact.format(value);
 const clip = (text: string, max: number) => (text.length > max ? `${text.slice(0, max - 1).trimEnd()}…` : text);
 const years = (value: number | null) => (value === null ? "—" : `${formatNumber(value)} ${value === 1 ? "ano" : "anos"}`);
 const percent = (value: number | null) => (value === null ? "—" : `${formatNumber(value)}%`);
-const host = (url: string) => {
-  try {
-    return new URL(url).hostname.replace(/^www\./, "");
-  } catch {
-    return url;
-  }
-};
 
 function Bullets({ items, color = C.brand }: { items: string[]; color?: string }) {
   return (
@@ -145,7 +137,6 @@ export type ExecutiveReportData = {
   recommendation: Recommendation | null;
   feasibility: Feasibility;
   plan: ExecutionPlan;
-  references: PlanReference[];
   lastDecision: { status: string; justification: string; at: string } | null;
 };
 
@@ -158,23 +149,11 @@ export function ExecutiveReport({ data }: { data: ExecutiveReportData }) {
   const [conservative, likely, optimistic] = feasibility.scenarios;
   const meta = feasibility.benefitSource === "meta";
   const tone = data.recommendation ? RECOMMENDATION[data.recommendation.key] : null;
-  const usedReferences = data.references
-    .filter((reference) => feasibility.candidates.some((item) => item.referenceId === reference.id && feasibility.selectedIds.includes(item.id)))
-    .concat(data.references)
-    .filter((reference, index, list) => list.findIndex((other) => other.id === reference.id) === index)
-    .slice(0, 6);
   const risks = plan.risks.map((risk) => risk.text).filter((text) => !/não vejo dificuldades/i.test(text)).slice(0, 5);
   const pending = [...feasibility.missing, ...plan.pending.filter((item) => item.startsWith("Sem resposta") === false)].slice(0, 6);
   const range = (low: number, high: number) =>
     Math.abs(high - low) < 0.5 ? undefined : `${compactBRL(Math.min(low, high))} a ${compactBRL(Math.max(low, high))}`;
-  /** Preços em reais desta fonte (os usados no cálculo, ou o valor copiado do trecho). */
-  const pricesOf = (reference: PlanReference) => {
-    const amounts = feasibility.candidates
-      .filter((item) => item.referenceId === reference.id && feasibility.selectedIds.includes(item.id))
-      .map((item) => formatBRL(item.amount));
-    if (amounts.length) return amounts.slice(0, 3).join("; ");
-    return reference.value ? clip(reference.value.replace(" (no trecho da página)", ""), 60) : "—";
-  };
+
 
   return (
     <Document title={`Relatório executivo · ${idea.title}`} author="NUEVO ESG" subject={`Protocolo ${data.protocol}`} language="pt-BR">
@@ -314,31 +293,6 @@ export function ExecutiveReport({ data }: { data: ExecutiveReportData }) {
             <Bullets items={risks} color={C.red} />
           </View>
         )}
-
-        <View style={s.section}>
-          <Text style={s.h2}>Fontes consultadas</Text>
-          {usedReferences.length ? (
-            <Table
-              columns={[
-                { label: "Fonte", width: "46%" },
-                { label: "Tipo", width: "26%" },
-                { label: "Preço encontrado", width: "28%" },
-              ]}
-              rows={usedReferences.map((reference) => [
-                `${clip(reference.title, 70)}\n${host(reference.url)}`,
-                REFERENCE_CATEGORIES[reference.category],
-                pricesOf(reference),
-              ])}
-            />
-          ) : (
-            <Text style={s.small}>Nenhuma fonte pesquisada para esta ideia.</Text>
-          )}
-          {usedReferences.length > 0 && (
-            <Text style={[s.small, { marginTop: 3 }]}>
-              Valores copiados automaticamente das páginas; links completos no relatório da plataforma. {data.references.length} fontes no total.
-            </Text>
-          )}
-        </View>
 
         {pending.length > 0 && (
           <View style={s.section} wrap={false}>
