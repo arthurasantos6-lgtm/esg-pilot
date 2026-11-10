@@ -41,6 +41,24 @@ export const storedProposalSchema = z.object({
 
 export type StoredProposal = z.infer<typeof storedProposalSchema>;
 
+/** Proposta vazia (todos os campos "não informado"), para guardar o planejamento de ideias sem proposta. */
+export function blankProposal(title: string, now = new Date()): StoredProposal {
+  return {
+    title,
+    problem: null,
+    solution: null,
+    context: null,
+    beneficiaries: null,
+    esgDimensions: null,
+    expectedBenefits: null,
+    indicators: null,
+    resourcesAndRisks: null,
+    nextSteps: null,
+    source: "manual",
+    updatedAt: now.toISOString(),
+  };
+}
+
 export function parseStoredProposal(value: unknown): StoredProposal | null {
   const parsed = storedProposalSchema.safeParse(value);
   return parsed.success ? parsed.data : null;

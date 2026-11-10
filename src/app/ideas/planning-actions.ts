@@ -4,62 +4,35 @@ import { randomUUID } from "node:crypto";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { z } from "zod";
-import { acceptReferences } from "@/lib/ai/market-research";
-import { generateMarketResearch, logAiFailure, toUserFacingAiError } from "@/lib/ai/service";
+import { logAiFailure, toUserFacingAiError } from "@/lib/ai/service";
 import { requireCompanyContext } from "@/lib/auth";
-import { buildExecutionPlan } from "@/lib/idea-execution-plan";
+import { DEFAULT_PERIOD_YEARS } from "@/lib/feasibility";
 import {
   applyAnswerForm,
   detectInitiativeType,
   emptyPlan,
-  INITIATIVE_TYPES,
   INITIATIVE_TYPE_KEYS,
   MAX_RESEARCH_RUNS,
   parseNumber,
-  answerText,
   parsePlan,
-  planAnswersText,
   PLAN_STEPS,
   REFERENCE_CATEGORIES,
   syncProposalFromPlan,
-  VALUE_ORIGINS,
   visibleQuestions,
-  type BenefitLine,
-  type FinanceInput,
   type IdeaPlan,
   type InitiativeType,
-  type MoneyLine,
-  type PlanReference,
   type PlanStepKey,
   type ReferenceCategory,
-  type ValueOrigin,
 } from "@/lib/idea-planning";
-import { parseStoredProposal, type StoredProposal } from "@/lib/idea-proposal";
-import { researchProvider } from "@/lib/research-provider";
-import { buildSearchQueries, resultsToReferences, runWebSearch, searchGaps, SearchUnavailableError } from "@/lib/web-search";
+import { blankProposal, parseStoredProposal, type StoredProposal } from "@/lib/idea-proposal";
+import { researchIdea, researchProvider } from "@/lib/research-provider";
+import { SearchUnavailableError } from "@/lib/web-search";
 import type { Json } from "@/lib/supabase/database.types";
 
 const idSchema = z.guid();
 type CompanyContext = Awaited<ReturnType<typeof requireCompanyContext>>;
 
 const enc = encodeURIComponent;
-
-function blankProposal(title: string): StoredProposal {
-  return {
-    title,
-    problem: null,
-    solution: null,
-    context: null,
-    beneficiaries: null,
-    esgDimensions: null,
-    expectedBenefits: null,
-    indicators: null,
-    resourcesAndRisks: null,
-    nextSteps: null,
-    source: "manual",
-    updatedAt: new Date().toISOString(),
-  };
-}
 
 const IDEA_COLUMNS = "id, title, original_description, status, author_id, structured_proposal" as const;
 
@@ -166,137 +139,49 @@ export async function saveManagerAnswers(formData: FormData) {
   redirect(`${url}?salvo=coleta${more ? "&novas=1" : ""}#coleta`);
 }
 
-const ROWS = { investment: 6, recurring: 4, benefits: 4 } as const;
-const originOf = (value: FormDataEntryValue | null): ValueOrigin =>
-  (Object.keys(VALUE_ORIGINS) as ValueOrigin[]).includes(String(value) as ValueOrigin) ? (String(value) as ValueOrigin) : "estimado";
-
-function readAmount(formData: FormData, name: string, label: string, errors: string[]) {
-  const raw = String(formData.get(name) ?? "").trim();
-  if (!raw) return null;
-  const value = parseNumber(raw);
-  if (value === null || value < 0) {
-    errors.push(`Valor inválido em "${label}". Use apenas números, como 1.500,00.`);
-    return null;
-  }
-  return value;
-}
-
-/** Lê a análise financeira do formulário; linhas totalmente vazias são ignoradas. */
-function readFinanceForm(formData: FormData, plan: IdeaPlan): { finance: FinanceInput; errors: string[] } {
-  const errors: string[] = [];
-  const references = new Set((plan.research?.references ?? []).map((reference) => reference.id));
-  const text = (name: string, max = 200) => String(formData.get(name) ?? "").trim().slice(0, max);
-  const ref = (name: string) => (references.has(text(name)) ? text(name) : null);
-
-  const moneyLines = (prefix: "inv" | "rec", count: number, fallback: string): MoneyLine[] =>
-    Array.from({ length: count }, (_, index) => index).flatMap((index) => {
-      const label = text(`${prefix}-label-${index}`) || `${fallback} ${index + 1}`;
-      const amount = readAmount(formData, `${prefix}-amount-${index}`, label, errors);
-      const origin = originOf(formData.get(`${prefix}-origin-${index}`));
-      const hasLabel = Boolean(text(`${prefix}-label-${index}`));
-      if (amount === null && !(hasLabel && origin === "cotacao")) return [];
-      return [{ label, amount, origin, referenceId: ref(`${prefix}-ref-${index}`) }];
-    });
-
-  const benefits: BenefitLine[] = Array.from({ length: ROWS.benefits }, (_, index) => index).flatMap((index) => {
-    const label = text(`ben-label-${index}`) || `Benefício ${index + 1}`;
-    const conservative = readAmount(formData, `ben-c-${index}`, label, errors);
-    const likely = readAmount(formData, `ben-l-${index}`, label, errors);
-    const optimistic = readAmount(formData, `ben-o-${index}`, label, errors);
-    if (conservative === null && likely === null && optimistic === null) return [];
-    return [{ label, conservative, likely, optimistic, origin: originOf(formData.get(`ben-origin-${index}`)), referenceId: ref(`ben-ref-${index}`), basis: text(`ben-basis-${index}`, 500) || null }];
-  });
-
-  const period = readAmount(formData, "periodYears", "Período de análise", errors);
-  if (period !== null && (period <= 0 || period > 50)) errors.push("O período de análise deve ficar entre 1 e 50 anos.");
-
-  return {
-    finance: {
-      periodYears: period,
-      investment: moneyLines("inv", ROWS.investment, "Investimento"),
-      recurring: moneyLines("rec", ROWS.recurring, "Custo recorrente"),
-      benefits,
-      nonFinancialBenefits: text("nonFinancialBenefits", 3000) || null,
-      assumptions: text("assumptions", 3000) || null,
-      updatedAt: new Date().toISOString(),
-    },
-    errors,
+/** Itens da pesquisa marcados pela gestão, quantidade, período e economia informada. */
+export async function saveSelection(formData: FormData) {
+  const { context, idea, url, fail, proposal, plan } = await requireManagedIdea(formData, "calculo");
+  const candidateIds = String(formData.get("candidates") ?? "").split(",").filter(Boolean);
+  const selected = formData.getAll("selected").map(String).filter((id) => candidateIds.includes(id));
+  const number = (name: string, label: string, min: number, max: number) => {
+    const raw = String(formData.get(name) ?? "").trim();
+    if (!raw) return null;
+    const value = parseNumber(raw);
+    if (value === null || value < min || value > max) return fail(`Valor inválido em "${label}".`);
+    return value;
   };
-}
-
-export async function saveFinance(formData: FormData) {
-  const { context, idea, url, fail, proposal, plan } = await requireManagedIdea(formData, "financeiro");
-  const { finance, errors } = readFinanceForm(formData, plan);
-  if (errors.length) fail(errors[0]);
-  if (!(await savePlan(context, idea, proposal, { ...plan, finance, updatedAt: new Date().toISOString() }, false))) {
-    fail("Não foi possível salvar a análise financeira.");
-  }
+  const quantity = number("quantity", "Quantidade", 1, 1_000_000);
+  const periodYears = number("periodYears", "Período", 1, 30) ?? DEFAULT_PERIOD_YEARS;
+  const benefitOverride = number("benefitOverride", "Economia anual", 0, 1_000_000_000);
+  const reset = formData.get("intent") === "reset";
+  const updated: IdeaPlan = {
+    ...plan,
+    selection: reset ? null : { selected, quantity, periodYears, benefitOverride, updatedAt: new Date().toISOString() },
+    updatedAt: new Date().toISOString(),
+  };
+  if (!(await savePlan(context, idea, proposal, updated, false))) fail("Não foi possível salvar o cálculo.");
   revalidatePath(url);
-  redirect(`${url}?salvo=financeiro#financeiro`);
+  redirect(`${url}?salvo=${reset ? "automatico" : "calculo"}#calculo`);
 }
 
-type SearchOutcome = { references: PlanReference[]; gaps: string[]; notes: string | null; model: string };
-
-/** Busca gratuita (Tavily, sem IA): consultas por regras e trechos das próprias páginas. */
-async function searchWithTavily(idea: LoadedIdea, plan: IdeaPlan): Promise<SearchOutcome> {
-  const materials = answerText(plan, "g-materiais");
-  const queries = buildSearchQueries(plan.initiativeType, idea.title, materials ? [materials.slice(0, 80)] : []);
-  const { batches, failed } = await runWebSearch(process.env.TAVILY_API_KEY?.trim() ?? "", queries);
-  const references = resultsToReferences(batches, new Date(), randomUUID);
-  const notes = [
-    `Consultas feitas: ${queries.map((item) => `"${item.query}"`).join(", ")}.`,
-    failed ? `${failed} de ${queries.length} consultas falharam.` : null,
-  ].filter(Boolean).join(" ");
-  return { references, gaps: searchGaps(references), notes, model: "Tavily (busca, sem IA)" };
-}
-
-/** Pesquisa com IA (Anthropic), usada só sem chave da Tavily e com a IA externa ativa. */
-async function searchWithAi(idea: LoadedIdea, plan: IdeaPlan): Promise<SearchOutcome> {
-  const executionPlan = buildExecutionPlan({ title: idea.title, originalText: idea.original_description ?? "", plan });
-  const result = await generateMarketResearch({
-    title: idea.title,
-    description: idea.original_description ?? "",
-    initiativeType: INITIATIVE_TYPES[plan.initiativeType].label,
-    details: planAnswersText(plan),
-    resources: executionPlan.resources.flatMap(({ label, items }) => items.map((item) => `${label}: ${item.text}`)).slice(0, 25),
-  });
-  const { references } = acceptReferences(result.output, result.sources, new Date(), randomUUID);
-  return { references, gaps: result.output.gaps, notes: result.output.notes, model: result.usage.model };
-}
-
+/** Atualiza a pesquisa a pedido da gestão (a primeira é automática). */
 export async function runMarketResearch(formData: FormData) {
-  const { context, idea, url, fail, proposal, plan } = await requireManagedIdea(formData, "pesquisa");
+  const { context, idea, url, fail, proposal, plan } = await requireManagedIdea(formData, "fontes");
   const provider = researchProvider();
-  if (!provider) fail("A pesquisa automática não está disponível nesta plataforma. Registre as referências manualmente.");
-  const research = plan.research ?? { runs: 0, lastRunAt: null, model: null, references: [], gaps: [], notes: null };
-  if (research.runs >= MAX_RESEARCH_RUNS) fail(`Esta ideia atingiu o limite de ${MAX_RESEARCH_RUNS} pesquisas automáticas.`);
-
-  let result: SearchOutcome;
+  if (!provider) return fail("A pesquisa automática não está disponível nesta plataforma. Registre as referências manualmente.");
+  if ((plan.research?.runs ?? 0) >= MAX_RESEARCH_RUNS) fail(`Esta ideia atingiu o limite de ${MAX_RESEARCH_RUNS} pesquisas automáticas.`);
+  const before = plan.research?.references.length ?? 0;
+  let updated: IdeaPlan;
   try {
-    result = provider === "tavily" ? await searchWithTavily(idea, plan) : await searchWithAi(idea, plan);
+    updated = await researchIdea(idea, plan, provider);
   } catch (error) {
     logAiFailure("pesquisa de mercado", idea.id, error);
     return fail(error instanceof SearchUnavailableError ? error.message : toUserFacingAiError(error));
   }
-  const now = new Date();
-  // Referências anteriores são mantidas; só entram as novas que ainda não existem.
-  const known = new Set(research.references.map((item) => item.url.replace(/\/+$/, "").toLowerCase()));
-  const fresh = result.references.filter((item) => !known.has(item.url.replace(/\/+$/, "").toLowerCase()));
-  const updated: IdeaPlan = {
-    ...plan,
-    research: {
-      runs: research.runs + 1,
-      lastRunAt: now.toISOString(),
-      model: result.model,
-      references: [...research.references, ...fresh].slice(0, 80),
-      gaps: result.gaps.slice(0, 15).map((gap) => gap.slice(0, 500)),
-      notes: result.notes?.slice(0, 2000) ?? null,
-    },
-    updatedAt: now.toISOString(),
-  };
   if (!(await savePlan(context, idea, proposal, updated, false))) fail("A pesquisa foi feita, mas não foi possível salvá-la.");
   revalidatePath(url);
-  redirect(`${url}?salvo=pesquisa&novas_refs=${fresh.length}#pesquisa`);
+  redirect(`${url}?salvo=pesquisa&novas_refs=${(updated.research?.references.length ?? 0) - before}#fontes`);
 }
 
 const referenceSchema = z.object({
@@ -314,7 +199,7 @@ const referenceSchema = z.object({
 });
 
 export async function addReference(formData: FormData) {
-  const { context, idea, url, fail, proposal, plan } = await requireManagedIdea(formData, "pesquisa");
+  const { context, idea, url, fail, proposal, plan } = await requireManagedIdea(formData, "fontes");
   const parsed = referenceSchema.safeParse({
     title: formData.get("title") ?? "",
     url: formData.get("url") ?? "",
@@ -341,22 +226,24 @@ export async function addReference(formData: FormData) {
   const updated = { ...plan, research: { ...research, references: [...research.references, reference].slice(0, 80) }, updatedAt: new Date().toISOString() };
   if (!(await savePlan(context, idea, proposal, updated, false))) fail("Não foi possível salvar a referência.");
   revalidatePath(url);
-  redirect(`${url}?salvo=referencia#pesquisa`);
+  redirect(`${url}?salvo=referencia#fontes`);
 }
 
 export async function removeReference(formData: FormData) {
-  const { context, idea, url, fail, proposal, plan } = await requireManagedIdea(formData, "pesquisa");
+  const { context, idea, url, fail, proposal, plan } = await requireManagedIdea(formData, "fontes");
   const referenceId = String(formData.get("referenceId") ?? "");
-  const finance = plan.finance;
-  const inUse = finance && [...finance.investment, ...finance.recurring, ...finance.benefits].some((line) => line.referenceId === referenceId);
-  if (inUse) fail("Esta referência está sendo usada na análise financeira. Remova o vínculo antes de excluí-la.");
-  if (!plan.research) redirect(`${url}#pesquisa`);
+  if (!plan.research) redirect(`${url}#fontes`);
+  // Os preços desta fonte saem também da seleção do cálculo.
+  const selection = plan.selection
+    ? { ...plan.selection, selected: plan.selection.selected?.filter((id) => !id.startsWith(`${referenceId}:`)) ?? null }
+    : plan.selection;
   const updated = {
     ...plan,
+    selection,
     research: { ...plan.research, references: plan.research.references.filter((reference) => reference.id !== referenceId) },
     updatedAt: new Date().toISOString(),
   };
   if (!(await savePlan(context, idea, proposal, updated, false))) fail("Não foi possível remover a referência.");
   revalidatePath(url);
-  redirect(`${url}#pesquisa`);
+  redirect(`${url}#fontes`);
 }

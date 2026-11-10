@@ -5,14 +5,14 @@ import { connection } from "next/server";
 import { z } from "zod";
 import { ExecutionPlanView } from "@/app/ideas/[id]/execution-plan-view";
 import { PlanQuestionFields, ShownQuestionsInput } from "@/app/ideas/[id]/plan-question-fields";
-import { FinancePanel } from "@/app/ideas/[id]/viabilidade/finance-panel";
+import { FeasibilityForm, FeasibilitySummary } from "@/app/ideas/[id]/viabilidade/feasibility-panel";
 import { ResearchPanel } from "@/app/ideas/[id]/viabilidade/research-panel";
 import { saveManagerAnswers } from "@/app/ideas/planning-actions";
 import { AppShell } from "@/app/components/app-shell";
 import { SubmitButton } from "@/app/components/submit-button";
 import { requireCompanyContext } from "@/lib/auth";
+import { computeFeasibility } from "@/lib/feasibility";
 import { buildExecutionPlan } from "@/lib/idea-execution-plan";
-import { initialFinance } from "@/lib/idea-finance";
 import {
   detectInitiativeType,
   emptyPlan,
@@ -23,22 +23,26 @@ import {
   PLAN_STEPS,
   visibleQuestions,
 } from "@/lib/idea-planning";
-import { parseStoredProposal } from "@/lib/idea-proposal";
-import { researchProvider } from "@/lib/research-provider";
+import { blankProposal, parseStoredProposal } from "@/lib/idea-proposal";
+import { researchAutomatically, researchProvider } from "@/lib/research-provider";
+import type { Json } from "@/lib/supabase/database.types";
 
 export const metadata: Metadata = { title: "Viabilidade da ideia" };
 
-// A pesquisa na internet pode levar alguns minutos.
-export const maxDuration = 300;
+// A pesquisa automática da primeira abertura pode levar alguns segundos.
+export const maxDuration = 120;
 
 const SAVED_MESSAGES: Record<string, string> = {
-  coleta: "Informações salvas.",
-  financeiro: "Análise financeira salva e recalculada.",
-  pesquisa: "Pesquisa concluída.",
+  coleta: "Respostas salvas. O cálculo foi atualizado.",
+  calculo: "Cálculo atualizado com os itens marcados.",
+  automatico: "Seleção automática restaurada.",
   referencia: "Fonte registrada.",
 };
 
-/** Área da gestão: complementar informações, revisar o plano, pesquisar referências e calcular o retorno. */
+/**
+ * Painel da gestão: a pesquisa e o cálculo já chegam prontos (feitos no envio da
+ * ideia ou na primeira abertura). A gestão confere os preços usados e ajusta.
+ */
 export default async function FeasibilityPage({
   params,
   searchParams,
@@ -62,18 +66,32 @@ export default async function FeasibilityPage({
   if (!idea || idea.status === "draft") notFound();
 
   const proposal = parseStoredProposal(idea.structured_proposal);
-  const plan = parsePlan(proposal?.plan) ?? emptyPlan(detectInitiativeType(idea.original_description ?? idea.title));
+  let plan = parsePlan(proposal?.plan) ?? emptyPlan(detectInitiativeType(idea.original_description ?? idea.title));
+
+  // Ideias enviadas antes da pesquisa automática (ou se ela falhou no envio): pesquisa agora, uma vez.
+  if (!plan.research) {
+    const researched = await researchAutomatically(idea, plan);
+    if (researched.research) {
+      plan = researched;
+      await supabase
+        .from("ideas")
+        .update({ structured_proposal: { ...(proposal ?? blankProposal(idea.title)), plan } as unknown as Json })
+        .eq("id", idea.id)
+        .eq("organization_id", membership.organization_id);
+    }
+  }
+
+  const references = plan.research?.references ?? [];
+  const feasibility = computeFeasibility(plan, references, plan.selection ?? {});
   const executionPlan = buildExecutionPlan({ title: idea.title, originalText: idea.original_description ?? "", plan });
   const progress = planProgress(plan);
   const questions = visibleQuestions(plan);
   const provider = researchProvider();
-  const unavailableReason =
-    "A pesquisa automática na internet não está ativa nesta plataforma: falta a variável TAVILY_API_KEY (busca gratuita) no servidor. Registre as fontes manualmente abaixo.";
 
   let saved = query.salvo ? SAVED_MESSAGES[query.salvo] : null;
-  if (query.salvo === "pesquisa" && query.novas_refs !== undefined) {
+  if (query.salvo === "pesquisa") {
     const count = Number(query.novas_refs) || 0;
-    saved = count ? `Pesquisa concluída: ${count} ${count === 1 ? "nova referência" : "novas referências"}.` : "Pesquisa concluída, mas nenhuma nova referência com fonte verificável foi encontrada.";
+    saved = count ? `Pesquisa atualizada: ${count} ${count === 1 ? "nova fonte" : "novas fontes"}.` : "Pesquisa atualizada, sem fontes novas.";
   }
 
   return (
@@ -81,82 +99,85 @@ export default async function FeasibilityPage({
       <header className="page-header">
         <div>
           <Link className="back-link" href={`/ideas/${idea.id}`}>← Voltar para a ideia</Link>
-          <p className="eyebrow">PLANO DE EXECUÇÃO E VIABILIDADE</p>
+          <p className="eyebrow">VIABILIDADE</p>
           <h1>{idea.title}</h1>
-          <p className="muted">{INITIATIVE_TYPES[plan.initiativeType].label} · {progress.percent}% das perguntas tratadas</p>
+          <p className="muted">
+            {INITIATIVE_TYPES[plan.initiativeType].label} · {references.length} fontes pesquisadas · {progress.percent}% das perguntas respondidas
+          </p>
         </div>
         <div className="header-actions">
-          <Link className="button button-primary" href={`/ideas/${idea.id}/relatorio`}>Relatório consolidado</Link>
+          <Link className="button button-primary" href={`/ideas/${idea.id}/relatorio`}>Relatório</Link>
         </div>
       </header>
 
       {query.error && <p className="alert alert-error" role="alert">{query.error}</p>}
       {saved && <p className="alert alert-success" role="status">{saved}</p>}
 
-      <nav className="plan-anchor-nav" aria-label="Seções da análise">
-        <a className="subtle-tag" href="#coleta">1. Informações coletadas</a>
-        <a className="subtle-tag" href="#plano">2. Plano de execução</a>
-        <a className="subtle-tag" href="#pesquisa">3. Pesquisa de mercado</a>
-        <a className="subtle-tag" href="#financeiro">4. Investimento e ROI</a>
-      </nav>
-
       <div className="detail-main">
-        <section className="panel detail-panel" id="coleta" aria-labelledby="coleta-title">
-          <p className="eyebrow">ETAPA 1</p>
-          <h2 id="coleta-title">Informações coletadas</h2>
+        <section className="panel detail-panel" aria-labelledby="resumo-title">
+          <h2 id="resumo-title">Retorno do investimento</h2>
           <p className="small-copy muted">
-            Respostas de quem enviou a ideia. A gestão pode complementar o que ficou pendente; o texto original e a proposta do
-            colaborador não são alterados.
+            Calculado automaticamente com os preços da pesquisa e as respostas do colaborador. O valor em destaque é o cenário
+            provável; a faixa vai do preço mais baixo ao mais alto encontrado.
           </p>
-          {query.novas && <p className="alert alert-info" role="status">Novas perguntas apareceram com base nas respostas.</p>}
-          <form className="idea-form" action={saveManagerAnswers}>
-            <input type="hidden" name="ideaId" value={idea.id} />
-            <ShownQuestionsInput questions={questions} />
-            <label htmlFor="initiativeType">Tipo de iniciativa</label>
-            <select id="initiativeType" name="initiativeType" defaultValue={plan.initiativeType}>
-              {INITIATIVE_TYPE_KEYS.map((key) => <option key={key} value={key}>{INITIATIVE_TYPES[key].label}</option>)}
-            </select>
-            {PLAN_STEPS.map((step) => {
-              const stepQuestions = questions.filter((question) => question.step === step.key);
-              const stepProgress = planProgress(plan, step.key);
-              if (!stepQuestions.length) return null;
-              return (
-                <details key={step.key} className="proposal-more" open={stepProgress.handled < stepProgress.total || Boolean(query.novas)}>
-                  <summary className="small-copy">
-                    <strong>{step.label}</strong> · {stepProgress.handled}/{stepProgress.total} tratadas
-                  </summary>
-                  <PlanQuestionFields questions={stepQuestions} plan={plan} proposal={null} highlightUnanswered={Boolean(query.novas)} />
-                </details>
-              );
-            })}
-            <div className="form-actions">
-              <SubmitButton className="button button-primary" pendingLabel="Salvando…">Salvar informações</SubmitButton>
-            </div>
-          </form>
+          <FeasibilitySummary feasibility={feasibility} />
         </section>
 
-        <section className="panel detail-panel" id="plano" aria-labelledby="plano-title">
-          <p className="eyebrow">ETAPA 2 · GERADO POR REGRAS</p>
-          <h2 id="plano-title">Plano de execução</h2>
-          <ExecutionPlanView plan={executionPlan} />
+        <section className="panel detail-panel" id="calculo" aria-labelledby="calculo-title">
+          <h2 id="calculo-title">Preços usados no cálculo</h2>
+          <FeasibilityForm ideaId={idea.id} feasibility={feasibility} stored={plan.selection ?? null} />
+          {feasibility.memory.length > 0 && (
+            <details>
+              <summary className="small-copy">Memória de cálculo</summary>
+              <ul className="evaluation-list small-copy">{feasibility.memory.map((item) => <li key={item}>{item}</li>)}</ul>
+              <p className="small-copy muted">
+                ROI = (economia anual − custo anual) × período − investimento, dividido pelo investimento. Payback = investimento ÷
+                (economia anual − custo anual). Sem correção monetária.
+              </p>
+            </details>
+          )}
         </section>
 
-        <section className="panel detail-panel" id="pesquisa" aria-labelledby="pesquisa-title">
-          <p className="eyebrow">ETAPA 3</p>
-          <h2 id="pesquisa-title">Pesquisa de mercado: investimento, custos e retorno</h2>
-          <ResearchPanel ideaId={idea.id} research={plan.research} provider={provider} unavailableReason={unavailableReason} />
-        </section>
-
-        <section className="panel detail-panel" id="financeiro" aria-labelledby="financeiro-title">
-          <p className="eyebrow">ETAPA 4</p>
-          <h2 id="financeiro-title">Investimento, payback e ROI</h2>
-          <p className="small-copy muted">
-            {plan.finance
-              ? "Premissas salvas pela gestão."
-              : "Ainda não salvo: os campos abaixo trazem o que o colaborador informou e as estimativas calculáveis pelas respostas. Revise antes de salvar."}{" "}
-            O ROI só é calculado com investimento, benefício anual e período definidos, e sem itens aguardando cotação.
-          </p>
-          <FinancePanel ideaId={idea.id} finance={plan.finance ?? initialFinance(plan)} references={plan.research?.references ?? []} />
+        <section className="panel detail-panel" aria-label="Detalhes">
+          <details id="plano">
+            <summary><strong>Plano de execução</strong> <span className="small-copy muted">· {executionPlan.steps.length} etapas</span></summary>
+            <ExecutionPlanView plan={executionPlan} />
+          </details>
+          <hr />
+          <details id="fontes">
+            <summary><strong>Fontes da pesquisa</strong> <span className="small-copy muted">· {references.length}</span></summary>
+            <ResearchPanel
+              ideaId={idea.id}
+              research={plan.research}
+              provider={provider}
+              unavailableReason="A pesquisa automática não está ativa: falta a variável TAVILY_API_KEY no servidor. Registre as fontes manualmente abaixo."
+            />
+          </details>
+          <hr />
+          <details id="coleta" open={Boolean(query.novas)}>
+            <summary><strong>Respostas do colaborador</strong> <span className="small-copy muted">· {progress.handled} de {progress.total} · completar o que falta</span></summary>
+            <form className="idea-form" action={saveManagerAnswers}>
+              <input type="hidden" name="ideaId" value={idea.id} />
+              <ShownQuestionsInput questions={questions} />
+              <label htmlFor="initiativeType">Tipo de iniciativa</label>
+              <select id="initiativeType" name="initiativeType" defaultValue={plan.initiativeType}>
+                {INITIATIVE_TYPE_KEYS.map((key) => <option key={key} value={key}>{INITIATIVE_TYPES[key].label}</option>)}
+              </select>
+              {PLAN_STEPS.map((step) => {
+                const stepQuestions = questions.filter((question) => question.step === step.key);
+                if (!stepQuestions.length) return null;
+                return (
+                  <fieldset key={step.key} className="form-fieldset-reset">
+                    <legend className="subsection-title">{step.label}</legend>
+                    <PlanQuestionFields questions={stepQuestions} plan={plan} proposal={null} highlightUnanswered={Boolean(query.novas)} />
+                  </fieldset>
+                );
+              })}
+              <div className="form-actions">
+                <SubmitButton className="button button-primary" pendingLabel="Salvando…">Salvar respostas</SubmitButton>
+              </div>
+            </form>
+          </details>
         </section>
       </div>
     </AppShell>

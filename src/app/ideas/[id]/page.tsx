@@ -14,7 +14,8 @@ import { parseEnabledModules, requireCompanyContext } from "@/lib/auth";
 import { buildProjectProposal } from "@/lib/esg-project-proposal";
 import { loadLearningBase } from "@/lib/learning-base";
 import { isAiAvailable } from "@/lib/idea-ai";
-import { analyzeFinance } from "@/lib/idea-finance";
+import { computeFeasibility } from "@/lib/feasibility";
+import { formatBRL, formatNumber } from "@/lib/idea-finance";
 import { INITIATIVE_TYPES, parsePlan, planProgress } from "@/lib/idea-planning";
 import { parseStoredProposal, PROPOSAL_FIELDS } from "@/lib/idea-proposal";
 import { ideaStatusLabel, nextStepForAuthor } from "@/lib/idea-status";
@@ -150,7 +151,7 @@ export default async function IdeaDetailPage({
 
   const proposal = parseStoredProposal(idea.structured_proposal);
   const plan = parsePlan(proposal?.plan);
-  const planFinance = plan ? analyzeFinance(plan.finance) : null;
+  const likely = plan ? computeFeasibility(plan, plan.research?.references ?? [], plan.selection ?? {}).scenarios[1] : null;
   const localAnalysis = readLocalAnalysis(idea.analysis);
   const dimensions = getDimensions(idea.analysis);
   const analysisObject = isRecord(idea.analysis) ? idea.analysis : null;
@@ -269,18 +270,26 @@ export default async function IdeaDetailPage({
               <div className="panel-heading">
                 <div>
                   <p className="eyebrow">PLANO DE EXECUÇÃO E VIABILIDADE</p>
-                  <h2 id="feasibility-title">Transformar a ideia em projeto</h2>
+                  <h2 id="feasibility-title">Viabilidade e retorno</h2>
                 </div>
                 {plan && <span className="subtle-tag">{INITIATIVE_TYPES[plan.initiativeType].label}</span>}
               </div>
-              <p className="small-copy">
-                {plan
-                  ? `${planProgress(plan).percent}% das perguntas de planejamento tratadas. ${planFinance?.calculable ? "ROI calculado." : "ROI ainda não calculado."} ${plan.research?.references.length ? `${plan.research.references.length} fontes de pesquisa registradas.` : "Nenhuma fonte de pesquisa registrada."}`
-                  : "Esta ideia foi enviada sem as perguntas de planejamento. A gestão pode responder o que souber e completar a análise."}
-              </p>
+              {likely && (likely.investment !== null || likely.paybackYears !== null) ? (
+                <p className="small-copy">
+                  Investimento {likely.investment === null ? "a definir" : formatBRL(likely.investment)} · payback{" "}
+                  {likely.paybackYears === null ? "não calculado" : `${formatNumber(likely.paybackYears)} anos`} · ROI{" "}
+                  {likely.roiPercent === null ? "não calculado" : `${formatNumber(likely.roiPercent)}%`} (cenário provável, a conferir).
+                </p>
+              ) : (
+                <p className="small-copy">
+                  {plan
+                    ? `${planProgress(plan).percent}% das perguntas respondidas. A pesquisa de preços e o cálculo ficam prontos ao abrir a viabilidade.`
+                    : "Ideia enviada sem as perguntas de planejamento. Ao abrir a viabilidade, o sistema pesquisa preços e a gestão pode completar as respostas."}
+                </p>
+              )}
               <div className="form-actions">
                 <Link className="button button-secondary" href={`/ideas/${idea.id}/relatorio`}>Relatório consolidado</Link>
-                <Link className="button button-primary" href={`/ideas/${idea.id}/viabilidade`}>Plano, pesquisa e ROI</Link>
+                <Link className="button button-primary" href={`/ideas/${idea.id}/viabilidade`}>Ver viabilidade</Link>
               </div>
             </section>
           )}

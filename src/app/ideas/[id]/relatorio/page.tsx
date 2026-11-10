@@ -9,7 +9,8 @@ import { AppShell } from "@/app/components/app-shell";
 import { PrintButton } from "@/app/components/print-button";
 import { requireCompanyContext } from "@/lib/auth";
 import { buildExecutionPlan } from "@/lib/idea-execution-plan";
-import { analyzeFinance, formatBRL, formatNumber } from "@/lib/idea-finance";
+import { computeFeasibility, type Feasibility } from "@/lib/feasibility";
+import { formatBRL, formatNumber } from "@/lib/idea-finance";
 import {
   answerStatusLabel,
   detectInitiativeType,
@@ -17,10 +18,7 @@ import {
   parsePlan,
   PLAN_STEPS,
   REFERENCE_CATEGORIES,
-  VALUE_ORIGINS,
   visibleQuestions,
-  type MoneyLine,
-  type PlanReference,
 } from "@/lib/idea-planning";
 import { ideaProtocol, ideaStatusLabel } from "@/lib/idea-status";
 import { parseStoredProposal } from "@/lib/idea-proposal";
@@ -29,25 +27,27 @@ export const metadata: Metadata = { title: "Relatório da iniciativa" };
 
 const dateFormat = new Intl.DateTimeFormat("pt-BR", { dateStyle: "long", timeZone: "America/Sao_Paulo" });
 
-function originChip(origin: keyof typeof VALUE_ORIGINS) {
-  return <span className={`source-chip source-chip-${origin}`}>{VALUE_ORIGINS[origin]}</span>;
-}
-
-function MoneyTable({ lines, references, empty }: { lines: MoneyLine[]; references: PlanReference[]; empty: string }) {
-  if (!lines.length) return <p className="empty-inline">{empty}</p>;
+function GroupTable({ feasibility, role, empty }: { feasibility: Feasibility; role: "investment" | "recurring"; empty: string }) {
+  const groups = feasibility.groups.filter((group) => group.role === role);
+  if (!groups.length) return <p className="empty-inline">{empty}</p>;
   return (
     <div className="table-wrap">
       <table className="plan-table">
-        <thead><tr><th>Item</th><th>Valor</th><th>Origem</th><th>Fonte</th></tr></thead>
+        <thead><tr><th>Item</th><th>Preço encontrado</th><th>Quantidade</th><th>Total (faixa)</th><th>Fontes</th></tr></thead>
         <tbody>
-          {lines.map((line, index) => {
-            const reference = references.find((item) => item.id === line.referenceId);
+          {groups.map((group) => {
+            const sources = feasibility.candidates.filter((item) => item.group === group.group && feasibility.selectedIds.includes(item.id));
             return (
-              <tr key={`${line.label}-${index}`}>
-                <td>{line.label}</td>
-                <td>{line.amount === null ? "A cotar" : formatBRL(line.amount)}</td>
-                <td>{originChip(line.origin)}</td>
-                <td>{reference ? <a className="text-link" href={reference.url} target="_blank" rel="noopener noreferrer">{reference.title}</a> : "—"}</td>
+              <tr key={group.group}>
+                <td>{group.label}</td>
+                <td>{formatBRL(group.unitPrice.min)} a {formatBRL(group.unitPrice.max)}</td>
+                <td>{formatNumber(group.quantity)}</td>
+                <td>{formatBRL(group.total.min)} a {formatBRL(group.total.max)} (provável {formatBRL(group.total.median)})</td>
+                <td>
+                  {[...new Map(sources.map((item) => [item.url, item])).values()].map((item) => (
+                    <a key={item.url} className="text-link small-copy" href={item.url} target="_blank" rel="noopener noreferrer">{item.sourceTitle}<br /></a>
+                  ))}
+                </td>
               </tr>
             );
           })}
@@ -77,14 +77,12 @@ export default async function InitiativeReportPage({ params }: { params: Promise
   const proposal = parseStoredProposal(idea.structured_proposal);
   const plan = parsePlan(proposal?.plan) ?? emptyPlan(detectInitiativeType(idea.original_description ?? idea.title));
   const execution = buildExecutionPlan({ title: idea.title, originalText: idea.original_description ?? "", plan });
-  const finance = plan.finance;
-  const analysis = analyzeFinance(finance);
+  const feasibility = computeFeasibility(plan, plan.research?.references ?? [], plan.selection ?? {});
   const references = plan.research?.references ?? [];
-  const likely = analysis.scenarios.find((scenario) => scenario.key === "likely");
+  const likely = feasibility.scenarios[1];
   const pending = [
     ...execution.pending,
-    ...analysis.missing.map((item) => `Análise financeira: ${item}`),
-    ...analysis.pending,
+    ...feasibility.missing.map((item) => `Análise financeira: ${item}`),
     ...(plan.research?.gaps ?? []).map((gap) => `Pesquisa: ${gap}`),
   ];
   const questions = visibleQuestions(plan);
@@ -217,14 +215,16 @@ export default async function InitiativeReportPage({ params }: { params: Promise
 
         <section className="panel detail-panel report-section">
           <h2 className="subsection-title">8. Investimento estimado</h2>
-          <MoneyTable lines={finance?.investment ?? []} references={references} empty="Investimento ainda não levantado pela gestão." />
-          {analysis.investmentTotal !== null && <p><strong>Total: {formatBRL(analysis.investmentTotal)}</strong></p>}
+          <GroupTable feasibility={feasibility} role="investment" empty="Nenhum preço da pesquisa foi usado." />
+          {feasibility.informedInvestment !== null && <p className="small-copy">Estimativa do colaborador: {formatBRL(feasibility.informedInvestment)}.</p>}
+          <p><strong>Total provável: {likely.investment === null ? "não calculado" : formatBRL(likely.investment)}</strong></p>
         </section>
 
         <section className="panel detail-panel report-section">
           <h2 className="subsection-title">9. Custos recorrentes</h2>
-          <MoneyTable lines={finance?.recurring ?? []} references={references} empty="Nenhum custo recorrente registrado." />
-          <p><strong>Total anual: {formatBRL(analysis.recurringAnnual)}</strong></p>
+          <GroupTable feasibility={feasibility} role="recurring" empty="Nenhum preço de manutenção da pesquisa foi usado." />
+          {feasibility.informedRecurring !== null && <p className="small-copy">Informado pelo colaborador: {formatBRL(feasibility.informedRecurring)} por ano.</p>}
+          <p><strong>Total anual provável: {formatBRL(likely.recurring)}</strong></p>
         </section>
 
         <section className="panel detail-panel report-section">
@@ -235,35 +235,17 @@ export default async function InitiativeReportPage({ params }: { params: Promise
             <div><dt>Sociais</dt><dd><SourcedList items={execution.results.social} empty="—" /></dd></div>
             <div><dt>Econômicos</dt><dd><SourcedList items={execution.results.economic} empty="—" /></dd></div>
           </dl>
-          {finance?.benefits.length ? (
-            <div className="table-wrap">
-              <table className="plan-table">
-                <thead><tr><th>Benefício financeiro anual</th><th>Conservador</th><th>Provável</th><th>Otimista</th><th>Origem</th><th>Base</th></tr></thead>
-                <tbody>
-                  {finance.benefits.map((line, index) => (
-                    <tr key={`${line.label}-${index}`}>
-                      <td>{line.label}</td>
-                      <td>{line.conservative === null ? "—" : formatBRL(line.conservative)}</td>
-                      <td>{line.likely === null ? "—" : formatBRL(line.likely)}</td>
-                      <td>{line.optimistic === null ? "—" : formatBRL(line.optimistic)}</td>
-                      <td>{originChip(line.origin)}</td>
-                      <td>{line.basis ?? "—"}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          ) : null}
+          <p>
+            <strong>Economia financeira anual (provável): {likely.annualBenefit === null ? "não calculada" : formatBRL(likely.annualBenefit)}</strong>
+            {feasibility.benefitSource === "gestao" && " (informada pela gestão)"}
+            {feasibility.tariff && ` · tarifa ${feasibility.tariff.source === "colaborador" ? "informada pelo colaborador" : "pesquisada"}`}
+          </p>
           {execution.savings && (
             <p className="small-copy">
-              Estimativa física: {formatNumber(execution.savings.quantity)} {execution.savings.unit} ({execution.savings.formula}). Premissas:{" "}
-              {execution.savings.assumptions.join(" ")}
+              Estimativa física: {formatNumber(execution.savings.quantity)} {execution.savings.unit}. Premissas: {execution.savings.assumptions.join(" ")}
             </p>
           )}
-          <h3 className="subsection-title">Benefícios não monetizados</h3>
-          <p className={finance?.nonFinancialBenefits ? "preserve-lines" : "empty-inline"}>
-            {finance?.nonFinancialBenefits ?? "Não descritos pela gestão. Benefícios ambientais e sociais não recebem valor em reais sem fundamento."}
-          </p>
+          <p className="small-copy muted">Benefícios ambientais e sociais acima não recebem valor em reais sem fundamento.</p>
         </section>
 
         <section className="panel detail-panel report-section">
@@ -288,39 +270,36 @@ export default async function InitiativeReportPage({ params }: { params: Promise
 
         <section className="panel detail-panel report-section">
           <h2 className="subsection-title">13. ROI estimado</h2>
-          {analysis.calculable ? (
+          {feasibility.calculable ? (
             <ul className="evaluation-list">
-              {analysis.scenarios.map((scenario) => (
+              {feasibility.scenarios.map((scenario) => (
                 <li key={scenario.key}>
-                  <strong>{scenario.label}:</strong> {scenario.roiPercent === null ? `não calculado. ${scenario.notes.join(" ")}` : `${formatNumber(scenario.roiPercent)}% em ${formatNumber(analysis.periodYears ?? 0)} anos`}
+                  <strong>{scenario.label}:</strong> {scenario.roiPercent === null ? "não calculado" : `${formatNumber(scenario.roiPercent)}% em ${formatNumber(feasibility.periodYears)} anos`}
                 </li>
               ))}
             </ul>
           ) : (
-            <p className="empty-inline">Não calculado: dados insuficientes ({[...analysis.missing, ...analysis.pending].join("; ") || "ver observações dos cenários"}).</p>
+            <p className="empty-inline">Não calculado: {feasibility.missing.join("; ") || "dados insuficientes"}.</p>
           )}
-          {analysis.memory.length > 0 && (
+          <p className="small-copy muted">Cenários pela faixa de preços encontrada: conservador usa o preço mais alto e a menor tarifa; otimista, o contrário.</p>
+          {feasibility.memory.length > 0 && (
             <>
               <h3 className="subsection-title">Premissas e memória de cálculo</h3>
-              {finance?.assumptions && <p className="preserve-lines small-copy">{finance.assumptions}</p>}
-              <ul className="evaluation-list small-copy">{analysis.memory.map((item) => <li key={item}>{item}</li>)}</ul>
-              <p className="small-copy muted">ROI (%) = [(benefício líquido anual × período − investimento) / investimento] × 100, sem correção monetária.</p>
+              <ul className="evaluation-list small-copy">{feasibility.memory.map((item) => <li key={item}>{item}</li>)}</ul>
             </>
           )}
         </section>
 
         <section className="panel detail-panel report-section">
           <h2 className="subsection-title">14. Payback estimado</h2>
-          {analysis.scenarios.some((scenario) => scenario.paybackYears !== null) ? (
+          {feasibility.scenarios.some((scenario) => scenario.paybackYears !== null) ? (
             <ul className="evaluation-list">
-              {analysis.scenarios.filter((scenario) => scenario.paybackYears !== null).map((scenario) => (
+              {feasibility.scenarios.filter((scenario) => scenario.paybackYears !== null).map((scenario) => (
                 <li key={scenario.key}><strong>{scenario.label}:</strong> {formatNumber(scenario.paybackYears ?? 0)} anos</li>
               ))}
             </ul>
           ) : (
-            <p className="empty-inline">
-              Não calculado{likely?.notes.length ? `: ${likely.notes.join(" ")}` : ": depende de investimento e benefício líquido anual positivo conhecidos."}
-            </p>
+            <p className="empty-inline">Não calculado{likely.notes.length ? `: ${likely.notes.join(" ")}` : ": depende de investimento e de economia anual maior que o custo anual."}</p>
           )}
         </section>
 

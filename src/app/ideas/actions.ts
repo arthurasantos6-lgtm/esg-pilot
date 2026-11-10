@@ -35,7 +35,8 @@ import {
   readProposalForm,
   type StoredProposal,
 } from "@/lib/idea-proposal";
-import { parsePlan, planAnswersText } from "@/lib/idea-planning";
+import { detectInitiativeType, emptyPlan, parsePlan, planAnswersText } from "@/lib/idea-planning";
+import { researchAutomatically } from "@/lib/research-provider";
 import { buildLocalAnalysis } from "@/lib/local-analysis";
 import { createServiceClient } from "@/lib/supabase/admin";
 import { selectRelevantKnowledge } from "@/lib/text-similarity";
@@ -359,6 +360,12 @@ export async function saveProposal(formData: FormData) {
     criteriaVersionId: criteria.id,
     criteriaVersionLabel: criteria.label,
   });
+
+  // Pesquisa de mercado automática (busca gratuita), feita antes do envio porque
+  // depois dele o colaborador não pode mais gravar na ideia. Falha não impede o envio.
+  const plannedFor = parsePlan(proposal.plan) ?? emptyPlan(detectInitiativeType(`${idea.title} ${idea.original_description ?? ""}`));
+  const researched = await researchAutomatically(idea, plannedFor);
+  if (researched.research) proposal.plan = researched;
 
   // O filtro por status impede envio duplicado (duplo clique ou duas abas).
   const { data: submitted, error } = await context.supabase

@@ -2,6 +2,7 @@ import { classifyText } from "./esg-classifier.ts";
 import { ESG_SUBCATEGORIES } from "./esg-engine.ts";
 import { estimateSavings, type SavingsEstimate } from "./idea-finance.ts";
 import {
+  answerOptions,
   answerText,
   INITIATIVE_TYPES,
   NOT_KNOWN,
@@ -92,7 +93,7 @@ const PROFILES: Record<InitiativeType, Profile> = {
   iluminacao: {
     area: "Manutenção elétrica",
     assessment: "Vistoriar os ambientes, contar luminárias e circuitos e verificar onde os sensores podem ser instalados.",
-    implementation: (plan) => `Instalar os sensores${qty(n(plan, "il-pontos"), "ambientes ou pontos") ? ` em ${qty(n(plan, "il-pontos"), "ambientes ou pontos")}` : ""} e ajustar o tempo de desligamento de cada ambiente.`,
+    implementation: (plan) => `Instalar os sensores${qty(n(plan, "il-pontos"), "sensores") ? ` (${qty(n(plan, "il-pontos"), "sensores")})` : ""} e ajustar o tempo de desligamento de cada ambiente.`,
     equipment: ["Sensores de presença compatíveis com o tipo de iluminação e o circuito"],
     materials: ["Cabos, caixas de passagem e acessórios de instalação elétrica"],
     labor: ["Eletricista habilitado (NR-10) para a instalação"],
@@ -284,7 +285,8 @@ const fromAnswer = (plan: IdeaPlan, id: string, prefix = ""): Sourced | null => 
 };
 const rule = (text: string): Sourced => ({ text, source: "regra" });
 const compact = <T>(items: (T | null | undefined | false)[]) => items.filter(Boolean) as T[];
-const is = (plan: IdeaPlan, id: string, ...values: string[]) => values.includes(answerText(plan, id) ?? "");
+/** A resposta (ou uma das opções marcadas) é uma destas. */
+const is = (plan: IdeaPlan, id: string, ...values: string[]) => answerOptions(answerText(plan, id)).some((option) => values.includes(option));
 const undecided = (plan: IdeaPlan, id: string) => {
   const status = plan.answers[id]?.status;
   return !status || status !== "answered";
@@ -306,9 +308,9 @@ export function buildExecutionPlan(input: { title: string; originalText: string;
   // Necessidades que mudam as etapas.
   const external =
     is(plan, "g-fornecedor", "Sim") ||
-    is(plan, "il-instalacao", "Empresa especializada", "As duas") ||
-    is(plan, "so-instalacao", "Empresa especializada", "As duas") ||
-    is(plan, "ca-instrutor", "Externo") ||
+    is(plan, "il-instalacao", "Empresa contratada", "Os dois") ||
+    is(plan, "so-instalacao", "Empresa contratada", "Os dois") ||
+    is(plan, "ca-instrutor", "Instrutor contratado") ||
     is(plan, "re-receptor", "Não") ||
     type === "solar";
   const supplierUnclear = visibleQuestions(plan).some((question) => question.id === "g-fornecedor") && undecided(plan, "g-fornecedor");
@@ -318,7 +320,7 @@ export function buildExecutionPlan(input: { title: string; originalText: string;
     is(plan, "en-solucao", "Temporizador ou automação", "Troca por equipamento mais eficiente") ||
     is(plan, "em-solucao", "Filtros ou controle", "Troca de veículo ou equipamento") ||
     is(plan, "se-medida", "EPI", "Proteção coletiva", "Sinalização", "Adequação ergonômica") ||
-    is(plan, "go-mudanca", "Sistema ou software") ||
+    is(plan, "go-sistema", "Não, seria preciso contratar") ||
     Boolean(answerText(plan, "g-materiais")) ||
     (numberAnswer(plan, "g-custo-inicial") ?? 0) > 0;
   const infrastructure =
@@ -329,7 +331,7 @@ export function buildExecutionPlan(input: { title: string; originalText: string;
     is(plan, "em-exigencia", "Sim") && "Atender à exigência legal ou de licença informada",
     is(plan, "go-validacao", "Sim") && "Validação jurídica ou de compliance",
     is(plan, "go-dados", "Sim") && "Avaliação de proteção de dados (LGPD)",
-    answerText(plan, "se-norma") && `Conferir a norma citada: ${answerText(plan, "se-norma")}`,
+    is(plan, "g-riscos", "Exigência de licença ou norma") && "Verificar a licença ou norma aplicável",
   ]);
   const stop = is(plan, "en-parada", "Sim") || is(plan, "se-parada", "Sim");
   const technical = profile.area;
@@ -342,7 +344,7 @@ export function buildExecutionPlan(input: { title: string; originalText: string;
     { key: "aprovacao", title: purchase || external ? "Aprovação do investimento" : "Aprovação do plano", activity: "Apresentar plano, custos e análise de retorno à gestão para decisão.", duration: "1 a 2 semanas", responsible: "Gestão da empresa", after: ["cotacao", "avaliacao"] },
     licensing.length > 0 && { key: "licencas", title: "Licenças, normas e validações", activity: `${licensing.join("; ")}.`, duration: "2 a 8 semanas (depende de órgãos externos)", responsible: "Meio ambiente / jurídico / compliance", after: ["aprovacao"] },
     purchase && { key: "aquisicao", title: "Aquisição", activity: "Emitir pedidos e acompanhar a entrega dos materiais e equipamentos.", duration: "2 a 6 semanas (prazo de entrega)", responsible: "Compras / suprimentos", after: ["aprovacao"] },
-    infrastructure && { key: "infraestrutura", title: "Preparação da infraestrutura", activity: compact([fromAnswer(plan, "il-infra-ajuste")?.text, fromAnswer(plan, "so-reforco")?.text, fromAnswer(plan, "ar-hidraulica-qual")?.text, is(plan, "ar-reservatorio", "Sim") && "Instalar os reservatórios", is(plan, "re-coletores", "Sim") && "Preparar a área de armazenamento e os coletores"]).join("; ") || "Executar as adequações apontadas na avaliação técnica.", duration: "1 a 4 semanas", responsible: technical, after: ["aquisicao", "aprovacao"] },
+    infrastructure && { key: "infraestrutura", title: "Preparação da infraestrutura", activity: compact([fromAnswer(plan, "il-infra-ajuste")?.text, is(plan, "ar-hidraulica", "Sim") && "Instalar tubulação e bomba", is(plan, "ar-reservatorio", "Sim") && "Instalar os reservatórios", is(plan, "re-coletores", "Sim") && "Preparar a área de armazenamento e os coletores"]).join("; ") || "Executar as adequações apontadas na avaliação técnica.", duration: "1 a 4 semanas", responsible: technical, after: ["aquisicao", "aprovacao"] },
     { key: "implementacao", title: "Implementação", activity: `${profile.implementation(plan)}${stop ? " Programar na janela de parada para não interromper a operação." : ""}`, duration: "1 a 4 semanas", responsible: external ? `${technical}, com o fornecedor contratado` : technical, after: ["infraestrutura", "aquisicao", "licencas", "aprovacao"] },
     profile.behavioral && { key: "comunicacao", title: "Comunicação e orientação das equipes", activity: "Explicar a mudança às pessoas envolvidas e combinar a nova rotina.", duration: "1 semana", responsible: "Recursos humanos / comunicação interna", after: ["implementacao"] },
     { key: "testes", title: "Testes e validação", activity: "Verificar se a solução funciona como previsto e corrigir ajustes.", duration: "1 a 2 semanas", responsible: technical, after: ["implementacao"] },
@@ -360,20 +362,20 @@ export function buildExecutionPlan(input: { title: string; originalText: string;
 
   const answerOr = (id: string) => fromAnswer(plan, id);
   const resources = [
-    { label: "Materiais", items: compact([answerOr("g-materiais"), ...profile.materials.map(rule), fromAnswer(plan, "re-coletores-qtd", "Coletores: "), fromAnswer(plan, "ac-solucao")]) },
-    { label: "Equipamentos e tecnologias", items: compact([...profile.equipment.map(rule), fromAnswer(plan, "go-sistema", "Sistema: "), is(plan, "en-medicao", "Não") && rule("Medidor de consumo para comparar antes e depois")]) },
-    { label: "Mão de obra", items: compact([answerOr("g-pessoas"), fromAnswer(plan, "go-areas", "Áreas: "), fromAnswer(plan, "so2-voluntarios", "Colaboradores participantes: "), ...profile.labor.map(rule)]) },
+    { label: "Materiais", items: compact([answerOr("g-materiais"), ...profile.materials.map(rule), fromAnswer(plan, "re-coletores-qtd", "Coletores (quantidade): "), fromAnswer(plan, "ac-solucao")]) },
+    { label: "Equipamentos e tecnologias", items: compact([...profile.equipment.map(rule), fromAnswer(plan, "go-sistema", "Sistema existente? "), is(plan, "en-medicao", "Não") && rule("Medidor de consumo para comparar antes e depois")]) },
+    { label: "Mão de obra", items: compact([answerOr("g-pessoas"), fromAnswer(plan, "so2-voluntarios", "Colaboradores participantes: "), ...profile.labor.map(rule)]) },
     { label: "Serviços terceirizados", items: compact([answerOr("g-fornecedor-qual"), fromAnswer(plan, "il-instalacao", "Instalação: "), fromAnswer(plan, "so-instalacao", "Projeto e instalação: "), fromAnswer(plan, "ca-instrutor", "Instrutor: "), fromAnswer(plan, "so2-parceiros-quais", "Parceiros: ")]) },
-    { label: "Infraestrutura", items: compact([fromAnswer(plan, "il-infra-ajuste"), fromAnswer(plan, "so-reforco"), fromAnswer(plan, "ar-hidraulica-qual"), fromAnswer(plan, "ar-reservatorio-cap", "Reservatórios (m³): "), fromAnswer(plan, "ar-tratamento-qual", "Tratamento: ")]) },
+    { label: "Infraestrutura", items: compact([fromAnswer(plan, "il-infra-ajuste"), is(plan, "ar-hidraulica", "Sim") && rule("Tubulação e bomba para a água de reúso"), fromAnswer(plan, "ar-reservatorio-cap", "Reservatórios (m³): "), is(plan, "ar-tratamento", "Sim") && rule("Filtro ou tratamento da água de reúso")]) },
     { label: "Outros", items: compact([licensing.length > 0 && rule(`Validações: ${licensing.join("; ")}`)]) },
   ];
 
   const risks = compact<Sourced>([
     answerOr("g-riscos"),
-    fromAnswer(plan, "so2-efeito"),
+    is(plan, "g-indicadores", "Não existe") && rule("Não há registro da situação atual: medir antes de começar, para comparar depois."),
     is(plan, "il-infra", "Não") && rule("A infraestrutura elétrica atual precisa de adequação."),
     is(plan, "so-estrutura", "Não") && rule("A estrutura do telhado pode não suportar os painéis."),
-    is(plan, "so-sombra", "Sim", "Em parte do dia") && rule("Sombreamento reduz a geração de energia."),
+    is(plan, "so-sombra", "Sim, boa parte do dia", "Em parte do dia") && rule("Sombreamento reduz a geração de energia."),
     is(plan, "ar-tratamento", "Sim") && rule("Água de reúso exige tratamento e controle de qualidade."),
     is(plan, "re-licenca", "Sim") && rule("Resíduo perigoso: destinação exige empresa licenciada."),
     stop && rule("A implantação exige parar a operação."),
@@ -425,7 +427,6 @@ export function buildExecutionPlan(input: { title: string; originalText: string;
       economic: profile.economic.map(rule),
       informed: answerOr("g-beneficios"),
       indicators: [
-        ...(answerOr("g-indicadores") ? [{ name: answerOr("g-indicadores")?.text ?? "", how: "Sugerido por quem enviou a ideia.", source: "colaborador" as const }] : []),
         ...profile.indicators.map((indicator) => ({ ...indicator, source: "regra" as const })),
       ],
     },

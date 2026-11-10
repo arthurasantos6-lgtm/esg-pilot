@@ -9,7 +9,7 @@ import { INITIATIVE_TYPES, type InitiativeType, type PlanReference, type Referen
 
 export const TAVILY_ENDPOINT = "https://api.tavily.com/search";
 const RESULTS_PER_QUERY = 4;
-const REQUEST_TIMEOUT_MS = 20_000;
+const REQUEST_TIMEOUT_MS = 12_000;
 
 /** Termo principal de busca por tipo; "geral" usa o título da ideia. */
 const SEARCH_TERMS: Record<InitiativeType, string | null> = {
@@ -29,26 +29,39 @@ const SEARCH_TERMS: Record<InitiativeType, string | null> = {
 
 export type SearchQuery = { query: string; category: ReferenceCategory };
 
-/** De 4 a 6 consultas por pesquisa (1 crédito cada no plano gratuito). */
+const TARIFF_QUERIES: Partial<Record<InitiativeType, string>> = {
+  iluminacao: "tarifa de energia elétrica comercial R$ por kWh",
+  energia: "tarifa de energia elétrica comercial R$ por kWh",
+  solar: "tarifa de energia elétrica comercial R$ por kWh",
+  agua_reuso: "tarifa de água comercial R$ por m³",
+  agua_consumo: "tarifa de água comercial R$ por m³",
+};
+
+/** Até 8 consultas por pesquisa (1 crédito cada no plano gratuito), a partir da ideia e do tipo. */
 export function buildSearchQueries(type: InitiativeType, title: string, extraTerms: string[] = []): SearchQuery[] {
   const term = SEARCH_TERMS[type] ?? title.trim().slice(0, 100);
   const pillar = INITIATIVE_TYPES[type].pillar;
   const queries: SearchQuery[] = [
     { query: `preço ${term}`, category: "preco_equipamento" },
     { query: `custo de instalação ${term}`, category: "instalacao" },
+    { query: `custo de manutenção ${term}`, category: "manutencao" },
     { query: `${term} economia estudo de caso empresa`, category: "caso" },
     { query: `fornecedores ${term} Brasil`, category: "fornecedor" },
   ];
   // Retorno financeiro só faz sentido quando há economia mensurável (pilar ambiental).
   if (pillar === "E") queries.push({ query: `${term} payback retorno do investimento`, category: "roi" });
-  // Termos específicos informados pela pessoa (ex.: "reservatório de 5 m³").
+  const tariff = TARIFF_QUERIES[type];
+  if (tariff) queries.push({ query: tariff, category: "economia" });
+  // A própria ideia, nas palavras de quem enviou (quando o tipo é genérico, já é o termo principal).
+  if (SEARCH_TERMS[type]) queries.push({ query: `${title.trim().slice(0, 90)} custo`, category: "preco_equipamento" });
+  // Itens que a pessoa disse que seriam comprados (ex.: "reservatório de 5 m³").
   for (const extra of extraTerms.slice(0, 1)) queries.push({ query: `preço ${extra}`.slice(0, 200), category: "preco_material" });
-  return queries;
+  return queries.slice(0, 8);
 }
 
 /** Valores em reais escritos no trecho ("R$ 89,90", "R$ 12 mil", "R$1.200"). */
 export function extractBrlValues(text: string): string[] {
-  const pattern = /R\$\s?\d{1,3}(?:[.\s]\d{3})*(?:,\d{1,2})?(?:\s?(?:mil|milhões?|milhão))?|R\$\s?\d+(?:,\d{1,2})?(?:\s?(?:mil|milhões?|milhão))?/gi;
+  const pattern = /R\$\s?\d{1,3}(?:[.\s]\d{3})*(?:,\d{1,2})?(?:\s?(?:milhões|milhão|mil))?|R\$\s?\d+(?:,\d{1,2})?(?:\s?(?:milhões|milhão|mil))?/gi;
   const found = text.match(pattern) ?? [];
   return [...new Set(found.map((value) => value.replace(/\s+/g, " ").trim()))].slice(0, 4);
 }

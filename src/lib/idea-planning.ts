@@ -114,157 +114,154 @@ export type PlanQuestion = {
   step: PlanStepKey;
   text: string;
   hint?: string;
-  kind: "text" | "number" | "choice";
+  /** choice: uma opção; multi: várias opções marcáveis. */
+  kind: "text" | "number" | "choice" | "multi";
   unit?: string;
   options?: string[];
   /** Item mínimo coberto; a pergunta geral do mesmo item é omitida quando a específica existe. */
   item: MinimumItem;
-  /** Só aparece quando a resposta de outra pergunta é uma destas opções. */
+  /** Só aparece quando a resposta de outra pergunta inclui uma destas opções. */
   showIf?: { question: string; anyOf: string[] };
   /** Campo da proposta usado como resposta inicial (texto da própria pessoa). */
   prefillFrom?: ProposalFieldKey;
 };
 
+/** Separador das opções marcadas em perguntas de várias escolhas. */
+export const MULTI_SEPARATOR = "; ";
+
 const YES_NO = ["Sim", "Não"];
-const WHO_INSTALLS = ["Equipe interna", "Empresa especializada", "As duas"];
+const WHO_INSTALLS = ["Eletricista ou equipe da empresa", "Empresa contratada", "Os dois"];
+const TARIFF_HINT = "Se não souber, marque \"Não sei informar\": o sistema pesquisa uma referência de preço.";
 
 const GENERAL: PlanQuestion[] = [
-  { id: "g-problema", step: "ideia", item: "problema", kind: "text", prefillFrom: "problem", text: "Qual problema ou oportunidade a ideia resolve?", hint: "O que acontece hoje e por que isso importa." },
-  { id: "g-objetivo", step: "ideia", item: "objetivo", kind: "text", text: "Qual é o objetivo esperado?", hint: "Ex.: reduzir o consumo, evitar acidentes, cumprir uma exigência." },
-  { id: "g-local", step: "ideia", item: "local", kind: "text", text: "Onde a iniciativa seria implantada?", hint: "Unidade, prédio, setor ou processo." },
-  { id: "g-escopo", step: "ideia", item: "escopo", kind: "text", text: "Qual seria o alcance da iniciativa?", hint: "Quantos locais, pessoas, equipamentos ou processos. Começaria por um piloto?" },
-  { id: "g-etapas", step: "execucao", item: "etapas", kind: "text", text: "Você já sabe de alguma etapa necessária para executar a ideia?", hint: "Ex.: vistoria, compra, instalação, treinamento. Pode deixar em branco." },
-  { id: "g-materiais", step: "execucao", item: "materiais", kind: "text", text: "Quais materiais, equipamentos ou tecnologias seriam necessários?" },
-  { id: "g-pessoas", step: "execucao", item: "pessoas", kind: "text", text: "Quais pessoas ou áreas precisariam participar?", hint: "Ex.: manutenção, compras, segurança do trabalho, TI." },
-  { id: "g-fornecedor", step: "execucao", item: "fornecedores", kind: "choice", options: YES_NO, text: "Será preciso contratar fornecedores ou serviços de terceiros?" },
-  { id: "g-fornecedor-qual", step: "execucao", item: "fornecedores", kind: "text", showIf: { question: "g-fornecedor", anyOf: ["Sim"] }, text: "Quais serviços ou fornecedores?", hint: "Não cite pessoas. Pode ser só o tipo de serviço." },
-  { id: "g-prazo", step: "execucao", item: "prazo", kind: "choice", options: ["Até 1 mês", "De 1 a 3 meses", "De 3 a 6 meses", "De 6 a 12 meses", "Mais de 12 meses"], text: "Em quanto tempo você imagina que daria para implantar?" },
-  { id: "g-custo-inicial", step: "custos", item: "custoInicial", kind: "number", unit: "R$", text: "Existe uma estimativa de investimento inicial?", hint: "Valor aproximado, se souber. Não precisa ser exato." },
-  { id: "g-custo-base", step: "custos", item: "custoInicial", kind: "text", showIf: { question: "g-custo-inicial", anyOf: ["__number__"] }, text: "De onde vem esse valor?", hint: "Ex.: orçamento recebido, compra parecida, pesquisa na internet, estimativa própria." },
-  { id: "g-custo-recorrente", step: "custos", item: "custoRecorrente", kind: "number", unit: "R$ por mês", text: "Haveria custos mensais de operação ou manutenção?", hint: "Ex.: manutenção, assinatura, insumos, coleta. Informe 0 se não houver." },
-  { id: "g-beneficios", step: "custos", item: "beneficios", kind: "text", prefillFrom: "expectedBenefits", text: "Quais benefícios você espera?", hint: "Ambientais, sociais e econômicos. Não invente números." },
-  { id: "g-indicadores", step: "custos", item: "indicadores", kind: "text", prefillFrom: "indicators", text: "Como saberíamos que funcionou?", hint: "O que medir antes e depois." },
-  { id: "g-riscos", step: "custos", item: "riscos", kind: "text", prefillFrom: "resourcesAndRisks", text: "Quais dificuldades, riscos ou limitações você enxerga?" },
+  { id: "g-problema", step: "ideia", item: "problema", kind: "text", prefillFrom: "problem", text: "O que acontece hoje que precisa mudar?", hint: "Uma ou duas frases. Ex.: as luzes do corredor ficam acesas a noite toda." },
+  { id: "g-objetivo", step: "ideia", item: "objetivo", kind: "multi", options: ["Reduzir custos", "Reduzir consumo de energia", "Reduzir consumo de água", "Reduzir resíduos ou poluição", "Aumentar a segurança das pessoas", "Capacitar as equipes", "Melhorar processos ou controles", "Beneficiar a comunidade"], text: "Que resultado você espera? Marque todos que se aplicam." },
+  { id: "g-local", step: "ideia", item: "local", kind: "text", text: "Em qual unidade, prédio ou setor isso seria feito?", hint: "Ex.: prédio administrativo, 2º andar." },
+  { id: "g-escopo", step: "ideia", item: "escopo", kind: "choice", options: ["Um teste em um único local", "Alguns setores", "Toda a unidade", "Todas as unidades da empresa"], text: "Qual seria o tamanho da primeira implantação?" },
+  { id: "g-materiais", step: "execucao", item: "materiais", kind: "text", text: "O que precisaria ser comprado?", hint: "Liste os itens, se souber. Ex.: 20 sensores de presença, 2 caixas d'água." },
+  { id: "g-pessoas", step: "execucao", item: "pessoas", kind: "multi", options: ["Manutenção", "Compras", "Segurança do trabalho", "Meio ambiente", "RH ou treinamento", "TI", "Produção ou operação", "Jurídico ou compliance"], text: "Quais áreas da empresa precisariam participar?" },
+  { id: "g-fornecedor", step: "execucao", item: "fornecedores", kind: "choice", options: ["Sim", "Não, a equipe interna resolve"], text: "Seria preciso contratar uma empresa de fora?" },
+  { id: "g-fornecedor-qual", step: "execucao", item: "fornecedores", kind: "multi", showIf: { question: "g-fornecedor", anyOf: ["Sim"] }, options: ["Instalação ou obra", "Projeto técnico", "Fornecimento de equipamentos", "Treinamento", "Consultoria", "Coleta ou destinação de materiais"], text: "Para que serviço?" },
+  { id: "g-prazo", step: "execucao", item: "prazo", kind: "choice", options: ["Até 1 mês", "De 1 a 3 meses", "De 3 a 6 meses", "De 6 a 12 meses", "Mais de 12 meses"], text: "Na sua opinião, em quanto tempo daria para implantar?" },
+  { id: "g-custo-inicial", step: "custos", item: "custoInicial", kind: "number", unit: "R$ (total)", text: "Você tem ideia de quanto custaria para implantar?", hint: "Valor total aproximado. Ex.: 5000. Se não souber, marque \"Não sei informar\": o sistema pesquisa preços." },
+  { id: "g-custo-base", step: "custos", item: "custoInicial", kind: "choice", showIf: { question: "g-custo-inicial", anyOf: ["__number__"] }, options: ["Orçamento de fornecedor", "Compra parecida feita antes", "Pesquisa na internet", "Estimativa minha"], text: "De onde vem esse valor?" },
+  { id: "g-tem-recorrente", step: "custos", item: "custoRecorrente", kind: "choice", options: YES_NO, text: "Depois de implantado, haveria algum gasto todo mês?", hint: "Ex.: manutenção, assinatura, coleta, insumos." },
+  { id: "g-custo-recorrente", step: "custos", item: "custoRecorrente", kind: "number", unit: "R$ por mês", showIf: { question: "g-tem-recorrente", anyOf: ["Sim"] }, text: "Quanto, aproximadamente, por mês?" },
+  { id: "g-beneficios", step: "custos", item: "beneficios", kind: "multi", options: ["Conta de energia menor", "Conta de água menor", "Menos resíduos enviados ao lixo", "Menos acidentes ou afastamentos", "Equipes mais capacitadas", "Cumprir lei ou norma", "Melhor imagem da empresa", "Benefício para a comunidade"], text: "Quais benefícios você espera? Marque todos que se aplicam." },
+  { id: "g-indicadores", step: "custos", item: "indicadores", kind: "choice", options: ["Sim, com números", "Sim, mas sem números", "Não existe"], text: "Hoje existe algum registro da situação (contas, planilhas, relatórios)?", hint: "Serve para comparar o antes e o depois." },
+  { id: "g-riscos", step: "custos", item: "riscos", kind: "multi", options: ["Parar a operação durante a implantação", "Resistência das pessoas à mudança", "Exigência de licença ou norma", "Custo alto", "Depender de fornecedor externo", "Falta de espaço ou de infraestrutura", "Não vejo dificuldades"], text: "O que poderia atrapalhar? Marque todos que se aplicam." },
 ];
 
 const SPECIFIC: Record<InitiativeType, PlanQuestion[]> = {
   iluminacao: [
-    { id: "il-ambientes", step: "especificas", item: "local", kind: "text", text: "Em quais ambientes os sensores ou a nova iluminação seriam instalados?" },
-    { id: "il-pontos", step: "especificas", item: "escopo", kind: "number", unit: "ambientes ou pontos", text: "Quantos ambientes ou pontos de iluminação seriam contemplados?" },
-    { id: "il-luminarias", step: "especificas", item: "escopo", kind: "number", unit: "luminárias", text: "Quantas luminárias existem nesses ambientes?" },
-    { id: "il-tipo", step: "especificas", item: "materiais", kind: "choice", options: ["LED", "Fluorescente", "Incandescente ou halógena", "Mista"], text: "Qual o tipo de iluminação usada hoje?" },
-    { id: "il-potencia", step: "especificas", item: "escopo", kind: "number", unit: "W por luminária", text: "Qual a potência média de cada luminária?", hint: "Costuma estar escrita na lâmpada ou na luminária." },
-    { id: "il-ociosas", step: "especificas", item: "problema", kind: "choice", options: ["Sim, com frequência", "Às vezes", "Raramente"], text: "As luzes ficam ligadas em períodos sem ninguém no ambiente?" },
-    { id: "il-horas-ociosas", step: "especificas", item: "beneficios", kind: "number", unit: "horas por dia", showIf: { question: "il-ociosas", anyOf: ["Sim, com frequência", "Às vezes"] }, text: "Quantas horas por dia, em média, ficam ligadas sem ninguém?" },
-    { id: "il-horas", step: "especificas", item: "escopo", kind: "number", unit: "horas por dia", text: "Qual o tempo médio diário de funcionamento da iluminação?" },
-    { id: "il-infra", step: "especificas", item: "riscos", kind: "choice", options: YES_NO, text: "Já existe infraestrutura elétrica compatível com a instalação?" },
-    { id: "il-infra-ajuste", step: "especificas", item: "materiais", kind: "text", showIf: { question: "il-infra", anyOf: ["Não"] }, text: "O que precisaria ser adequado na parte elétrica?" },
+    { id: "il-ambientes", step: "especificas", item: "local", kind: "multi", options: ["Corredores", "Banheiros", "Escritórios", "Salas de reunião", "Depósito ou almoxarifado", "Área de produção", "Estacionamento ou área externa"], text: "Em quais ambientes?" },
+    { id: "il-pontos", step: "especificas", item: "escopo", kind: "number", unit: "sensores", text: "Quantos sensores seriam necessários?", hint: "Conte um por ambiente ou por trecho de corredor. Ex.: 12." },
+    { id: "il-luminarias", step: "especificas", item: "escopo", kind: "number", unit: "lâmpadas", text: "Quantas lâmpadas ficariam ligadas a esses sensores, no total?" },
+    { id: "il-tipo", step: "especificas", item: "materiais", kind: "choice", options: ["LED", "Fluorescente (tubular)", "Incandescente ou halógena", "Mais de um tipo"], text: "Que tipo de lâmpada é usada hoje?" },
+    { id: "il-potencia", step: "especificas", item: "escopo", kind: "number", unit: "watts por lâmpada", text: "Qual a potência de cada lâmpada?", hint: "Vem escrita na lâmpada. Ex.: 9 W, 18 W, 40 W." },
+    { id: "il-ociosas", step: "especificas", item: "problema", kind: "choice", options: ["Quase sempre", "Algumas vezes por dia", "Raramente"], text: "Com que frequência as luzes ficam acesas sem ninguém no ambiente?" },
+    { id: "il-horas-ociosas", step: "especificas", item: "beneficios", kind: "number", unit: "horas por dia", showIf: { question: "il-ociosas", anyOf: ["Quase sempre", "Algumas vezes por dia"] }, text: "Somando o dia todo, quantas horas as luzes ficam acesas sem ninguém?", hint: "Ex.: 4." },
+    { id: "il-infra", step: "especificas", item: "riscos", kind: "choice", options: YES_NO, text: "Dá para ligar o sensor na fiação que já existe?", hint: "Se for preciso passar fios novos ou abrir paredes, responda Não." },
+    { id: "il-infra-ajuste", step: "especificas", item: "materiais", kind: "multi", showIf: { question: "il-infra", anyOf: ["Não"] }, options: ["Passar fiação nova", "Separar circuitos", "Trocar luminárias", "Instalar caixas de passagem"], text: "O que seria preciso fazer na parte elétrica?" },
     { id: "il-instalacao", step: "especificas", item: "fornecedores", kind: "choice", options: WHO_INSTALLS, text: "Quem faria a instalação?" },
-    { id: "il-tarifa", step: "especificas", item: "beneficios", kind: "number", unit: "R$ por kWh", text: "Você sabe o valor pago por kWh de energia?", hint: "Aparece na conta de energia. Se não souber, a gestão pode completar." },
+    { id: "il-tarifa", step: "especificas", item: "beneficios", kind: "number", unit: "R$ por kWh", text: "Quanto a empresa paga por kWh de energia?", hint: `Aparece na conta de luz. Ex.: 0,85. ${TARIFF_HINT}` },
   ],
   solar: [
-    { id: "so-local", step: "especificas", item: "local", kind: "choice", options: ["Telhado", "Solo", "Estacionamento (cobertura)", "Outro"], text: "Onde os painéis seriam instalados?" },
-    { id: "so-area", step: "especificas", item: "escopo", kind: "number", unit: "m²", text: "Qual a área disponível, aproximadamente?" },
-    { id: "so-consumo", step: "especificas", item: "escopo", kind: "number", unit: "kWh por mês", text: "Qual o consumo mensal de energia da unidade?" },
-    { id: "so-conta", step: "especificas", item: "beneficios", kind: "number", unit: "R$ por mês", text: "Qual o valor médio da conta de energia?" },
-    { id: "so-estrutura", step: "especificas", item: "riscos", kind: "choice", options: YES_NO, showIf: { question: "so-local", anyOf: ["Telhado"] }, text: "O telhado suporta o peso dos painéis?" },
-    { id: "so-reforco", step: "especificas", item: "materiais", kind: "text", showIf: { question: "so-estrutura", anyOf: ["Não"] }, text: "Que reforço ou adequação seria necessário?" },
-    { id: "so-sombra", step: "especificas", item: "riscos", kind: "choice", options: ["Sim", "Não", "Em parte do dia"], text: "Há sombra de prédios ou árvores sobre a área?" },
+    { id: "so-local", step: "especificas", item: "local", kind: "choice", options: ["Telhado", "No chão (solo)", "Cobertura de estacionamento"], text: "Onde os painéis ficariam?" },
+    { id: "so-area", step: "especificas", item: "escopo", kind: "number", unit: "m²", text: "Qual o tamanho da área disponível?", hint: "Ex.: 200. Cada painel ocupa cerca de 2 m²." },
+    { id: "so-consumo", step: "especificas", item: "escopo", kind: "number", unit: "kWh por mês", text: "Quantos kWh a unidade consome por mês?", hint: "Aparece na conta de luz como consumo." },
+    { id: "so-conta", step: "especificas", item: "beneficios", kind: "number", unit: "R$ por mês", text: "Qual o valor médio da conta de luz por mês?" },
+    { id: "so-estrutura", step: "especificas", item: "riscos", kind: "choice", options: YES_NO, showIf: { question: "so-local", anyOf: ["Telhado"] }, text: "O telhado está firme e sem goteiras para receber peso extra?" },
+    { id: "so-sombra", step: "especificas", item: "riscos", kind: "choice", options: ["Não", "Em parte do dia", "Sim, boa parte do dia"], text: "A área recebe sombra de prédios ou árvores?" },
     { id: "so-instalacao", step: "especificas", item: "fornecedores", kind: "choice", options: WHO_INSTALLS, text: "Quem faria o projeto e a instalação?" },
   ],
   energia: [
-    { id: "en-equipamentos", step: "especificas", item: "escopo", kind: "text", text: "Quais equipamentos ou sistemas estão envolvidos?" },
-    { id: "en-quantidade", step: "especificas", item: "escopo", kind: "number", unit: "equipamentos", text: "Quantos equipamentos seriam contemplados?" },
-    { id: "en-potencia", step: "especificas", item: "escopo", kind: "number", unit: "kW por equipamento", text: "Qual a potência média de cada equipamento?", hint: "Costuma estar na placa do equipamento." },
-    { id: "en-ocioso", step: "especificas", item: "beneficios", kind: "number", unit: "horas por dia", text: "Quantas horas por dia ficam ligados sem necessidade?" },
-    { id: "en-medicao", step: "especificas", item: "indicadores", kind: "choice", options: YES_NO, text: "Existe medição do consumo desses equipamentos?" },
+    { id: "en-equipamentos", step: "especificas", item: "escopo", kind: "multi", options: ["Ar-condicionado", "Motores ou máquinas de produção", "Compressores", "Computadores e monitores", "Fornos ou estufas", "Bombas", "Outros"], text: "Quais equipamentos?" },
+    { id: "en-quantidade", step: "especificas", item: "escopo", kind: "number", unit: "equipamentos", text: "Quantos equipamentos seriam incluídos?" },
+    { id: "en-potencia", step: "especificas", item: "escopo", kind: "number", unit: "kW por equipamento", text: "Qual a potência de cada equipamento, em kW?", hint: "Vem na placa do equipamento. 1.000 W = 1 kW. Ex.: 3,5." },
+    { id: "en-ocioso", step: "especificas", item: "beneficios", kind: "number", unit: "horas por dia", text: "Quantas horas por dia cada um fica ligado sem uso?" },
+    { id: "en-medicao", step: "especificas", item: "indicadores", kind: "choice", options: YES_NO, text: "Existe medidor que mostre o consumo desses equipamentos?" },
     { id: "en-solucao", step: "especificas", item: "materiais", kind: "choice", options: ["Desligamento por rotina", "Temporizador ou automação", "Troca por equipamento mais eficiente", "Manutenção ou ajuste", "Outra"], text: "Qual seria a principal solução?" },
-    { id: "en-parada", step: "especificas", item: "riscos", kind: "choice", options: YES_NO, text: "A implantação exigiria parar a produção ou a operação?" },
-    { id: "en-parada-janela", step: "especificas", item: "prazo", kind: "text", showIf: { question: "en-parada", anyOf: ["Sim"] }, text: "Existe uma janela de parada possível (feriado, manutenção programada)?" },
-    { id: "en-tarifa", step: "especificas", item: "beneficios", kind: "number", unit: "R$ por kWh", text: "Você sabe o valor pago por kWh de energia?" },
+    { id: "en-parada", step: "especificas", item: "riscos", kind: "choice", options: YES_NO, text: "Para implantar, seria preciso parar a produção?" },
+    { id: "en-parada-janela", step: "especificas", item: "prazo", kind: "choice", showIf: { question: "en-parada", anyOf: ["Sim"] }, options: ["Feriado ou fim de semana", "Parada de manutenção programada", "Não há momento possível"], text: "Quando a parada poderia acontecer?" },
+    { id: "en-tarifa", step: "especificas", item: "beneficios", kind: "number", unit: "R$ por kWh", text: "Quanto a empresa paga por kWh de energia?", hint: `Aparece na conta de luz. Ex.: 0,85. ${TARIFF_HINT}` },
   ],
   agua_reuso: [
-    { id: "ar-origem", step: "especificas", item: "escopo", kind: "choice", options: ["Água da chuva", "Ar-condicionado", "Lavagem ou processo", "Efluente tratado", "Outra"], text: "Qual é a origem da água que seria reaproveitada?" },
-    { id: "ar-finalidade", step: "especificas", item: "objetivo", kind: "choice", options: ["Descargas sanitárias", "Limpeza de pisos ou pátios", "Irrigação", "Processo industrial", "Outra"], text: "Qual seria a finalidade do reaproveitamento?" },
-    { id: "ar-volume", step: "especificas", item: "escopo", kind: "number", unit: "m³ por mês", text: "Qual o volume disponível, aproximadamente?" },
-    { id: "ar-reservatorio", step: "especificas", item: "materiais", kind: "choice", options: YES_NO, text: "Seria preciso instalar reservatórios?" },
-    { id: "ar-reservatorio-cap", step: "especificas", item: "materiais", kind: "number", unit: "m³", showIf: { question: "ar-reservatorio", anyOf: ["Sim"] }, text: "Qual a capacidade estimada dos reservatórios?" },
-    { id: "ar-hidraulica", step: "especificas", item: "materiais", kind: "choice", options: YES_NO, text: "Seria necessária adequação hidráulica (tubulação, bombas)?" },
-    { id: "ar-hidraulica-qual", step: "especificas", item: "materiais", kind: "text", showIf: { question: "ar-hidraulica", anyOf: ["Sim"] }, text: "Que adequação seria necessária?" },
-    { id: "ar-tratamento", step: "especificas", item: "riscos", kind: "choice", options: YES_NO, text: "A água precisaria de tratamento antes do uso?" },
-    { id: "ar-tratamento-qual", step: "especificas", item: "materiais", kind: "text", showIf: { question: "ar-tratamento", anyOf: ["Sim"] }, text: "Que tipo de tratamento (filtro, cloração, outro)?" },
-    { id: "ar-reducao", step: "especificas", item: "beneficios", kind: "number", unit: "m³ por mês", text: "Quanto do consumo atual de água poderia ser reduzido?" },
-    { id: "ar-tarifa", step: "especificas", item: "beneficios", kind: "number", unit: "R$ por m³", text: "Você sabe o valor pago por m³ de água?" },
+    { id: "ar-origem", step: "especificas", item: "escopo", kind: "choice", options: ["Água da chuva", "Ar-condicionado", "Lavagem ou processo", "Efluente tratado", "Outra"], text: "De onde viria a água reaproveitada?" },
+    { id: "ar-finalidade", step: "especificas", item: "objetivo", kind: "multi", options: ["Descargas sanitárias", "Limpeza de pisos ou pátios", "Irrigação", "Processo industrial"], text: "Onde essa água seria usada?" },
+    { id: "ar-volume", step: "especificas", item: "escopo", kind: "number", unit: "m³ por mês", text: "Quanta água estaria disponível por mês?", hint: "1 m³ = 1.000 litros." },
+    { id: "ar-reservatorio", step: "especificas", item: "materiais", kind: "choice", options: YES_NO, text: "Seria preciso instalar caixa d'água ou cisterna nova?" },
+    { id: "ar-reservatorio-cap", step: "especificas", item: "materiais", kind: "number", unit: "m³ (1 m³ = 1.000 litros)", showIf: { question: "ar-reservatorio", anyOf: ["Sim"] }, text: "De que tamanho, aproximadamente?" },
+    { id: "ar-hidraulica", step: "especificas", item: "materiais", kind: "choice", options: YES_NO, text: "Seria preciso instalar tubos ou bomba novos?" },
+    { id: "ar-tratamento", step: "especificas", item: "riscos", kind: "choice", options: YES_NO, text: "A água precisaria de filtro ou tratamento antes de ser usada?" },
+    { id: "ar-reducao", step: "especificas", item: "beneficios", kind: "number", unit: "m³ por mês", text: "Quanta água da rede deixaria de ser comprada por mês?" },
+    { id: "ar-tarifa", step: "especificas", item: "beneficios", kind: "number", unit: "R$ por m³", text: "Quanto a empresa paga por m³ de água?", hint: `Aparece na conta de água. ${TARIFF_HINT}` },
   ],
   agua_consumo: [
-    { id: "ac-onde", step: "especificas", item: "local", kind: "text", text: "Onde ocorre o desperdício ou o consumo alto?" },
-    { id: "ac-causa", step: "especificas", item: "problema", kind: "choice", options: ["Vazamento", "Torneiras ou descargas", "Lavagem", "Processo industrial", "Outra"], text: "Qual a principal causa?" },
-    { id: "ac-pontos", step: "especificas", item: "escopo", kind: "number", unit: "pontos de uso", text: "Quantos pontos de uso seriam contemplados?" },
-    { id: "ac-consumo", step: "especificas", item: "escopo", kind: "number", unit: "m³ por mês", text: "Qual o consumo atual de água, aproximadamente?" },
-    { id: "ac-solucao", step: "especificas", item: "materiais", kind: "text", text: "O que seria instalado ou mudado (arejadores, válvulas, reparos, rotina)?" },
-    { id: "ac-reducao", step: "especificas", item: "beneficios", kind: "number", unit: "m³ por mês", text: "Quanto você estima que daria para economizar?" },
-    { id: "ac-tarifa", step: "especificas", item: "beneficios", kind: "number", unit: "R$ por m³", text: "Você sabe o valor pago por m³ de água?" },
+    { id: "ac-onde", step: "especificas", item: "local", kind: "multi", options: ["Banheiros", "Copa ou cozinha", "Área de produção", "Lavagem de pátios ou veículos", "Jardins", "Tubulação (vazamento)"], text: "Onde está o desperdício?" },
+    { id: "ac-causa", step: "especificas", item: "problema", kind: "choice", options: ["Vazamento", "Torneiras ou descargas que gastam muito", "Lavagem com mangueira", "Processo industrial", "Outra"], text: "Qual a principal causa?" },
+    { id: "ac-pontos", step: "especificas", item: "escopo", kind: "number", unit: "pontos", text: "Quantas torneiras, descargas ou pontos seriam ajustados?" },
+    { id: "ac-consumo", step: "especificas", item: "escopo", kind: "number", unit: "m³ por mês", text: "Quanta água a unidade consome por mês?", hint: "Aparece na conta de água. 1 m³ = 1.000 litros." },
+    { id: "ac-solucao", step: "especificas", item: "materiais", kind: "multi", options: ["Consertar vazamentos", "Instalar arejadores ou redutores de vazão", "Trocar descargas ou válvulas", "Mudar a rotina de lavagem", "Instalar medidor"], text: "O que seria feito?" },
+    { id: "ac-reducao", step: "especificas", item: "beneficios", kind: "number", unit: "m³ por mês", text: "Quanta água daria para economizar por mês?" },
+    { id: "ac-tarifa", step: "especificas", item: "beneficios", kind: "number", unit: "R$ por m³", text: "Quanto a empresa paga por m³ de água?", hint: `Aparece na conta de água. ${TARIFF_HINT}` },
   ],
   residuos: [
-    { id: "re-tipo", step: "especificas", item: "escopo", kind: "text", text: "Qual resíduo ou material está envolvido?" },
-    { id: "re-quantidade", step: "especificas", item: "escopo", kind: "number", unit: "kg por mês", text: "Qual a quantidade gerada, aproximadamente?" },
-    { id: "re-destino-atual", step: "especificas", item: "problema", kind: "choice", options: ["Aterro ou lixo comum", "Coleta de empresa contratada", "Reciclagem parcial", "Armazenado sem destino"], text: "Para onde esse resíduo vai hoje?" },
-    { id: "re-destino-novo", step: "especificas", item: "objetivo", kind: "choice", options: ["Reciclagem", "Compostagem", "Reutilização interna", "Logística reversa com fornecedor", "Outro"], text: "Qual seria o novo destino?" },
-    { id: "re-coletores", step: "especificas", item: "materiais", kind: "choice", options: YES_NO, text: "Seriam necessários coletores, baias ou área de armazenamento?" },
-    { id: "re-coletores-qtd", step: "especificas", item: "materiais", kind: "text", showIf: { question: "re-coletores", anyOf: ["Sim"] }, text: "Quantos e de que tipo?" },
+    { id: "re-tipo", step: "especificas", item: "escopo", kind: "multi", options: ["Papel e papelão", "Plástico", "Metal", "Madeira", "Restos de comida", "Óleo de cozinha", "Eletrônicos", "Resíduo perigoso (químicos, contaminados)"], text: "Qual resíduo?" },
+    { id: "re-quantidade", step: "especificas", item: "escopo", kind: "number", unit: "kg por mês", text: "Quanto é gerado por mês?", hint: "Ex.: 300." },
+    { id: "re-destino-atual", step: "especificas", item: "problema", kind: "choice", options: ["Lixo comum ou aterro", "Coleta de empresa contratada", "Reciclagem de parte dele", "Fica armazenado sem destino"], text: "Para onde esse resíduo vai hoje?" },
+    { id: "re-destino-novo", step: "especificas", item: "objetivo", kind: "choice", options: ["Reciclagem", "Compostagem", "Reutilização interna", "Devolução ao fornecedor (logística reversa)"], text: "Qual seria o novo destino?" },
+    { id: "re-coletores", step: "especificas", item: "materiais", kind: "choice", options: YES_NO, text: "Seria preciso comprar coletores ou montar uma área de armazenamento?" },
+    { id: "re-coletores-qtd", step: "especificas", item: "materiais", kind: "number", unit: "coletores", showIf: { question: "re-coletores", anyOf: ["Sim"] }, text: "Quantos coletores?" },
     { id: "re-receptor", step: "especificas", item: "fornecedores", kind: "choice", options: YES_NO, text: "Já existe cooperativa ou empresa que receberia o material?" },
-    { id: "re-custo-atual", step: "especificas", item: "beneficios", kind: "number", unit: "R$ por mês", text: "Quanto se gasta hoje com o descarte?" },
-    { id: "re-receita", step: "especificas", item: "beneficios", kind: "choice", options: ["Sim", "Não", "Talvez"], text: "O material poderia ser vendido?" },
-    { id: "re-licenca", step: "especificas", item: "riscos", kind: "choice", options: YES_NO, text: "É um resíduo perigoso ou que exige licença ambiental?" },
+    { id: "re-custo-atual", step: "especificas", item: "beneficios", kind: "number", unit: "R$ por mês", text: "Quanto a empresa paga hoje, por mês, para descartar esse resíduo?" },
+    { id: "re-receita", step: "especificas", item: "beneficios", kind: "choice", options: YES_NO, text: "Esse material tem valor de venda (ex.: papelão, metal)?" },
+    { id: "re-licenca", step: "especificas", item: "riscos", kind: "choice", options: YES_NO, text: "É resíduo perigoso ou que exige licença ambiental?" },
   ],
   emissoes: [
-    { id: "em-fonte", step: "especificas", item: "problema", kind: "text", text: "Qual a fonte da emissão ou da poluição?" },
-    { id: "em-consumo", step: "especificas", item: "escopo", kind: "text", text: "Qual o consumo atual de combustível ou insumo (quantidade por mês)?" },
-    { id: "em-solucao", step: "especificas", item: "materiais", kind: "choice", options: ["Troca de combustível", "Manutenção ou regulagem", "Filtros ou controle", "Troca de veículo ou equipamento", "Mudança de rotina ou roteiro", "Outra"], text: "Qual seria a principal solução?" },
-    { id: "em-monitoramento", step: "especificas", item: "indicadores", kind: "choice", options: YES_NO, text: "Existe medição ou monitoramento dessa emissão?" },
-    { id: "em-exigencia", step: "especificas", item: "riscos", kind: "choice", options: YES_NO, text: "Há exigência legal ou de licença relacionada?" },
+    { id: "em-fonte", step: "especificas", item: "problema", kind: "choice", options: ["Veículos da frota", "Caldeira ou forno", "Gerador a diesel", "Processo industrial", "Outra"], text: "De onde vem a emissão?" },
+    { id: "em-consumo", step: "especificas", item: "escopo", kind: "number", unit: "litros por mês", text: "Quantos litros de combustível são consumidos por mês?" },
+    { id: "em-solucao", step: "especificas", item: "materiais", kind: "choice", options: ["Troca de combustível", "Manutenção ou regulagem", "Filtros ou controle", "Troca de veículo ou equipamento", "Mudança de rotina ou roteiro"], text: "Qual seria a principal solução?" },
+    { id: "em-monitoramento", step: "especificas", item: "indicadores", kind: "choice", options: YES_NO, text: "Essa emissão é medida hoje?" },
+    { id: "em-exigencia", step: "especificas", item: "riscos", kind: "choice", options: YES_NO, text: "Existe exigência legal ou de licença ligada a ela?" },
   ],
   seguranca: [
-    { id: "se-risco", step: "especificas", item: "problema", kind: "text", text: "Qual risco você deseja reduzir?" },
-    { id: "se-setor", step: "especificas", item: "local", kind: "text", text: "Em qual setor ou atividade?" },
+    { id: "se-risco", step: "especificas", item: "problema", kind: "choice", options: ["Queda", "Choque elétrico", "Corte ou prensagem em máquina", "Produto químico", "Esforço repetitivo ou postura", "Atropelamento ou trânsito interno", "Incêndio", "Outro"], text: "Qual o risco principal?" },
+    { id: "se-setor", step: "especificas", item: "local", kind: "text", text: "Em qual setor ou atividade?", hint: "Ex.: expedição, carregamento de caminhões." },
     { id: "se-expostos", step: "especificas", item: "escopo", kind: "number", unit: "pessoas", text: "Quantas pessoas ficam expostas a esse risco?" },
-    { id: "se-ocorrencias", step: "especificas", item: "indicadores", kind: "number", unit: "ocorrências em 12 meses", text: "Quantas ocorrências foram registradas no último ano?" },
+    { id: "se-ocorrencias", step: "especificas", item: "indicadores", kind: "number", unit: "ocorrências", text: "Quantos acidentes ou quase acidentes aconteceram nos últimos 12 meses?" },
     { id: "se-medida", step: "especificas", item: "materiais", kind: "choice", options: ["EPI", "Proteção coletiva", "Sinalização", "Treinamento", "Adequação ergonômica", "Mudança de procedimento"], text: "Qual seria a principal medida?" },
-    { id: "se-parada", step: "especificas", item: "riscos", kind: "choice", options: YES_NO, text: "A implantação exigiria parar a atividade?" },
-    { id: "se-norma", step: "especificas", item: "riscos", kind: "text", text: "Há norma regulamentadora ou exigência legal relacionada?", hint: "Ex.: NR-6, NR-12, NR-17. Se não souber, deixe em branco." },
+    { id: "se-parada", step: "especificas", item: "riscos", kind: "choice", options: YES_NO, text: "Para implantar, seria preciso parar a atividade?" },
   ],
   capacitacao: [
-    { id: "ca-publico", step: "especificas", item: "escopo", kind: "text", text: "Quem participaria?" },
+    { id: "ca-publico", step: "especificas", item: "escopo", kind: "multi", options: ["Equipe de produção", "Equipe administrativa", "Lideranças", "Toda a empresa", "Comunidade externa"], text: "Quem participaria?" },
     { id: "ca-participantes", step: "especificas", item: "escopo", kind: "number", unit: "pessoas", text: "Quantas pessoas participariam?" },
-    { id: "ca-tema", step: "especificas", item: "objetivo", kind: "text", text: "O que as pessoas precisam aprender?" },
-    { id: "ca-formato", step: "especificas", item: "materiais", kind: "choice", options: ["Presencial", "Online", "Híbrido"], text: "Qual formato?" },
-    { id: "ca-carga", step: "especificas", item: "prazo", kind: "number", unit: "horas", text: "Qual a carga horária por pessoa?" },
-    { id: "ca-instrutor", step: "especificas", item: "fornecedores", kind: "choice", options: ["Interno", "Externo", "Ainda não definido"], text: "Quem daria o treinamento?" },
-    { id: "ca-avaliacao", step: "especificas", item: "indicadores", kind: "text", text: "Como saber se o aprendizado funcionou?" },
+    { id: "ca-tema", step: "especificas", item: "objetivo", kind: "text", text: "Qual o tema do treinamento?", hint: "Ex.: separação de resíduos, uso de EPI." },
+    { id: "ca-formato", step: "especificas", item: "materiais", kind: "choice", options: ["Presencial", "Online", "Híbrido"], text: "Qual o formato?" },
+    { id: "ca-carga", step: "especificas", item: "prazo", kind: "number", unit: "horas por pessoa", text: "Qual a duração do treinamento?" },
+    { id: "ca-instrutor", step: "especificas", item: "fornecedores", kind: "choice", options: ["Alguém da empresa", "Instrutor contratado", "Ainda não definido"], text: "Quem daria o treinamento?" },
+    { id: "ca-avaliacao", step: "especificas", item: "indicadores", kind: "choice", options: ["Prova antes e depois", "Observação na prática", "Pesquisa de satisfação", "Ainda não definido"], text: "Como verificar se o aprendizado funcionou?" },
   ],
   social: [
-    { id: "so2-publico", step: "especificas", item: "escopo", kind: "text", text: "Qual grupo ou comunidade seria beneficiado?" },
+    { id: "so2-publico", step: "especificas", item: "escopo", kind: "multi", options: ["Colaboradores", "Familiares de colaboradores", "Escolas", "Comunidade do entorno", "Instituições sociais (ONGs)"], text: "Quem seria beneficiado?" },
     { id: "so2-pessoas", step: "especificas", item: "escopo", kind: "number", unit: "pessoas", text: "Quantas pessoas seriam beneficiadas, aproximadamente?" },
-    { id: "so2-acao", step: "especificas", item: "objetivo", kind: "text", text: "Que ação seria realizada?" },
-    { id: "so2-frequencia", step: "especificas", item: "prazo", kind: "choice", options: ["Ação pontual", "Recorrente"], text: "É uma ação pontual ou recorrente?" },
-    { id: "so2-parceiros", step: "especificas", item: "fornecedores", kind: "choice", options: YES_NO, text: "Haveria parceiros externos (ONG, escola, prefeitura)?" },
-    { id: "so2-parceiros-quais", step: "especificas", item: "fornecedores", kind: "text", showIf: { question: "so2-parceiros", anyOf: ["Sim"] }, text: "Que tipo de parceiro?" },
-    { id: "so2-voluntarios", step: "especificas", item: "pessoas", kind: "number", unit: "pessoas", text: "Quantos colaboradores precisariam participar?" },
-    { id: "so2-efeito", step: "especificas", item: "riscos", kind: "text", text: "Pode haver algum efeito negativo a considerar?" },
+    { id: "so2-acao", step: "especificas", item: "objetivo", kind: "text", text: "Em uma frase, o que seria feito?" },
+    { id: "so2-frequencia", step: "especificas", item: "prazo", kind: "choice", options: ["Uma vez", "Algumas vezes por ano", "Todo mês ou mais"], text: "Com que frequência?" },
+    { id: "so2-parceiros", step: "especificas", item: "fornecedores", kind: "choice", options: YES_NO, text: "Haveria parceiros de fora da empresa?" },
+    { id: "so2-parceiros-quais", step: "especificas", item: "fornecedores", kind: "multi", showIf: { question: "so2-parceiros", anyOf: ["Sim"] }, options: ["ONG", "Escola", "Prefeitura", "Outra empresa"], text: "Quais parceiros?" },
+    { id: "so2-voluntarios", step: "especificas", item: "pessoas", kind: "number", unit: "pessoas", text: "Quantos colaboradores precisariam participar da organização?" },
   ],
   governanca: [
-    { id: "go-processo", step: "especificas", item: "escopo", kind: "text", text: "Qual processo seria fortalecido? Não cite nomes." },
-    { id: "go-falha", step: "especificas", item: "problema", kind: "text", text: "Que falha ou risco existe hoje?" },
-    { id: "go-mudanca", step: "especificas", item: "objetivo", kind: "choice", options: ["Novo procedimento", "Controle ou aprovação", "Sistema ou software", "Critério de compra", "Canal de comunicação", "Outra"], text: "O que mudaria?" },
-    { id: "go-sistema", step: "especificas", item: "materiais", kind: "text", showIf: { question: "go-mudanca", anyOf: ["Sistema ou software"] }, text: "Já existe um sistema que poderia ser usado, ou seria preciso contratar?" },
-    { id: "go-areas", step: "especificas", item: "pessoas", kind: "text", text: "Quais áreas seriam envolvidas?" },
-    { id: "go-validacao", step: "especificas", item: "riscos", kind: "choice", options: YES_NO, text: "Precisaria de validação jurídica ou de compliance?" },
-    { id: "go-dados", step: "especificas", item: "riscos", kind: "choice", options: YES_NO, text: "Envolve dados pessoais?" },
+    { id: "go-processo", step: "especificas", item: "escopo", kind: "choice", options: ["Compras e contratações", "Financeiro", "Recursos humanos", "Segurança da informação e dados", "Atendimento a clientes", "Relatórios e indicadores", "Outro"], text: "Qual processo?" },
+    { id: "go-falha", step: "especificas", item: "problema", kind: "text", text: "Que problema acontece hoje nesse processo? Não cite nomes.", hint: "Ex.: compras sem cotação, documentos perdidos." },
+    { id: "go-mudanca", step: "especificas", item: "objetivo", kind: "choice", options: ["Novo procedimento", "Controle ou aprovação", "Sistema ou software", "Critério de compra", "Canal de comunicação"], text: "O que mudaria?" },
+    { id: "go-sistema", step: "especificas", item: "materiais", kind: "choice", options: ["Sim, já existe", "Não, seria preciso contratar"], showIf: { question: "go-mudanca", anyOf: ["Sistema ou software"] }, text: "A empresa já tem um sistema que poderia ser usado?" },
+    { id: "go-validacao", step: "especificas", item: "riscos", kind: "choice", options: YES_NO, text: "Precisaria de aprovação do jurídico ou do compliance?" },
+    { id: "go-dados", step: "especificas", item: "riscos", kind: "choice", options: YES_NO, text: "Envolve dados pessoais (CPF, salário, saúde)?" },
   ],
   geral: [
-    { id: "ge-envolvido", step: "especificas", item: "escopo", kind: "text", text: "O que está envolvido (equipamentos, materiais, processos ou pessoas)?" },
-    { id: "ge-quantidade", step: "especificas", item: "escopo", kind: "text", text: "Em que quantidade ou dimensão?" },
-    { id: "ge-situacao", step: "especificas", item: "indicadores", kind: "text", text: "Você conhece algum número da situação atual (consumo, ocorrências, custo)?" },
+    { id: "ge-envolvido", step: "especificas", item: "escopo", kind: "text", text: "Na prática, o que seria feito?", hint: "Ex.: comprar X, mudar a rotina Y." },
+    { id: "ge-quantidade", step: "especificas", item: "escopo", kind: "number", unit: "unidades, pessoas ou locais", text: "Quantas unidades, pessoas ou locais seriam atingidos?" },
   ],
 };
 
@@ -293,7 +290,7 @@ export function questionsFor(type: InitiativeType): PlanQuestion[] {
     if (!installQuestion) return [question];
     if (question.id === "g-fornecedor") return [];
     if (question.id === "g-fornecedor-qual") {
-      const external = installQuestion.options?.filter((option) => /especializada|externo|as duas/i.test(option)) ?? [];
+      const external = installQuestion.options?.filter((option) => /contratad|os dois/i.test(option)) ?? [];
       return [{ ...question, showIf: { question: installQuestion.id, anyOf: external } }];
     }
     return [question];
@@ -397,6 +394,15 @@ const researchSchema = z.object({
 });
 export type ResearchData = z.infer<typeof researchSchema>;
 
+const selectionSchema = z.object({
+  selected: z.array(z.string()).nullable(),
+  quantity: z.number().nullable(),
+  periodYears: z.number(),
+  benefitOverride: z.number().nullable(),
+  updatedAt: z.string(),
+});
+export type StoredSelection = z.infer<typeof selectionSchema>;
+
 export const planSchema = z.object({
   version: z.literal(1),
   initiativeType: z.enum(INITIATIVE_TYPE_KEYS as [InitiativeType, ...InitiativeType[]]),
@@ -405,6 +411,8 @@ export const planSchema = z.object({
   synced: z.record(z.string(), z.string()),
   finance: financeSchema.nullable(),
   research: researchSchema.nullable(),
+  /** Itens da pesquisa escolhidos pela gestão para o cálculo (ausente = pré-seleção automática). */
+  selection: selectionSchema.nullable().optional(),
   updatedAt: z.string(),
 });
 export type IdeaPlan = z.infer<typeof planSchema>;
@@ -442,6 +450,11 @@ export function numberAnswer(plan: IdeaPlan | null, id: string): number | null {
   return answer?.status === "answered" && answer.value ? parseNumber(answer.value) : null;
 }
 
+/** Opções marcadas (uma, em perguntas de escolha única). */
+export function answerOptions(value: string | null): string[] {
+  return value ? value.split(MULTI_SEPARATOR).filter(Boolean) : [];
+}
+
 export function answerText(plan: IdeaPlan | null, id: string): string | null {
   const answer = plan?.answers[id];
   return answer?.status === "answered" ? answer.value : null;
@@ -453,7 +466,7 @@ export function isVisible(question: PlanQuestion, answers: Record<string, PlanAn
   const answer = answers[question.showIf.question];
   if (!answer || answer.status !== "answered" || !answer.value) return false;
   if (question.showIf.anyOf.includes("__number__")) return (parseNumber(answer.value) ?? 0) > 0;
-  return question.showIf.anyOf.includes(answer.value);
+  return answerOptions(answer.value).some((option) => question.showIf?.anyOf.includes(option));
 }
 
 export function visibleQuestions(plan: IdeaPlan, step?: PlanStepKey) {
@@ -478,7 +491,16 @@ export function applyAnswerForm(
   for (const id of shown) {
     const question = findPlanQuestion(id);
     if (!question) continue;
-    const raw = String(formData.get(`answer:${id}`) ?? "").trim().slice(0, MAX_ANSWER_LENGTH);
+    // Várias escolhas: só opções válidas, na ordem da pergunta.
+    const picked = formData.getAll(`answer:${id}`).map(String);
+    const raw =
+      question.kind !== "multi"
+        ? String(formData.get(`answer:${id}`) ?? "").trim().slice(0, MAX_ANSWER_LENGTH)
+        : picked.includes(NOT_KNOWN)
+          ? NOT_KNOWN
+          : picked.includes(TO_EVALUATE)
+            ? TO_EVALUATE
+            : (question.options ?? []).filter((option) => picked.includes(option)).join(MULTI_SEPARATOR);
     const marked = String(formData.get(`status:${id}`) ?? "");
     const previous = answers[id];
     const at = now.toISOString();
@@ -532,7 +554,6 @@ const SYNC_SOURCES: Partial<Record<ProposalFieldKey, string[]>> = {
   problem: ["g-problema"],
   context: ["g-local", "g-escopo", "il-ambientes", "so-local", "en-equipamentos", "ar-origem", "ac-onde", "re-tipo", "em-fonte", "se-setor", "ca-publico", "so2-publico", "go-processo", "ge-envolvido"],
   expectedBenefits: ["g-objetivo", "g-beneficios"],
-  indicators: ["g-indicadores"],
   resourcesAndRisks: ["g-materiais", "g-pessoas", "g-fornecedor-qual", "g-riscos"],
 };
 

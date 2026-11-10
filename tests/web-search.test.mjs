@@ -11,7 +11,9 @@ test("queries come from the initiative type, without AI", () => {
   const queries = buildSearchQueries("iluminacao", "Sensores nos corredores");
   assert.ok(queries.some((item) => item.query === "preço sensor de presença para iluminação" && item.category === "preco_equipamento"));
   assert.ok(queries.some((item) => item.category === "roi"), "iniciativa ambiental busca retorno");
-  assert.ok(queries.length <= 6);
+  assert.ok(queries.length <= 8);
+  assert.ok(queries.some((item) => item.query === "Sensores nos corredores custo"), "busca também pelas palavras da ideia");
+  assert.ok(queries.some((item) => item.category === "manutencao") && queries.some((item) => /tarifa/.test(item.query)));
   assert.ok(!buildSearchQueries("capacitacao", "x").some((item) => item.category === "roi"));
   assert.ok(buildSearchQueries("geral", "Horta comunitária no pátio")[0].query.includes("Horta comunitária"));
   assert.equal(buildSearchQueries("residuos", "x", ["baias de madeira"]).at(-1).query, "preço baias de madeira");

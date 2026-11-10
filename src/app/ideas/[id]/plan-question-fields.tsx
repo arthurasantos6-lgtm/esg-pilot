@@ -1,4 +1,4 @@
-import { NOT_KNOWN, TO_EVALUATE, type IdeaPlan, type PlanQuestion } from "@/lib/idea-planning";
+import { answerOptions, NOT_KNOWN, TO_EVALUATE, type IdeaPlan, type PlanQuestion } from "@/lib/idea-planning";
 import type { StoredProposal } from "@/lib/idea-proposal";
 
 /** Lista das perguntas exibidas: o servidor só altera as respostas destas. */
@@ -45,22 +45,29 @@ export function PlanQuestionFields({
         const isNew = highlightUnanswered && !answer;
         return (
           <div key={question.id} className={`plan-question${isNew ? " plan-question-new" : ""}`}>
-            {question.kind === "choice" ? (
+            {question.kind === "choice" || question.kind === "multi" ? (
               <fieldset className="plan-options" aria-describedby={question.hint ? hintId : undefined}>
                 <legend className="plan-question-label">
                   {question.text}
                   {answer?.by === "management" && <span className="source-chip source-chip-gestao">Gestão</span>}
                 </legend>
-                {question.hint && <p id={hintId} className="field-hint">{question.hint}</p>}
+                {(question.hint || question.kind === "multi") && (
+                  <p id={hintId} className="field-hint">{question.hint ?? "Pode marcar mais de uma opção."}</p>
+                )}
                 {[...(question.options ?? []), NOT_KNOWN, TO_EVALUATE].map((option) => {
                   const checked =
-                    (answer?.status === "answered" && answer.value === option) ||
+                    (answer?.status === "answered" && answerOptions(answer.value).includes(option)) ||
                     (answer?.status === "unknown" && option === NOT_KNOWN) ||
                     (answer?.status === "to_evaluate" && option === TO_EVALUATE);
                   const muted = option === NOT_KNOWN || option === TO_EVALUATE;
                   return (
                     <label key={option} className={`plan-option${muted ? " plan-option-muted" : ""}`}>
-                      <input type="radio" name={`answer:${question.id}`} value={option} defaultChecked={checked} />
+                      <input
+                        type={question.kind === "multi" ? "checkbox" : "radio"}
+                        name={`answer:${question.id}`}
+                        value={option}
+                        defaultChecked={checked}
+                      />
                       {option}
                     </label>
                   );
