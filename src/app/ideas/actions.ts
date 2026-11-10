@@ -172,7 +172,7 @@ export async function startIdea(formData: FormData) {
   revalidatePath("/ideas");
 
   if (!isAiAvailable()) redirect(`/ideas/${idea.id}/planejamento`);
-  if (parsed.data.intent === "review") redirect(`/ideas/${idea.id}/review`);
+  if (parsed.data.intent === "review") redirect(`/ideas/${idea.id}/planejamento`);
 
   let copilotError: string | null = null;
   try {
@@ -310,8 +310,9 @@ export async function organizeProposal(formData: FormData) {
     .eq("status", "draft");
   if (error) redirect(`${copilotUrl}?error=${encodeURIComponent("Não foi possível salvar a proposta organizada.")}`);
 
-  revalidatePath(`/ideas/${idea.id}/review`);
-  redirect(`/ideas/${idea.id}/review?organized=1`);
+  // Depois da conversa, as perguntas objetivas completam o plano (já preenchidas com o que a IA organizou).
+  revalidatePath(`/ideas/${idea.id}/planejamento`);
+  redirect(`/ideas/${idea.id}/planejamento?organizada=1`);
 }
 
 export async function saveProposal(formData: FormData) {

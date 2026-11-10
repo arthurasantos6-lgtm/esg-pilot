@@ -21,6 +21,13 @@ type CompletionResponse = {
 
 const MAX_CHAT_TOKENS = 1500;
 const MAX_JSON_TOKENS = 4000;
+/** Groq gratuito conta a entrada e o teto de resposta no limite por minuto (cerca de 8 mil tokens). */
+const MAX_JSON_TOKENS_GROQ = 3000;
+
+/** Modelos gpt-oss na Groq: raciocínio curto e fora da resposta, para caber nos limites gratuitos. */
+function providerExtras(config: AiConfig) {
+  return /^openai\/gpt-oss/i.test(config.model) ? { reasoning_effort: "low", include_reasoning: false } : {};
+}
 
 function toOpenAiMessages(request: ChatRequest, extraSystem?: string): OpenAiMessage[] {
   const system = extraSystem ? `${request.system}\n\n${extraSystem}` : request.system;
@@ -51,8 +58,9 @@ async function complete(config: AiConfig, messages: OpenAiMessage[], jsonMode: b
         messages,
         temperature: 0.3,
         // Provedores gratuitos limitam tokens por minuto, contando o que é pedido aqui.
-        max_tokens: jsonMode ? MAX_JSON_TOKENS : MAX_CHAT_TOKENS,
+        max_tokens: jsonMode ? (config.baseUrl?.includes("groq.com") ? MAX_JSON_TOKENS_GROQ : MAX_JSON_TOKENS) : MAX_CHAT_TOKENS,
         ...(withFormat ? { response_format: { type: "json_object" } } : {}),
+        ...providerExtras(config),
       }),
       signal: AbortSignal.timeout(180_000),
       cache: "no-store",

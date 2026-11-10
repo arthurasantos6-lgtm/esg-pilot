@@ -36,7 +36,7 @@ export default async function PlanningPage({
   searchParams,
 }: {
   params: Promise<{ id: string }>;
-  searchParams: Promise<{ etapa?: string; error?: string; novas?: string }>;
+  searchParams: Promise<{ etapa?: string; error?: string; novas?: string; organizada?: string }>;
 }) {
   await connection();
   const [{ id }, query] = await Promise.all([params, searchParams]);
@@ -81,6 +81,11 @@ export default async function PlanningPage({
       </header>
 
       {query.error && <p className="alert alert-error" role="alert">{query.error}</p>}
+      {query.organizada && (
+        <p className="alert alert-info" role="status">
+          O copiloto organizou sua conversa. Agora, algumas perguntas rápidas completam o plano; o que você já disse aparece preenchido.
+        </p>
+      )}
       {query.novas && !isPlanView && (
         <p className="alert alert-info" role="status">Com base nas suas respostas, surgiram novas perguntas, destacadas abaixo.</p>
       )}
