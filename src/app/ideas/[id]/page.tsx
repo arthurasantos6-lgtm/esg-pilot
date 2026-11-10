@@ -5,6 +5,7 @@ import { notFound } from "next/navigation";
 import { connection } from "next/server";
 import { z } from "zod";
 import { DecisionHistory } from "@/app/ideas/[id]/decision-history";
+import { DecisionBrief } from "@/app/ideas/[id]/decision-brief";
 import { DecisionDialog, OpenDecisionButton } from "@/app/ideas/[id]/decision-dialog";
 import { DecisionPanel } from "@/app/ideas/[id]/decision-panel";
 import { EvaluationPanel } from "@/app/ideas/[id]/evaluation-panel";
@@ -18,7 +19,9 @@ import { buildProjectProposal } from "@/lib/esg-project-proposal";
 import { loadLearningBase } from "@/lib/learning-base";
 import { isAiAvailable } from "@/lib/idea-ai";
 import { loadCompanyProfile } from "@/lib/company-profile";
+import { parseEvaluationResult } from "@/lib/ai/schemas";
 import { computeFeasibility } from "@/lib/feasibility";
+import { buildExecutionPlan } from "@/lib/idea-execution-plan";
 import { detectInitiativeType, emptyPlan, INITIATIVE_TYPES, parsePlan } from "@/lib/idea-planning";
 import { parseStoredProposal } from "@/lib/idea-proposal";
 import { ideaStatusLabel, nextStepForAuthor } from "@/lib/idea-status";
@@ -376,13 +379,25 @@ export default async function IdeaDetailPage({
               followUpDate={idea.follow_up_date}
               priority={idea.priority}
               projectsEnabled={parseEnabledModules(organization.enabled_modules).includes("projects")}
-              brief={{
-                title: displayTitle(idea.title, idea.original_description),
-                recommendation: projectProposal?.recommendation ?? null,
-                score: esgScore,
-                likely,
-                hypothetical: feasibility.hypothetical,
-              }}
+              title={displayTitle(idea.title, idea.original_description)}
+              summary={
+                <DecisionBrief
+                  ideaId={idea.id}
+                  original={idea.original_description}
+                  solution={proposal?.solution ?? idea.solution}
+                  plan={buildExecutionPlan({
+                    title: idea.title,
+                    originalText: idea.original_description ?? "",
+                    plan: plan ?? emptyPlan(detectInitiativeType(`${idea.title} ${idea.original_description ?? ""}`)),
+                  })}
+                  feasibility={feasibility}
+                  references={plan?.research?.references ?? []}
+                  proposal={projectProposal}
+                  analysis={localAnalysis}
+                  score={esgScore}
+                  aiEvaluation={evaluation?.status === "completed" ? parseEvaluationResult(evaluation.result) : null}
+                />
+              }
             />
           </DecisionDialog>
           <OpenDecisionButton className="button button-primary decision-fab">Decidir</OpenDecisionButton>

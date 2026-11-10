@@ -1,9 +1,7 @@
 import Link from "next/link";
 import { recordIdeaDecision } from "@/app/ideas/actions";
 import { SubmitButton } from "@/app/components/submit-button";
-import type { Recommendation } from "@/lib/esg-project-proposal";
-import type { FeasibilityScenario } from "@/lib/feasibility";
-import { formatBRL, formatNumber } from "@/lib/idea-finance";
+import type { ReactNode } from "react";
 import { AI_AGREEMENT_LABELS, ideaStatusLabel, isDecisionOffered, PRIORITY_LABELS } from "@/lib/idea-status";
 import { memberDisplayName } from "@/lib/members";
 
@@ -19,17 +17,23 @@ type DecisionPanelProps = {
   followUpDate: string | null;
   priority: string | null;
   projectsEnabled: boolean;
-  /** Resumo para decidir sem sair da janela. */
-  brief: {
-    title: string;
-    recommendation: Recommendation | null;
-    score: { value: number; partial: boolean } | null;
-    likely: FeasibilityScenario;
-    hypothetical: boolean;
-  };
+  /** Título curto da ideia. */
+  title: string;
+  /** Seções de apoio à decisão (resumo, retorno, plano e recomendação). */
+  summary: ReactNode;
 };
 
-const RECOMMENDATION_TONE = { accept: "high", accept_with_conditions: "medium", not_now: "low" } as const;
+/** O que cada ação faz, na linguagem da gestão (o fluxo é validado no banco). */
+const ACTION_HINTS: Record<string, string> = {
+  in_review: "Aceita a ideia e abre a avaliação da gestão.",
+  technical_review: "Pede a análise de uma área técnica antes de decidir.",
+  prioritized: "Coloca a ideia na fila de implantação.",
+  approved: "Aprova a execução da ideia.",
+  in_progress: "Registra que a implantação começou.",
+  implemented: "Encerra a implantação como concluída.",
+  rejected: "Não segue agora; o motivo fica no histórico.",
+  archived: "Guarda a ideia fora da lista de trabalho.",
+};
 
 /** Ações que encerram ou recusam a ideia aparecem com destaque de atenção. */
 const NEGATIVE = new Set(["rejected", "archived"]);
@@ -49,7 +53,8 @@ export function DecisionPanel({
   followUpDate,
   priority,
   projectsEnabled,
-  brief,
+  title,
+  summary,
 }: DecisionPanelProps) {
   const activeMembers = members.filter((member) => member.status === "active");
   const responsible = members.find((member) => member.user_id === responsibleId);
@@ -63,28 +68,9 @@ export function DecisionPanel({
   return (
     <section className="decision-sheet" id="decision">
       <p className="eyebrow">DECISÃO DA GESTÃO</p>
-      <h2 id="decision-title">{brief.title}</h2>
-      <div className="decision-brief">
-        {brief.recommendation && (
-          <p className="decision-brief-recommendation">
-            <span>Recomendação do sistema</span>
-            <strong className={`score-chip score-${RECOMMENDATION_TONE[brief.recommendation.key]}`}>{brief.recommendation.label}</strong>
-          </p>
-        )}
-        <div className="decision-brief-figures">
-          <div><span>Potencial ESG</span><strong>{brief.score ? `${Math.round(brief.score.value)}/100` : "—"}</strong></div>
-          <div><span>Investimento</span><strong>{formatBRL(brief.likely.investment)}</strong></div>
-          <div><span>Payback</span><strong>{brief.likely.paybackYears === null ? "—" : `${formatNumber(brief.likely.paybackYears)} anos`}</strong></div>
-          <div><span>ROI</span><strong>{brief.likely.roiPercent === null ? "—" : `${formatNumber(brief.likely.roiPercent)}%`}</strong></div>
-        </div>
-        {brief.recommendation && brief.recommendation.reasons.length > 0 && (
-          <ul className="evaluation-list small-copy">{brief.recommendation.reasons.slice(0, 3).map((reason) => <li key={reason}>{reason}</li>)}</ul>
-        )}
-        <p className="small-copy muted">
-          {brief.hypothetical ? "Números com cenário hipotético (faltam dados reais). " : "Cenário provável. "}
-          <Link className="text-link" href={`/ideas/${ideaId}/viabilidade`}>Ver viabilidade completa</Link>
-        </p>
-      </div>
+      <h2 id="decision-title">{title}</h2>
+      {summary}
+      <h3 className="brief-decision-title"><span>5</span> Sua decisão</h3>
       <p className="decision-current">
         <span className={`status-badge status-badge-${status}`}>{ideaStatusLabel(status)}</span>
         {priority && <span className="subtle-tag">Prioridade {PRIORITY_LABELS[priority]?.toLowerCase()}</span>}
@@ -110,13 +96,17 @@ export function DecisionPanel({
                 <span>
                   <strong>{transition.action_label}</strong>
                   <span className="small-copy muted"> → {ideaStatusLabel(transition.to_status)}</span>
+                  {ACTION_HINTS[transition.to_status] && <span className="decision-option-hint">{ACTION_HINTS[transition.to_status]}</span>}
                 </span>
               </label>
             );
           })}
           <label className="decision-option decision-option-quiet">
             <input type="radio" name="toStatus" value={status} required />
-            <span>Só atualizar prioridade ou acompanhamento</span>
+            <span>
+              Só atualizar prioridade ou acompanhamento
+              <span className="decision-option-hint">A situação continua {ideaStatusLabel(status).toLowerCase()}.</span>
+            </span>
           </label>
         </fieldset>
 
