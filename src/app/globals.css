@@ -3012,3 +3012,219 @@ a.metric-card-link {
 .decision-form .button-full {
   margin-top: 14px;
 }
+
+/* Detalhe da ideia: cabeçalho, indicadores, texto e proposta ---------------- */
+
+.idea-hero {
+  position: relative;
+  display: grid;
+  gap: 16px;
+  margin-bottom: 17px;
+  padding: 24px 26px 22px;
+  overflow: hidden;
+}
+
+.idea-hero::before {
+  position: absolute;
+  inset: 0 0 auto;
+  height: 4px;
+  background: var(--gradient);
+  content: "";
+}
+
+.idea-hero .back-link {
+  justify-self: start;
+}
+
+.idea-hero-top {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.idea-hero h1 {
+  margin: 8px 0 6px;
+  line-height: 1.2;
+}
+
+.idea-hero-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 14px;
+  margin: 0;
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.idea-hero-meta span + span::before {
+  margin-right: 14px;
+  color: var(--line);
+  content: "•";
+}
+
+.idea-hero-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 12px 0 0;
+}
+
+.kpi-strip {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 1px;
+  overflow: hidden;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: var(--line);
+}
+
+.kpi {
+  display: grid;
+  align-content: start;
+  gap: 4px;
+  padding: 12px 14px;
+  background: var(--surface);
+}
+
+.kpi-label {
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.4px;
+  text-transform: uppercase;
+}
+
+.kpi-value {
+  color: var(--ink);
+  font-size: 19px;
+  line-height: 1.25;
+}
+
+.kpi-hint {
+  color: var(--muted);
+  font-size: 11px;
+}
+
+.kpi .score-chip {
+  justify-self: start;
+}
+
+.idea-hero-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.idea-quote {
+  margin: 4px 0 0;
+  padding: 16px 20px;
+  border-left: 4px solid var(--brand);
+  border-radius: 0 12px 12px 0;
+  background: var(--brand-pale);
+}
+
+.idea-quote p {
+  margin: 0;
+  color: var(--ink) !important;
+  font-size: 15px !important;
+  line-height: 1.7 !important;
+}
+
+.idea-quote p + p {
+  margin-top: 8px;
+}
+
+.idea-quote footer {
+  margin-top: 10px;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.idea-proposal-heading {
+  align-items: center;
+  margin-top: 20px;
+}
+
+.proposal-cards {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+  margin: 10px 0;
+}
+
+.proposal-card {
+  margin: 0;
+  padding: 12px 14px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+}
+
+.proposal-card-wide {
+  grid-column: 1 / -1;
+}
+
+.proposal-card dt {
+  margin-bottom: 4px;
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.4px;
+  text-transform: uppercase;
+}
+
+.proposal-card dd {
+  margin: 0;
+  font-size: 13px !important;
+}
+
+.analysis-drawer > summary {
+  cursor: pointer;
+}
+
+.analysis-drawer[open] > summary {
+  margin-bottom: 6px;
+}
+
+.analysis-drawer > .panel {
+  padding: 16px 0 0;
+  border: 0;
+  border-top: 1px solid var(--line);
+  border-radius: 0;
+  background: none;
+  box-shadow: none;
+}
+
+.analysis-drawer > .panel + .panel {
+  margin-top: 16px;
+}
+
+@media (max-width: 1050px) {
+  .kpi-strip {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  /* 5 indicadores: o último ocupa o espaço que sobraria vazio na grade. */
+  .kpi:last-child {
+    grid-column: span 2;
+  }
+}
+
+@media (max-width: 620px) {
+  .idea-hero {
+    padding: 20px 16px 18px;
+  }
+
+  .idea-hero-top {
+    flex-direction: column;
+  }
+
+  .kpi-strip {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .proposal-cards {
+    grid-template-columns: 1fr;
+  }
+}

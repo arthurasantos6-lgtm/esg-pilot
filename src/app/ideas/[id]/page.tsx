@@ -8,6 +8,7 @@ import { DecisionPanel } from "@/app/ideas/[id]/decision-panel";
 import { EvaluationPanel } from "@/app/ideas/[id]/evaluation-panel";
 import { FeedbackPanel } from "@/app/ideas/[id]/feedback-panel";
 import { LocalAnalysisPanel } from "@/app/ideas/[id]/local-analysis-panel";
+import { IdeaContent, IdeaHero } from "@/app/ideas/[id]/idea-overview";
 import { ProjectProposalPanel } from "@/app/ideas/[id]/project-proposal-panel";
 import { AppShell } from "@/app/components/app-shell";
 import { parseEnabledModules, requireCompanyContext } from "@/lib/auth";
@@ -15,9 +16,8 @@ import { buildProjectProposal } from "@/lib/esg-project-proposal";
 import { loadLearningBase } from "@/lib/learning-base";
 import { isAiAvailable } from "@/lib/idea-ai";
 import { computeFeasibility } from "@/lib/feasibility";
-import { formatBRL, formatNumber } from "@/lib/idea-finance";
-import { INITIATIVE_TYPES, parsePlan, planProgress } from "@/lib/idea-planning";
-import { parseStoredProposal, PROPOSAL_FIELDS } from "@/lib/idea-proposal";
+import { INITIATIVE_TYPES, parsePlan } from "@/lib/idea-planning";
+import { parseStoredProposal } from "@/lib/idea-proposal";
 import { ideaStatusLabel, nextStepForAuthor } from "@/lib/idea-status";
 import { readLocalAnalysis } from "@/lib/local-analysis";
 import { memberDisplayName } from "@/lib/members";
@@ -169,25 +169,39 @@ export default async function IdeaDetailPage({
       : null;
   const suggestedMetrics = getSuggestedMetrics(idea.analysis);
   const dateFormat = new Intl.DateTimeFormat("pt-BR", { dateStyle: "long" });
+  const projectProposal =
+    showManagement && localAnalysis
+      ? buildProjectProposal({
+          title: idea.title,
+          originalText: idea.original_description ?? "",
+          proposal,
+          analysis: localAnalysis,
+          ideaId: idea.id,
+          learningBase,
+        })
+      : null;
+  const assessment = localAnalysis?.assessment;
+  const esgScore =
+    assessment?.score != null
+      ? { value: assessment.score, partial: false }
+      : assessment?.partial_score != null
+        ? { value: assessment.partial_score, partial: true }
+        : null;
+  const pillars = localAnalysis?.classification.primary_pillar
+    ? [localAnalysis.classification.primary_pillar, ...localAnalysis.classification.secondary_pillars]
+    : [];
 
   return (
     <AppShell organizationName={organization.name} userEmail={user.email} membership={membership}>
-      <header className="page-header">
-        <div>
-          {isCompanyAdmin && <Link className="back-link" href="/ideas">← Voltar para ideias</Link>}
-          <p className="eyebrow">IDEIA ESG</p>
-          <h1>{idea.title}</h1>
-          <p className="muted">
-            {idea.submitted_at
-              ? `Enviada em ${dateFormat.format(new Date(idea.submitted_at))}`
-              : `Criada em ${dateFormat.format(new Date(idea.created_at))}`}
-            {idea.area ? ` · ${idea.area}` : ""}
-            {idea.author_name ? ` · por ${idea.author_name}` : ""}
-            {isCompanyAdmin && idea.author_email ? ` · ${idea.author_email}` : ""}
-          </p>
-        </div>
-        <span className={`status-badge status-badge-${idea.status}`}>{ideaStatusLabel(idea.status)}</span>
-      </header>
+      <IdeaHero
+        idea={idea}
+        date={idea.submitted_at ? `Enviada em ${dateFormat.format(new Date(idea.submitted_at))}` : `Criada em ${dateFormat.format(new Date(idea.created_at))}`}
+        pillars={pillars}
+        initiativeType={plan ? INITIATIVE_TYPES[plan.initiativeType].label : null}
+        showEmail={isCompanyAdmin}
+        backLink={isCompanyAdmin}
+        management={showManagement ? { recommendation: projectProposal?.recommendation ?? null, score: esgScore, likely } : null}
+      />
 
       {query.responded && (
         <p className="alert alert-success" role="status">Resposta enviada. A ideia voltou para avaliação da gestão.</p>
@@ -203,97 +217,21 @@ export default async function IdeaDetailPage({
 
       <div className="detail-grid">
         <div className="detail-main">
-          {idea.original_description ? (
-            <section className="panel detail-panel" aria-labelledby="original-title">
-              <div className="panel-heading">
-                <div>
-                  <p className="eyebrow">TEXTO ORIGINAL</p>
-                  <h2 id="original-title">Como o colaborador descreveu</h2>
-                </div>
-                <span className="source-tag source-tag-person">Escrito pelo colaborador</span>
-              </div>
-              <p className="preserve-lines">{idea.original_description}</p>
-            </section>
-          ) : (
-            <section className="panel detail-panel">
-              <div className="panel-heading">
-                <div>
-                  <p className="eyebrow">OPORTUNIDADE</p>
-                  <h2>Problema ou oportunidade</h2>
-                </div>
-                <span className="source-tag source-tag-person">Escrito pelo colaborador</span>
-              </div>
-              <p className="preserve-lines">{idea.problem ?? "Não informado."}</p>
-              <hr />
-              <h2>Solução proposta</h2>
-              <p className="preserve-lines">{idea.solution ?? "Não informado."}</p>
-            </section>
-          )}
+          <IdeaContent
+            original={idea.original_description}
+            fallback={{ problem: idea.problem, solution: idea.solution }}
+            author={idea.author_name}
+            proposal={proposal}
+          />
 
-          {proposal && (
-            <section className="panel detail-panel" aria-labelledby="proposal-title">
-              <div className="panel-heading">
-                <div>
-                  <p className="eyebrow">PROPOSTA ESTRUTURADA</p>
-                  <h2 id="proposal-title">{proposal.title}</h2>
-                </div>
-                <span className="source-tag source-tag-person">
-                  {proposal.source === "copilot" ? "Organizada com a IA e revisada pelo colaborador" : "Organizada pelo colaborador"}
-                </span>
-              </div>
-              <dl className="proposal-list">
-                {PROPOSAL_FIELDS.map(({ key, label }) => (
-                  <div key={key}>
-                    <dt>{label}</dt>
-                    <dd className={proposal[key] ? "preserve-lines" : "empty-inline"}>{proposal[key] ?? "Não informado"}</dd>
-                  </div>
-                ))}
-              </dl>
-            </section>
-          )}
-
-          {showManagement && localAnalysis && (
-            <ProjectProposalPanel
-              proposal={buildProjectProposal({
-                title: idea.title,
-                originalText: idea.original_description ?? "",
-                proposal,
-                analysis: localAnalysis,
-                ideaId: idea.id,
-                learningBase,
-              })}
-            />
-          )}
+          {projectProposal && <ProjectProposalPanel proposal={projectProposal} />}
 
           {showManagement && (
-            <section className="panel detail-panel" aria-labelledby="feasibility-title">
-              <div className="panel-heading">
-                <div>
-                  <p className="eyebrow">PLANO DE EXECUÇÃO E VIABILIDADE</p>
-                  <h2 id="feasibility-title">Viabilidade e retorno</h2>
-                </div>
-                {plan && <span className="subtle-tag">{INITIATIVE_TYPES[plan.initiativeType].label}</span>}
-              </div>
-              {likely && (likely.investment !== null || likely.paybackYears !== null) ? (
-                <p className="small-copy">
-                  Investimento {likely.investment === null ? "a definir" : formatBRL(likely.investment)} · payback{" "}
-                  {likely.paybackYears === null ? "não calculado" : `${formatNumber(likely.paybackYears)} anos`} · ROI{" "}
-                  {likely.roiPercent === null ? "não calculado" : `${formatNumber(likely.roiPercent)}%`} (cenário provável, a conferir).
-                </p>
-              ) : (
-                <p className="small-copy">
-                  {plan
-                    ? `${planProgress(plan).percent}% das perguntas respondidas. A pesquisa de preços e o cálculo ficam prontos ao abrir a viabilidade.`
-                    : "Ideia enviada sem as perguntas de planejamento. Ao abrir a viabilidade, o sistema pesquisa preços e a gestão pode completar as respostas."}
-                </p>
-              )}
-              <div className="form-actions">
-                <Link className="button button-secondary" href={`/ideas/${idea.id}/relatorio`}>Relatório consolidado</Link>
-                <Link className="button button-primary" href={`/ideas/${idea.id}/viabilidade`}>Ver viabilidade</Link>
-              </div>
-            </section>
-          )}
-
+            <details className="panel detail-panel analysis-drawer">
+              <summary>
+                <strong>Análises detalhadas</strong>
+                <span className="small-copy muted"> · critérios ESG, avaliação por IA{similarIdeas.length > 0 ? `, ${similarIdeas.length} ${similarIdeas.length === 1 ? "ideia semelhante" : "ideias semelhantes"}` : ""}</span>
+              </summary>
           {showManagement && localAnalysis && <LocalAnalysisPanel analysis={localAnalysis} notice={notice} />}
 
           {showManagement && (evaluation || isAiAvailable()) && (
@@ -319,6 +257,9 @@ export default async function IdeaDetailPage({
                 ))}
               </ul>
             </section>
+          )}
+
+            </details>
           )}
 
           <FeedbackPanel
